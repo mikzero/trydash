@@ -1,7 +1,7 @@
-// Inari Bash, the fox in the bottom-right corner. When a section with
-// data-mascot reaches the middle of the screen she says its line for a few
-// seconds; in the footer she keeps saying goodbye. A click (or tap) repeats the
-// current line.
+// Inari Bash, the fox in the bottom-right corner. The section under the middle of
+// the screen (any element with data-mascot) is the current one: when it changes
+// and stays put for a moment she says its line for a few seconds. In the footer
+// she keeps saying goodbye. A click (or tap) repeats the current line.
 (function () {
   var mascot = document.getElementById('mascot');
   var bubble = document.getElementById('bubble');
@@ -9,8 +9,14 @@
   if (!mascot || !bubble || !button) return;
 
   var SHOW_MS = 4500;
-  var current = null;
-  var timer = 0;
+  var SETTLE_MS = 250; // ignore sections that only fly by while scrolling
+  var sections = Array.prototype.slice.call(document.querySelectorAll('[data-mascot]'));
+  var footer = document.querySelector('footer[data-mascot]');
+
+  var current = null; // the section she last spoke about
+  var hideTimer = 0;
+  var settleTimer = 0;
+  var frame = 0;
   var ready = Date.now() + 1400; // after she has peeked in (see .mascot in site.css)
 
   function line(section) {
@@ -21,54 +27,66 @@
     return section.dataset.mascot;
   }
 
-  function say(section, keep) {
-    clearTimeout(timer);
-    var wait = ready - Date.now();
-    if (wait > 0) { timer = setTimeout(function () { say(section, keep); }, wait); return; }
+  function hide() {
+    clearTimeout(hideTimer);
+    bubble.classList.remove('show');
+  }
+
+  function say(section) {
+    clearTimeout(hideTimer);
     bubble.textContent = line(section);
     bubble.classList.add('show');
     mascot.classList.remove('hop');
     mascot.getBoundingClientRect();
     mascot.classList.add('hop');
-    if (!keep) timer = setTimeout(function () { bubble.classList.remove('show'); }, SHOW_MS);
+    if (section !== footer) hideTimer = setTimeout(hide, SHOW_MS);
   }
 
-  var sections = Array.prototype.slice.call(document.querySelectorAll('[data-mascot]'));
-  var footer = document.querySelector('footer[data-mascot]');
-
-  if ('IntersectionObserver' in window) {
-    // A section is "current" when it crosses the middle band of the viewport; the
-    // footer counts as soon as it shows up, since it may never reach the middle,
-    // and wins over the section above it while it is on screen.
-    var middle = new IntersectionObserver(function (entries) {
-      entries.forEach(function (e) {
-        if (!e.isIntersecting || e.target === current || current === footer) return;
-        current = e.target;
-        say(current, false);
-      });
-    }, { rootMargin: '-45% 0px -45% 0px' });
-    sections.forEach(function (s) { if (s !== footer) middle.observe(s); });
-
+  // The footer wins once half of it (or of the screen) is visible, or at the very
+  // bottom of the page; otherwise the section that crosses the middle line.
+  function active() {
+    var h = window.innerHeight;
     if (footer) {
-      new IntersectionObserver(function (entries) {
-        var e = entries[0];
-        if (e.isIntersecting && current !== footer) {
-          current = footer;
-          say(footer, true);
-        } else if (!e.isIntersecting && current === footer) {
-          current = null;
-          bubble.classList.remove('show');
-        }
-      }, { threshold: 0.4 }).observe(footer);
+      var f = footer.getBoundingClientRect();
+      var atBottom = window.scrollY + h >= document.documentElement.scrollHeight - 2;
+      if (atBottom || h - f.top >= Math.min(f.height, h) * 0.5) return footer;
     }
+    var middle = h / 2;
+    for (var i = 0; i < sections.length; i += 1) {
+      var r = sections[i].getBoundingClientRect();
+      if (sections[i] !== footer && r.top <= middle && r.bottom > middle) return sections[i];
+    }
+    return null;
   }
+
+  function update() {
+    frame = 0;
+    var next = active();
+    clearTimeout(settleTimer);
+    if (next === current) return;
+    // Leaving the footer: its goodbye must not linger over the page.
+    if (current === footer) hide();
+    settleTimer = setTimeout(function () {
+      if (active() !== next) return;
+      current = next;
+      if (next) say(next);
+      else hide();
+    }, Math.max(SETTLE_MS, ready - Date.now()));
+  }
+
+  function schedule() {
+    if (!frame) frame = window.requestAnimationFrame(update);
+  }
+
+  window.addEventListener('scroll', schedule, { passive: true });
+  window.addEventListener('resize', schedule);
+  schedule();
 
   button.addEventListener('click', function () {
     if (bubble.classList.contains('show') && current !== footer) {
-      clearTimeout(timer);
-      bubble.classList.remove('show');
+      hide();
       return;
     }
-    say(current || sections[0], current === footer);
+    say(current || active() || sections[0]);
   });
 })();
