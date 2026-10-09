@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>trydash · dashboard per i quick tunnel di TryCloudflare</title>
+  <meta name="description" content="Dashboard locale per i quick tunnel di TryCloudflare: avvia più tunnel con un clic, segui stato, traffico e log in un posto solo. Eseguibile singolo per Linux, macOS e Windows.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="trydash">
+  <meta property="og:description" content="Dashboard locale per i quick tunnel di TryCloudflare. Un unico eseguibile, nessuna dipendenza.">
+  <meta property="og:url" content="https://mikzero.github.io/trydash/">
+  <meta property="og:image" content="https://mikzero.github.io/trydash/screenshot-light.png">
+  <meta property="og:locale" content="it_IT">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.png" type="image/png">
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-in">
+      <a class="brand" href="./"><img src="logo.svg" alt="" width="28" height="28">trydash</a>
+      <nav class="top-nav" aria-label="Sezioni">
+        <a href="#funzioni">Funzioni</a>
+        <a href="#download">Download</a>
+        <a href="https://github.com/mikzero/trydash">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <p class="eyebrow">Software libero · GPL-3.0</p>
+        <h1>I tuoi quick tunnel di TryCloudflare,<br>in una dashboard sola.</h1>
+        <p class="lead">
+          Esponi un servizio di sviluppo con un clic, tieni d’occhio tutti i tunnel e leggi i loro log in un posto solo.
+          Un unico eseguibile per Linux, macOS e Windows: niente da installare oltre a <code>cloudflared</code>.
+        </p>
+        <div class="cta">
+          <a class="btn btn-primary" id="primary-download" href="https://github.com/mikzero/trydash/releases/latest">Scarica trydash</a>
+          <a class="btn" href="https://github.com/mikzero/trydash">Codice su GitHub</a>
+        </div>
+        <p class="hint" id="primary-hint">Eseguibili per 5 sistemi, verificabili con <code>SHA256SUMS</code>.</p>
+        <figure class="shot">
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="screenshot-dark.png">
+            <img src="screenshot-light.png" width="1280" height="720" alt="trydash: elenco dei tunnel a sinistra, log del tunnel selezionato al centro, dettaglio di una riga a destra">
+          </picture>
+        </figure>
+      </div>
+    </section>
+
+    <section class="why">
+      <div class="wrap narrow">
+        <h2>Perché</h2>
+        <p>
+          <code>cloudflared tunnel --url http://localhost:3000</code> è comodissimo, ma con due o tre servizi aperti ti ritrovi
+          con più terminali da tenere d’occhio, URL da ricopiare e log difficili da leggere.
+          trydash avvia e gestisce i quick tunnel al posto tuo.
+        </p>
+      </div>
+    </section>
+
+    <section id="funzioni" class="features">
+      <div class="wrap">
+        <h2>Funzioni</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>Più tunnel insieme</h3>
+            <p>Ognuno con stato, URL e numero di errori. Per crearne uno basta scrivere la porta: <code>3000</code> diventa <code>http://127.0.0.1:3000</code>.</p>
+          </article>
+          <article class="card">
+            <h3>Log leggibili</h3>
+            <p>Livelli colorati, filtri, ricerca con evidenziazione, scorrimento continuo e modalità “segui la coda”.</p>
+          </article>
+          <article class="card">
+            <h3>Accesso via email</h3>
+            <p>Limita il tunnel a indirizzi precisi o a interi domini (<code>*@azienda.it</code>). Va bene anche un elenco incollato da Outlook.</p>
+          </article>
+          <article class="card">
+            <h3>Traffico in tempo reale</h3>
+            <p>Richieste in corso rispetto al limite di 200, totali, errori, connessioni e un grafico degli ultimi 5 minuti.</p>
+          </article>
+          <article class="card">
+            <h3>Opzioni dell’origine</h3>
+            <p>Host header, TLS non verificato per i certificati self-signed, origine HTTP/2. L’anteprima mostra il comando <code>cloudflared</code> equivalente.</p>
+          </article>
+          <article class="card">
+            <h3>Avvertenze utili</h3>
+            <p>Ti avvisa se la tua origine non risponde, se ti avvicini al limite di richieste e quando un riavvio cambierà l’URL.</p>
+          </article>
+        </div>
+        <p class="also">E poi: prova con Hello World senza un server locale, tunnel fermati ancora consultabili, tema chiaro e scuro, layout per mobile, scorciatoie da tastiera.</p>
+      </div>
+    </section>
+
+    <section id="download" class="download">
+      <div class="wrap narrow">
+        <h2>Download</h2>
+        <ol class="steps">
+          <li>
+            <h3>Installa <code>cloudflared</code></h3>
+            <p>Deve essere nel <code>PATH</code>. Segui la <a href="https://developers.cloudflare.com/tunnel/downloads/">guida di Cloudflare</a>; se manca, trydash ti mostra i comandi per il tuo sistema.</p>
+          </li>
+          <li>
+            <h3>Scarica l’eseguibile</h3>
+            <table class="files">
+              <thead><tr><th scope="col">Sistema</th><th scope="col">File</th></tr></thead>
+              <tbody>
+                <tr><td>Linux x64</td><td><a data-suffix="linux-x64" href="https://github.com/mikzero/trydash/releases/latest"><code>trydash-<span class="v">&lt;versione&gt;</span>-linux-x64</code></a></td></tr>
+                <tr><td>Linux ARM64</td><td><a data-suffix="linux-arm64" href="https://github.com/mikzero/trydash/releases/latest"><code>trydash-<span class="v">&lt;versione&gt;</span>-linux-arm64</code></a></td></tr>
+                <tr><td>macOS Apple Silicon</td><td><a data-suffix="darwin-arm64" href="https://github.com/mikzero/trydash/releases/latest"><code>trydash-<span class="v">&lt;versione&gt;</span>-darwin-arm64</code></a></td></tr>
+                <tr><td>macOS Intel</td><td><a data-suffix="darwin-x64" href="https://github.com/mikzero/trydash/releases/latest"><code>trydash-<span class="v">&lt;versione&gt;</span>-darwin-x64</code></a></td></tr>
+                <tr><td>Windows x64</td><td><a data-suffix="windows-x64.exe" href="https://github.com/mikzero/trydash/releases/latest"><code>trydash-<span class="v">&lt;versione&gt;</span>-windows-x64.exe</code></a></td></tr>
+              </tbody>
+            </table>
+            <p class="small">Controlla il file con <a data-file="SHA256SUMS" href="https://github.com/mikzero/trydash/releases/latest"><code>SHA256SUMS</code></a>: <code>sha256sum -c SHA256SUMS --ignore-missing</code></p>
+          </li>
+          <li>
+            <h3>Avvialo</h3>
+<pre><code>chmod +x trydash-*-linux-x64     # Linux e macOS
+./trydash-*-linux-x64</code></pre>
+            <p>Apri l’indirizzo stampato, di solito <code>http://127.0.0.1:8787</code>, scrivi la porta del tuo servizio e premi <strong>Crea</strong>. Su Windows basta avviare il file <code>.exe</code>.</p>
+            <p class="small">I binari non sono firmati. Su macOS togli il blocco di Gatekeeper con <code>xattr -d com.apple.quarantine trydash-*</code>; su Windows, se compare SmartScreen, scegli “Ulteriori informazioni” e poi “Esegui comunque”.</p>
+          </li>
+        </ol>
+        <p class="small">Preferisci partire dai sorgenti? Serve <a href="https://bun.sh">Bun</a> ≥ 1.1: <code>git clone https://github.com/mikzero/trydash.git &amp;&amp; cd trydash &amp;&amp; bun start</code>.</p>
+      </div>
+    </section>
+
+    <section class="notes">
+      <div class="wrap two">
+        <div>
+          <h2>Cose da sapere sui quick tunnel</h2>
+          <ul>
+            <li>l’URL <code>*.trycloudflare.com</code> è casuale e cambia a ogni avvio;</li>
+            <li>al massimo 200 richieste contemporanee per tunnel, oltre la risposta è <code>429</code>;</li>
+            <li>i Server-Sent Events non sono supportati;</li>
+            <li>nessuna garanzia di uptime: per la produzione serve un Cloudflare Tunnel con nome.</li>
+          </ul>
+        </div>
+        <div>
+          <h2>Sicurezza</h2>
+          <ul>
+            <li>la dashboard ascolta solo su <code>127.0.0.1</code>;</li>
+            <li>le altre pagine aperte nel browser non possono comandarla;</li>
+            <li>niente account, token o credenziali: i log restano in memoria;</li>
+            <li>un tunnel rende pubblico il servizio che esponi: proteggilo con l’accesso via email.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap">
+      <nav class="social" aria-label="Autore">
+        <a href="https://x.com/mikvise" rel="me">X · @mikvise</a>
+        <a href="https://www.linkedin.com/in/mirkovisentin" rel="me">LinkedIn</a>
+        <a href="https://fabulab.com/" rel="me">fabulab.com</a>
+        <a href="https://github.com/mikzero" rel="me">GitHub</a>
+      </nav>
+      <p>trydash è software libero, distribuito con licenza <a href="https://github.com/mikzero/trydash/blob/main/LICENSE">GNU GPL v3.0 o successiva</a>.</p>
+      <p>È un progetto indipendente e non è affiliato a Cloudflare. “Cloudflare” e “TryCloudflare” sono marchi dei rispettivi proprietari.</p>
+    </div>
+  </footer>
+
+  <script src="site.js"></script>
+</body>
+</html>

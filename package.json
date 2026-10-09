@@ -10,7 +10,7 @@
   "type": "module",
   "scripts": {
     "start": "bun server.js",
-    "test": "bun test ./test/dashboard.test.js ./test/browser-load.test.js ./test/i18n.test.js ./test/traffic.test.js ./test/assets.test.js ./test/build.test.js ./test/workflow.test.js ./test/release-notes.test.js",
+    "test": "bun test ./test/dashboard.test.js ./test/browser-load.test.js ./test/i18n.test.js ./test/traffic.test.js ./test/assets.test.js ./test/build.test.js ./test/workflow.test.js ./test/release-notes.test.js ./test/site.test.js",
     "build": "bun scripts/build.js"
   },
   "engines": {

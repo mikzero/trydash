@@ -289,6 +289,16 @@ I tag seguono il [versionamento semantico](https://semver.org/lang/it/), `vMAGGI
 - **Non spostare né riusare un tag già pubblicato.** Chi ha scaricato `v1.0.0` deve poter contare sul fatto che resti identica. Se una release ha un errore, pubblica la successiva (`v1.0.1`). Se il workflow è fallito prima di pubblicare, puoi cancellare il tag (`git push origin :refs/tags/v1.0.0` e `git tag -d v1.0.0`), correggere e ricrearlo.
 - **Elenco delle versioni:** `git tag --sort=-v:refname`, oppure `gh release list`.
 
+## Sito
+
+La landing page sta in `site/` ed è pubblicata su GitHub Pages dal workflow `.github/workflows/pages.yml` a ogni push su `main` che la tocca. `scripts/build-site.js` la assembla in `_site/` aggiungendo logo, favicon e screenshot, che restano dove sono. Per vederla in locale:
+
+```sh
+bun scripts/build-site.js && cd _site && python3 -m http.server 8000
+```
+
+I link di download puntano ai file dell’ultima release, letti dall’API di GitHub. Senza JavaScript aprono la pagina della release.
+
 ## Struttura
 
 ```
@@ -299,7 +309,9 @@ src/traffic.js       lettura periodica delle metriche di cloudflared
 src/load-dashboard.js carica le librerie condivise nel server
 scripts/build.js     build degli eseguibili autonomi
 scripts/release-notes.js bozza delle note di release dai commit
-.github/workflows/   release automatica sui tag v*
+scripts/build-site.js assembla la landing page in _site/
+site/                landing page (GitHub Pages)
+.github/workflows/   release automatica sui tag v* e pubblicazione del sito
 public/js/           librerie condivise (parse, sessions, window, i18n…) e interfaccia
 public/css/app.css   tema "Paper" chiaro/scuro
 test/                test con bun test
