@@ -196,6 +196,41 @@ section.hero { border-top: 0; padding-top: 3.5rem; }
   pre { font-size: 0.85rem; }
 }
 
+/* ── Mascot ──────────────────────────────────────────── */
+.foot-in { display: flex; align-items: flex-end; gap: 2rem; }
+.foot-text { flex: 1; min-width: 0; padding-bottom: 0.5rem; }
+.mascot { order: 2; position: relative; flex: none; width: 150px; margin-top: -4.5rem; }
+.volpina {
+  display: block;
+  width: 150px;
+  height: auto;
+  transform-origin: 50% 95%;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.15));
+  animation: sway 4s ease-in-out infinite;
+}
+.mascot:hover .volpina { animation: hop 0.6s ease; }
+@keyframes sway { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg) translateY(-3px); } }
+@keyframes hop { 30% { transform: translateY(-10px) rotate(-4deg); } 60% { transform: translateY(0) rotate(3deg); } }
+.bubble {
+  position: absolute;
+  right: 125px;
+  top: 0.5rem;
+  width: max-content;
+  max-width: 15rem;
+  margin: 0;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 12px 12px 2px 12px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.35;
+  box-shadow: var(--shadow);
+}
+.js .mascot.reveal .bubble { opacity: 0; transform: scale(0.8) translateY(6px); transform-origin: 100% 100%; transition: opacity 0.4s ease 0.5s, transform 0.4s cubic-bezier(0.3, 1.6, 0.6, 1) 0.5s; }
+.js .mascot.reveal.in .bubble { opacity: 1; transform: none; }
+
 /* ── Icons ───────────────────────────────────────────── */
 .ico {
   display: inline-grid;
@@ -360,4 +395,12 @@ section.hero { border-top: 0; padding-top: 3.5rem; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+@media (max-width: 860px) {
+  .foot-in { flex-direction: column; align-items: center; gap: 1rem; }
+  .mascot { order: 0; margin-top: 0; padding-top: 3.5rem; }
+  .bubble { right: auto; left: 50%; top: 0; transform-origin: 50% 100%; border-radius: 12px; translate: -50% 0; text-align: center; }
+  .foot-text { text-align: center; }
+  .social { justify-content: center; }
 }

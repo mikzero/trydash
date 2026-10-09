@@ -10,7 +10,7 @@ const site = path.join(projectRoot, 'site');
 test('every local file the landing page links to exists', () => {
   const html = fs.readFileSync(path.join(site, 'index.html'), 'utf8');
   const refs = [...html.matchAll(/(?:href|src|srcset)="([^"#]+)"/g)]
-    .map((m) => m[1])
+    .flatMap((m) => m[1].split(',').map((item) => item.trim().split(/\s+/)[0]))
     .filter((ref) => !/^(https?:|mailto:|\.\/$)/.test(ref));
   assert.ok(refs.length >= 8, refs.join(', '));
   for (const ref of refs) assert.ok(fs.existsSync(path.join(site, ref)), ref);
