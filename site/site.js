@@ -1,6 +1,6 @@
-// Points the download links at the files of the latest release and suggests the
-// one for the visitor's system. Without JavaScript or the GitHub API, every link
-// still opens the latest release page.
+// Suggests the download for the visitor's system (see detect.js) and points the
+// download links at the files of the latest release. Without JavaScript or the
+// GitHub API, every link still opens the latest release page.
 (function () {
   var REPO = 'mikzero/trydash';
   var LABELS = {
@@ -11,45 +11,66 @@
     'windows-x64.exe': 'Windows x64',
   };
 
-  // Browsers do not say whether a Mac is Intel or Apple Silicon: default to the latter.
-  function guessSuffix() {
-    var ua = navigator.userAgent;
-    var platform = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
-    if (/Win/i.test(platform) || /Windows/i.test(ua)) return 'windows-x64.exe';
-    if (/Mac/i.test(platform) || /Mac OS X/i.test(ua)) return /iPhone|iPad/i.test(ua) ? null : 'darwin-arm64';
-    if (/Android/i.test(ua)) return null;
-    if (/Linux/i.test(platform) || /Linux/i.test(ua)) return /aarch64|arm64/i.test(platform + ua) ? 'linux-arm64' : 'linux-x64';
-    return null;
+  var release = { version: '', files: {} };
+  var choice = null;
+
+  function el(tag, text, attrs) {
+    var node = document.createElement(tag);
+    if (text) node.textContent = text;
+    Object.keys(attrs || {}).forEach(function (k) { node.setAttribute(k, attrs[k]); });
+    return node;
   }
 
-  function apply(release) {
-    var version = String(release.tag_name || '').replace(/^v/, '');
-    var byName = {};
-    (release.assets || []).forEach(function (asset) { byName[asset.name] = asset.browser_download_url; });
-
-    document.querySelectorAll('.v').forEach(function (el) { el.textContent = version; });
-    document.querySelectorAll('a[data-suffix]').forEach(function (a) {
-      var url = byName['trydash-' + version + '-' + a.dataset.suffix];
-      if (url) a.href = url;
-    });
-    document.querySelectorAll('a[data-file]').forEach(function (a) {
-      if (byName[a.dataset.file]) a.href = byName[a.dataset.file];
-    });
-
-    var suffix = guessSuffix();
-    var url = suffix && byName['trydash-' + version + '-' + suffix];
+  // The big button and the hint under it follow the detected system; the table row
+  // for that system is marked. Called again when the release data arrives.
+  function render() {
+    var version = release.version;
     var button = document.getElementById('primary-download');
     var label = document.getElementById('primary-label');
     var hint = document.getElementById('primary-hint');
+
+    document.querySelectorAll('.v').forEach(function (node) { if (version) node.textContent = version; });
+    document.querySelectorAll('a[data-suffix]').forEach(function (a) {
+      var url = release.files['trydash-' + version + '-' + a.dataset.suffix];
+      if (url) a.href = url;
+      var row = a.closest('tr');
+      var mine = Boolean(choice && choice.suffix === a.dataset.suffix);
+      row.classList.toggle('mine', mine);
+      var badge = row.querySelector('.mine-badge');
+      if (mine && !badge) row.cells[0].appendChild(el('span', 'il tuo sistema', { class: 'mine-badge' }));
+      if (!mine && badge) badge.remove();
+    });
+    document.querySelectorAll('a[data-file]').forEach(function (a) {
+      if (release.files[a.dataset.file]) a.href = release.files[a.dataset.file];
+    });
     if (version) document.getElementById('eyebrow-text').textContent = 'Versione ' + version + ' · software libero';
-    if (url) {
-      button.href = url;
-      label.textContent = 'Scarica per ' + LABELS[suffix];
-      hint.textContent = 'Versione ' + version + '. Altri sistemi più sotto, nella sezione Download.';
-    } else if (version) {
+
+    hint.textContent = '';
+    if (!choice) {
       button.href = '#download';
-      label.textContent = 'Scarica trydash ' + version;
+      label.textContent = version ? 'Scarica trydash ' + version : 'Scarica trydash';
+      hint.append('Per Linux, macOS e Windows: scegli il file nella ', el('a', 'sezione Download', { href: '#download' }), '.');
+      return;
     }
+    var name = LABELS[choice.suffix];
+    button.href = document.querySelector('a[data-suffix="' + choice.suffix + '"]').href;
+    label.textContent = 'Scarica per ' + name;
+    hint.append((version ? 'Versione ' + version + ' · ' : '') + 'rilevato ' + name + '. ');
+    if (!choice.certain && choice.suffix === 'darwin-arm64') hint.append('Mac con processore Intel? ', el('a', 'Scegli macOS Intel', { href: '#download' }));
+    else hint.append(el('a', 'Altri sistemi', { href: '#download' }));
+  }
+
+  if (window.trydashDetect) {
+    window.trydashDetect.collect().then(function (info) {
+      choice = window.trydashDetect.pick(info);
+      render();
+    }, function () {});
+  }
+
+  function apply(data) {
+    release.version = String(data.tag_name || '').replace(/^v/, '');
+    (data.assets || []).forEach(function (asset) { release.files[asset.name] = asset.browser_download_url; });
+    render();
   }
 
   // Fade sections in as they scroll into view (the hidden state only exists with JS).

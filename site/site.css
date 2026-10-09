@@ -160,6 +160,9 @@ section.hero { border-top: 0; padding-top: 3.5rem; }
 .files a { text-decoration: none; }
 .files a:hover code { outline: 1px solid var(--accent); }
 .small { color: var(--muted); font-size: 0.9rem; }
+.files tr.mine td { background: var(--accent-bg); }
+.files tr.mine td:first-child { font-weight: 600; }
+.mine-badge { display: inline-block; margin-left: 0.5rem; padding: 0.05rem 0.45rem; border-radius: 999px; background: var(--accent); color: var(--card); font-size: 0.72rem; font-weight: 700; vertical-align: middle; }
 
 /* Notes */
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; }

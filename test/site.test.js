@@ -44,3 +44,38 @@ test('pages: only the deploy job can write, and it runs no project code', () => 
   assert.equal(writers[0].steps.some((s) => String(s.uses).startsWith('actions/checkout@') || s.run), false);
   assert.ok(writers[0].steps.some((s) => String(s.uses).startsWith('actions/deploy-pages@')));
 });
+
+const detect = {};
+new Function('window', fs.readFileSync(path.join(site, 'detect.js'), 'utf8'))(detect);
+const { pick } = detect.trydashDetect;
+
+const UA = {
+  win: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36',
+  mac: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
+  linux: 'Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0',
+  linuxArm: 'Mozilla/5.0 (X11; Linux aarch64; rv:140.0) Gecko/20100101 Firefox/140.0',
+  iphone: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
+  android: 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Mobile Safari/537.36',
+};
+
+test('detect: suggests the build for the visitor system', () => {
+  assert.deepEqual(pick({ ua: UA.win, platform: 'Win32' }), { suffix: 'windows-x64.exe', certain: true });
+  assert.deepEqual(pick({ ua: UA.linux, platform: 'Linux x86_64' }), { suffix: 'linux-x64', certain: true });
+  assert.deepEqual(pick({ ua: UA.linuxArm, platform: 'Linux aarch64' }), { suffix: 'linux-arm64', certain: true });
+  assert.deepEqual(pick({ ua: UA.linux, platform: 'Linux', arch: 'arm' }), { suffix: 'linux-arm64', certain: true });
+});
+
+test('detect: tells Apple Silicon from Intel Macs when the browser lets it', () => {
+  assert.deepEqual(pick({ ua: UA.mac, platform: 'macOS', arch: 'arm' }), { suffix: 'darwin-arm64', certain: true });
+  assert.deepEqual(pick({ ua: UA.mac, platform: 'macOS', arch: 'x86' }), { suffix: 'darwin-x64', certain: true });
+  assert.deepEqual(pick({ ua: UA.mac, platform: 'MacIntel', gpu: 'Apple M2' }), { suffix: 'darwin-arm64', certain: true });
+  assert.deepEqual(pick({ ua: UA.mac, platform: 'MacIntel', gpu: 'Intel(R) Iris(TM) Plus Graphics' }), { suffix: 'darwin-x64', certain: true });
+  assert.deepEqual(pick({ ua: UA.mac, platform: 'MacIntel', gpu: '' }), { suffix: 'darwin-arm64', certain: false });
+});
+
+test('detect: no suggestion on phones and tablets', () => {
+  assert.equal(pick({ ua: UA.iphone, platform: 'iPhone' }), null);
+  assert.equal(pick({ ua: UA.android, platform: 'Linux armv8l' }), null);
+  assert.equal(pick({ ua: UA.android, platform: 'Android', mobile: true }), null);
+  assert.equal(pick({ ua: UA.mac, platform: 'MacIntel', touch: 5 }), null);
+});
