@@ -1,0 +1,88 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+# Nothing can write by default; only the publish job below gets contents: write,
+# and it runs no project code. Actions are pinned to commit SHAs.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Test
+        run: bun test
+
+      - name: Build binaries
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          bun scripts/build.js --all --version "$VERSION"
+
+      - name: Smoke test (linux-x64)
+        run: |
+          BIN="dist/trydash-$VERSION-linux-x64"
+          test "$("$BIN" --version)" = "trydash $VERSION"
+          cd "$RUNNER_TEMP"
+          PORT=0 DASHBOARD_PROBE=present "$GITHUB_WORKSPACE/$BIN" > trydash.log 2>&1 &
+          PID=$!
+          for i in $(seq 1 50); do
+            URL=$(grep -oE 'http://127\.0\.0\.1:[0-9]+' trydash.log | head -1) && [ -n "$URL" ] && break
+            sleep 0.2
+          done
+          test -n "$URL"
+          curl -fsS "$URL/" | grep -q '<title>trydash</title>'
+          curl -fsS "$URL/api/state" > /dev/null
+          kill "$PID"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="$GITHUB_REF_NAME"
+          TITLE="$TAG"
+          args=(--repo "$GITHUB_REPOSITORY" --generate-notes)
+          # An annotated tag carries the notes: first line is the title, the rest the
+          # body. GitHub's generated notes (Full Changelog link) are appended after it.
+          REF="repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG"
+          if [ "$(gh api "$REF" --jq .object.type)" = "tag" ]; then
+            SHA=$(gh api "$REF" --jq .object.sha)
+            MESSAGE=$(mktemp)
+            NOTES=$(mktemp)
+            gh api "repos/$GITHUB_REPOSITORY/git/tags/$SHA" --jq .message > "$MESSAGE"
+            TITLE=$(head -n 1 "$MESSAGE")
+            tail -n +2 "$MESSAGE" | sed '/./,$!d' > "$NOTES"
+            args+=(--notes-file "$NOTES")
+          fi
+          args+=(--title "$TITLE")
+          case "$TAG" in *-*) args+=(--prerelease) ;; esac
+          gh release create "$TAG" dist/* "${args[@]}"

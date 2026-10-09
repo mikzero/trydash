@@ -1,0 +1,19 @@
+{
+  "name": "trydash",
+  "description": "Dashboard locale per i quick tunnel di TryCloudflare",
+  "license": "GPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mikzero/trydash.git"
+  },
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun server.js",
+    "test": "bun test ./test/dashboard.test.js ./test/browser-load.test.js ./test/i18n.test.js ./test/traffic.test.js ./test/assets.test.js ./test/build.test.js ./test/workflow.test.js ./test/release-notes.test.js",
+    "build": "bun scripts/build.js"
+  },
+  "engines": {
+    "bun": ">=1.1"
+  }
+}

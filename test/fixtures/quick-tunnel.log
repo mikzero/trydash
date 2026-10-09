@@ -1,0 +1,7 @@
+2026-09-22T11:26:20Z INF Requesting new quick Tunnel on trycloudflare.com...
+2026-09-22T11:26:24Z INF |  https://aqua-wolf-1234.trycloudflare.com |
+INF bare line without a timestamp
+{"level":"info","time":"2026-09-22T11:26:26Z","message":"retrying connection"}
+{"level":"error","message":"control stream failed without a timestamp"}
+{"level":"info","time":"2026-09-22T11:26:50Z","message":"|  https://perfect-connecticut-armor-wooden.trycloudflare.com                                |"}
+{"error":"Group ID 1000 is not between ping group 1 to 0","level":"warn","message":"ICMP proxy feature is disabled","time":"2026-09-22T11:26:51Z"}
