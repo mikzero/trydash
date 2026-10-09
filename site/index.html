@@ -44,7 +44,7 @@
   </header>
 
   <main>
-    <section class="hero">
+    <section class="hero" data-mascot="Ciao! Sono la volpina di trydash 👋">
       <div class="wrap">
         <p class="eyebrow"><span class="pulse" aria-hidden="true"></span><span id="eyebrow-text">Software libero · GPL-3.0</span></p>
         <h1>I tuoi quick tunnel di TryCloudflare,<br>in una dashboard sola.</h1>
@@ -111,7 +111,7 @@
       </div>
     </section>
 
-    <section class="why">
+    <section class="why" data-mascot="Basta terminali sparsi ovunque!">
       <div class="wrap narrow">
         <h2>Perché</h2>
         <p>
@@ -122,7 +122,7 @@
       </div>
     </section>
 
-    <section id="funzioni" class="features">
+    <section id="funzioni" class="features" data-mascot="Più tunnel, un posto solo. Comodo, no?">
       <div class="wrap">
         <h2>Funzioni</h2>
         <div class="grid">
@@ -167,7 +167,7 @@
       </div>
     </section>
 
-    <section id="download" class="download">
+    <section id="download" class="download" data-mascot="Il file per il tuo computer è già evidenziato.">
       <div class="wrap narrow">
         <h2>Download</h2>
         <ol class="steps">
@@ -201,7 +201,7 @@
       </div>
     </section>
 
-    <section class="notes">
+    <section class="notes" data-mascot="Ricorda: l’URL cambia a ogni avvio!">
       <div class="wrap two">
         <div>
           <h2>Cose da sapere sui quick tunnel</h2>
@@ -225,16 +225,8 @@
     </section>
   </main>
 
-  <footer class="foot">
-    <div class="wrap foot-in">
-      <div class="mascot reveal">
-        <p class="bubble">Ciao! Ci vediamo dall’altra parte del tunnel.</p>
-        <picture>
-          <source type="image/webp" srcset="images/volpina-wave-footer-200-dark.webp 200w, images/volpina-wave-footer-800-dark.webp 800w" sizes="150px">
-          <img class="volpina" src="images/volpina-wave-footer-200-dark.png" srcset="images/volpina-wave-footer-200-dark.png 200w, images/volpina-wave-footer-800-dark.png 800w" sizes="150px" width="150" height="150" loading="lazy" alt="La volpina di trydash che saluta con la mano">
-        </picture>
-      </div>
-      <div class="foot-text">
+  <footer class="foot" data-mascot="Ciao! Ci vediamo dall’altra parte del tunnel.">
+    <div class="wrap">
       <nav class="social" aria-label="Autore">
         <a href="https://x.com/mikvise" rel="me noopener" target="_blank"><svg aria-hidden="true"><use href="#i-x"/></svg>@mikvise</a>
         <a href="https://www.linkedin.com/in/mirkovisentin" rel="me noopener" target="_blank"><svg aria-hidden="true"><use href="#i-linkedin"/></svg>LinkedIn</a>
@@ -243,12 +235,22 @@
       </nav>
       <p>trydash è software libero, distribuito con licenza <a href="https://github.com/mikzero/trydash/blob/main/LICENSE" target="_blank" rel="noopener">GNU GPL v3.0 o successiva</a>.</p>
       <p>È un progetto indipendente e non è affiliato a Cloudflare. “Cloudflare” e “TryCloudflare” sono marchi dei rispettivi proprietari.</p>
-      </div>
     </div>
   </footer>
+
+  <div class="mascot" id="mascot">
+    <p class="bubble" id="bubble" aria-hidden="true"></p>
+    <button type="button" class="mascot-btn" id="mascot-btn" aria-label="La volpina di trydash: tocca per un suggerimento">
+      <picture>
+        <source type="image/webp" srcset="images/volpina-wave-footer-200-dark.webp 200w, images/volpina-wave-footer-800-dark.webp 800w" sizes="(max-width: 560px) 76px, 120px">
+        <img class="volpina" src="images/volpina-wave-footer-200-dark.png" srcset="images/volpina-wave-footer-200-dark.png 200w, images/volpina-wave-footer-800-dark.png 800w" sizes="(max-width: 560px) 76px, 120px" width="120" height="120" alt="">
+      </picture>
+    </button>
+  </div>
 
   <script src="detect.js"></script>
   <script src="site.js"></script>
   <script src="demo.js"></script>
+  <script src="mascot.js"></script>
 </body>
 </html>

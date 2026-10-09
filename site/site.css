@@ -196,27 +196,45 @@ section.hero { border-top: 0; padding-top: 3.5rem; }
   pre { font-size: 0.85rem; }
 }
 
-/* ── Mascot ──────────────────────────────────────────── */
-.foot-in { display: flex; align-items: flex-end; gap: 2rem; }
-.foot-text { flex: 1; min-width: 0; padding-bottom: 0.5rem; }
-.mascot { order: 2; position: relative; flex: none; width: 150px; margin-top: -4.5rem; }
+/* ── Mascot (always in the bottom-right corner) ─────── */
+.mascot {
+  position: fixed;
+  right: 12px;
+  bottom: 8px;
+  z-index: 5;
+  width: 120px;
+  pointer-events: none;
+  animation: peek 0.7s cubic-bezier(0.3, 1.4, 0.6, 1) 0.6s both;
+}
+@keyframes peek { from { transform: translateY(110%); } }
+.mascot-btn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+.mascot-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 12px; }
 .volpina {
   display: block;
-  width: 150px;
+  width: 100%;
   height: auto;
   transform-origin: 50% 95%;
-  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.15));
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.18));
   animation: sway 4s ease-in-out infinite;
 }
-.mascot:hover .volpina { animation: hop 0.6s ease; }
+.mascot-btn:hover .volpina, .mascot.hop .volpina { animation: hop 0.6s ease; }
 @keyframes sway { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg) translateY(-3px); } }
 @keyframes hop { 30% { transform: translateY(-10px) rotate(-4deg); } 60% { transform: translateY(0) rotate(3deg); } }
 .bubble {
   position: absolute;
-  right: 125px;
-  top: 0.5rem;
+  right: 92px;
+  bottom: 88px;
   width: max-content;
-  max-width: 15rem;
+  max-width: 14rem;
   margin: 0;
   padding: 0.55rem 0.85rem;
   border: 1px solid var(--line);
@@ -226,10 +244,22 @@ section.hero { border-top: 0; padding-top: 3.5rem; }
   font-size: 0.88rem;
   font-weight: 600;
   line-height: 1.35;
-  box-shadow: var(--shadow);
+  box-shadow: var(--pop);
+  opacity: 0;
+  transform: scale(0.8) translateY(6px);
+  transform-origin: 100% 100%;
+  transition: opacity 0.3s ease, transform 0.35s cubic-bezier(0.3, 1.6, 0.6, 1);
 }
-.js .mascot.reveal .bubble { opacity: 0; transform: scale(0.8) translateY(6px); transform-origin: 100% 100%; transition: opacity 0.4s ease 0.5s, transform 0.4s cubic-bezier(0.3, 1.6, 0.6, 1) 0.5s; }
-.js .mascot.reveal.in .bubble { opacity: 1; transform: none; }
+.bubble.show { opacity: 1; transform: none; }
+/* Keep the footer text clear of the mascot and her goodbye bubble. */
+.foot { padding-bottom: 7rem; }
+.foot p { max-width: 38rem; }
+
+@media (max-width: 560px) {
+  .mascot { width: 76px; right: 6px; bottom: 4px; }
+  .bubble { right: 56px; bottom: 56px; max-width: 11rem; padding: 0.45rem 0.7rem; font-size: 0.8rem; }
+  .foot { padding-bottom: 6rem; }
+}
 
 /* ── Icons ───────────────────────────────────────────── */
 .ico {
@@ -397,10 +427,3 @@ section.hero { border-top: 0; padding-top: 3.5rem; }
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 
-@media (max-width: 860px) {
-  .foot-in { flex-direction: column; align-items: center; gap: 1rem; }
-  .mascot { order: 0; margin-top: 0; padding-top: 3.5rem; }
-  .bubble { right: auto; left: 50%; top: 0; transform-origin: 50% 100%; border-radius: 12px; translate: -50% 0; text-align: center; }
-  .foot-text { text-align: center; }
-  .social { justify-content: center; }
-}
