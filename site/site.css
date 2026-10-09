@@ -196,7 +196,7 @@ section.hero { border-top: 0; padding-top: 3.5rem; }
   pre { font-size: 0.85rem; }
 }
 
-/* ── Mascot (always in the bottom-right corner) ─────── */
+/* ── Mascot: Inari Bash, always in the bottom-right corner */
 .mascot {
   position: fixed;
   right: 12px;

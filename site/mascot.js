@@ -1,4 +1,4 @@
-// The fox in the bottom-right corner. When a section with data-mascot reaches the
+// Inari Bash, the trydash fox, in the bottom-right corner. When a section with data-mascot reaches the
 // middle of the screen she says its line for a few seconds; in the footer she
 // keeps saying goodbye. A click (or tap) repeats the current line.
 (function () {
