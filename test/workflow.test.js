@@ -40,7 +40,7 @@ test('the release uses the annotated tag message as title and notes', () => {
 case "$*" in
   *git/ref/tags/*.object.type*) echo "\${FAKE_TYPE}" ;;
   *git/ref/tags/*.object.sha*) echo abc123 ;;
-  *git/tags/abc123*) printf 'trydash 1.0.0\\n\\nPrima release.\\n\\n## ✨ Novità\\n- una cosa\\n' ;;
+  *git/tags/abc123*) printf 'trydash 1.0.0\\n\\nFirst release.\\n\\n## ✨ New\\n- one thing\\n' ;;
   "release create"*) printf '%s\\n' "$@" > "${dir}/args"; cp "$(awk '/--notes-file/{getline; print}' "${dir}/args")" "${dir}/notes" 2>/dev/null; true ;;
 esac
 `, { mode: 0o755 });
@@ -56,7 +56,7 @@ esac
     assert.equal(args[args.indexOf('--title') + 1], 'trydash 1.0.0');
     assert.ok(args.includes('--generate-notes'));
     assert.equal(args.includes('--prerelease'), false);
-    assert.equal(fs.readFileSync(path.join(dir, 'notes'), 'utf8'), 'Prima release.\n\n## ✨ Novità\n- una cosa\n');
+    assert.equal(fs.readFileSync(path.join(dir, 'notes'), 'utf8'), 'First release.\n\n## ✨ New\n- one thing\n');
 
     fs.rmSync(path.join(dir, 'args'));
     const light = run('v1.1.0-rc.1', 'commit');

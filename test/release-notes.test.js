@@ -25,10 +25,10 @@ test('notes render a title line, a description slot and the sections that have e
   const lines = text.split('\n');
   assert.equal(lines[0], 'trydash 1.1.0');
   assert.equal(lines[1], '');
-  for (const heading of ['## ⚠️ Cambiamenti incompatibili', '## ✨ Novità', '## 🐛 Correzioni', '## 🧰 Manutenzione']) {
+  for (const heading of ['## ⚠️ Breaking changes', '## ✨ New', '## 🐛 Fixes', '## 🧰 Maintenance']) {
     assert.ok(text.includes(heading), heading);
   }
-  assert.ok(text.indexOf('## ✨ Novità') < text.indexOf('## 🐛 Correzioni'));
+  assert.ok(text.indexOf('## ✨ New') < text.indexOf('## 🐛 Fixes'));
   assert.ok(text.includes('- **ui**: traffic strip and sparkline'));
-  assert.equal(renderNotes('v1.0.1', ['fix: one']).includes('## ✨ Novità'), false);
+  assert.equal(renderNotes('v1.0.1', ['fix: one']).includes('## ✨ New'), false);
 });
