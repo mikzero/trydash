@@ -33,6 +33,16 @@ for (const [lang, page] of Object.entries(PAGES)) {
     assert.doesNotMatch(html, /[\w.+-]+@[\w-]+\.[\w.]+/);
   });
 
+  test(`${page}: external links open in a new tab, downloads excepted`, () => {
+    const links = [...read(page).matchAll(/<a\s[^>]*href="https?:\/\/[^>]*>/g)].map((m) => m[0]);
+    assert.ok(links.length >= 10);
+    for (const link of links) {
+      // A download in a new tab would leave an empty tab behind.
+      if (/data-(suffix|file)=/.test(link)) assert.doesNotMatch(link, /target=/, link);
+      else assert.match(link, /target="_blank"[^>]*rel="[^"]*noopener|rel="[^"]*noopener[^"]*"[^>]*target="_blank"/, link);
+    }
+  });
+
   test(`${page}: the download links point straight at the files of one release`, () => {
     const html = read(page);
     const links = [...html.matchAll(/<a data-suffix="([^"]+)" href="([^"]+)"><code>trydash-<span class="v">([^<]+)<\/span>-([^<]+)<\/code>/g)];
