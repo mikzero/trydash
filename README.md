@@ -231,26 +231,26 @@ Segui l’avanzamento in **Actions** su GitHub, oppure con `gh run watch`.
 
 ### Le note della release (messaggio del tag)
 
-Il messaggio del tag annotato diventa il testo della Release. È Markdown:
+Il messaggio del tag annotato diventa il testo della Release. È Markdown e si scrive **in inglese**, come il sito principale:
 
 ```markdown
 trydash 1.1.0                      ← prima riga: titolo della Release
 
-Una o due frasi su cosa porta questa versione.
+One or two sentences on what this version brings.
 
-## ⚠️ Cambiamenti incompatibili    ← solo se ce ne sono (versione MAGGIORE)
+## ⚠️ Breaking changes             ← solo se ce ne sono (versione MAGGIORE)
 - …
 
-## ✨ Novità
+## ✨ New
 - **ui**: …
 
-## 🐛 Correzioni
+## 🐛 Fixes
 - **server**: …
 
-## 🔒 Sicurezza                     ← facoltativa
+## 🔒 Security                      ← facoltativa
 - …
 
-## 🧰 Manutenzione                  ← ci, docs, test, refactor
+## 🧰 Maintenance                   ← ci, docs, test, refactor
 - …
 ```
 
@@ -260,12 +260,12 @@ GitHub aggiunge in fondo il link **Full Changelog** con il confronto rispetto al
 
 | Commit | Sezione |
 |---|---|
-| `feat(ui): …` | Novità |
-| `fix(server): …` | Correzioni |
-| `feat!: …` | Cambiamenti incompatibili |
-| `ci:`, `docs:`, `test:`, `refactor:`, altri | Manutenzione |
+| `feat(ui): …` | New |
+| `fix(server): …` | Fixes |
+| `feat!: …` | Breaking changes |
+| `ci:`, `docs:`, `test:`, `refactor:`, altri | Maintenance |
 
-La bozza è un punto di partenza. Riscrivi le voci per chi usa trydash, non per chi legge il codice, e aggiungi la sezione Sicurezza quando serve.
+La bozza è un punto di partenza. Riscrivi le voci in inglese per chi usa trydash, non per chi legge il codice, e aggiungi la sezione Security quando serve.
 
 Due avvertenze sul comando `git tag`:
 - **`--cleanup=verbatim` è necessario.** Senza, git tratta le righe che iniziano con `#` come commenti e cancella i titoli Markdown.
