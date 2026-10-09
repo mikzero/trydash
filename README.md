@@ -11,8 +11,8 @@
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/screenshot-dark.png">
-    <img src="docs/images/screenshot-light.png" alt="trydash: elenco dei tunnel a sinistra, log del tunnel selezionato al centro, dettaglio di una riga a destra" width="880">
+    <source media="(prefers-color-scheme: dark)" srcset="site/images/screenshot-dark.png">
+    <img src="site/images/screenshot-light.png" alt="trydash: elenco dei tunnel a sinistra, log del tunnel selezionato al centro, dettaglio di una riga a destra" width="880">
   </picture>
 </p>
 
@@ -291,11 +291,9 @@ I tag seguono il [versionamento semantico](https://semver.org/lang/it/), `vMAGGI
 
 ## Sito
 
-La landing page sta in `site/` ed è pubblicata su GitHub Pages dal workflow `.github/workflows/pages.yml` a ogni push su `main` che la tocca. `scripts/build-site.js` la assembla in `_site/` aggiungendo logo, favicon e screenshot, che restano dove sono. Per vederla in locale:
+La landing page sta in `site/`: HTML, CSS e JavaScript statici, senza build. Il workflow `.github/workflows/pages.yml` la pubblica su GitHub Pages a ogni push su `main` che la tocca. Per vederla basta aprire `site/index.html` nel browser.
 
-```sh
-bun scripts/build-site.js && cd _site && python3 -m http.server 8000
-```
+`site/images/logo.svg`, `site/favicon.svg` e `site/favicon.png` sono copie di quelli in `public/`: un test controlla che restino uguali.
 
 I link di download puntano ai file dell’ultima release, letti dall’API di GitHub. Senza JavaScript aprono la pagina della release.
 
@@ -309,13 +307,11 @@ src/traffic.js       lettura periodica delle metriche di cloudflared
 src/load-dashboard.js carica le librerie condivise nel server
 scripts/build.js     build degli eseguibili autonomi
 scripts/release-notes.js bozza delle note di release dai commit
-scripts/build-site.js assembla la landing page in _site/
-site/                landing page (GitHub Pages)
+site/                landing page (GitHub Pages), con logo e screenshot usati anche qui
 .github/workflows/   release automatica sui tag v* e pubblicazione del sito
 public/js/           librerie condivise (parse, sessions, window, i18n…) e interfaccia
 public/css/app.css   tema "Paper" chiaro/scuro
 test/                test con bun test
-docs/images/         screenshot del README
 ```
 
 ## Test

@@ -39,15 +39,32 @@
     var suffix = guessSuffix();
     var url = suffix && byName['trydash-' + version + '-' + suffix];
     var button = document.getElementById('primary-download');
+    var label = document.getElementById('primary-label');
     var hint = document.getElementById('primary-hint');
+    if (version) document.getElementById('eyebrow-text').textContent = 'Versione ' + version + ' · software libero';
     if (url) {
       button.href = url;
-      button.textContent = 'Scarica per ' + LABELS[suffix];
+      label.textContent = 'Scarica per ' + LABELS[suffix];
       hint.textContent = 'Versione ' + version + '. Altri sistemi più sotto, nella sezione Download.';
     } else if (version) {
       button.href = '#download';
-      button.textContent = 'Scarica trydash ' + version;
+      label.textContent = 'Scarica trydash ' + version;
     }
+  }
+
+  // Fade sections in as they scroll into view (the hidden state only exists with JS).
+  var reveals = document.querySelectorAll('.reveal');
+  if ('IntersectionObserver' in window) {
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        e.target.classList.add('in');
+        observer.unobserve(e.target);
+      });
+    }, { rootMargin: '0px 0px -10% 0px' });
+    reveals.forEach(function (node) { observer.observe(node); });
+  } else {
+    reveals.forEach(function (node) { node.classList.add('in'); });
   }
 
   fetch('https://api.github.com/repos/' + REPO + '/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })

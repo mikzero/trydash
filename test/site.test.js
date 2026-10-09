@@ -1,23 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { projectRoot } from '../src/assets.js';
-import { buildSite } from '../scripts/build-site.js';
 
-test('every local file the landing page links to is in the built site', () => {
-  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'trydash-site-')), '_site');
-  try {
-    buildSite(out, projectRoot);
-    const html = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
-    const refs = [...html.matchAll(/(?:href|src|srcset)="([^"#]+)"/g)]
-      .map((m) => m[1])
-      .filter((ref) => !/^(https?:|mailto:|\.\/$)/.test(ref));
-    assert.ok(refs.length >= 6, refs.join(', '));
-    for (const ref of refs) assert.ok(fs.existsSync(path.join(out, ref)), ref);
-  } finally {
-    fs.rmSync(path.dirname(out), { recursive: true, force: true });
+const site = path.join(projectRoot, 'site');
+
+test('every local file the landing page links to exists', () => {
+  const html = fs.readFileSync(path.join(site, 'index.html'), 'utf8');
+  const refs = [...html.matchAll(/(?:href|src|srcset)="([^"#]+)"/g)]
+    .map((m) => m[1])
+    .filter((ref) => !/^(https?:|mailto:|\.\/$)/.test(ref));
+  assert.ok(refs.length >= 8, refs.join(', '));
+  for (const ref of refs) assert.ok(fs.existsSync(path.join(site, ref)), ref);
+});
+
+test('the logo and favicons in site/ match the ones in public/', () => {
+  for (const [copy, original] of [['images/logo.svg', 'logo.svg'], ['favicon.svg', 'favicon.svg'], ['favicon.png', 'favicon.png']]) {
+    assert.ok(fs.readFileSync(path.join(site, copy)).equals(fs.readFileSync(path.join(projectRoot, 'public', original))), copy);
   }
 });
 
