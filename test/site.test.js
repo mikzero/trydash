@@ -33,6 +33,16 @@ for (const [lang, page] of Object.entries(PAGES)) {
     assert.doesNotMatch(html, /[\w.+-]+@[\w-]+\.[\w.]+/);
   });
 
+  test(`${page}: the share image is published with the site`, () => {
+    const html = read(page);
+    const images = [...html.matchAll(/<meta (?:property="og:image"|name="twitter:image") content="([^"]+)"/g)].map((m) => m[1]);
+    assert.equal(images.length, 2);
+    for (const url of images) {
+      assert.ok(url.startsWith('https://mikzero.github.io/trydash/'), url);
+      assert.ok(fs.existsSync(path.join(site, url.slice('https://mikzero.github.io/trydash/'.length))), url);
+    }
+  });
+
   test(`${page}: external links open in a new tab, downloads excepted`, () => {
     const links = [...read(page).matchAll(/<a\s[^>]*href="https?:\/\/[^>]*>/g)].map((m) => m[0]);
     assert.ok(links.length >= 10);
