@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { projectRoot } from '../src/assets.js';
+import { TARGETS } from '../scripts/build.js';
 
 const site = path.join(projectRoot, 'site');
 
@@ -19,6 +20,20 @@ test('the logo and favicons in site/ match the ones in public/', () => {
   for (const [copy, original] of [['images/logo.svg', 'logo.svg'], ['favicon.svg', 'favicon.svg'], ['favicon.png', 'favicon.png']]) {
     assert.ok(fs.readFileSync(path.join(site, copy)).equals(fs.readFileSync(path.join(projectRoot, 'public', original))), copy);
   }
+});
+
+test('the download links point straight at the files of one release', () => {
+  const html = fs.readFileSync(path.join(site, 'index.html'), 'utf8');
+  const links = [...html.matchAll(/<a data-suffix="([^"]+)" href="([^"]+)"><code>trydash-<span class="v">([^<]+)<\/span>-([^<]+)<\/code>/g)];
+  assert.deepEqual(links.map((m) => m[1]).sort(), TARGETS.map((t) => t.suffix).sort());
+  const version = links[0][3];
+  assert.match(version, /^\d+\.\d+\.\d+/);
+  for (const [, suffix, href, v, shown] of links) {
+    assert.equal(v, version);
+    assert.equal(shown, suffix);
+    assert.equal(href, `https://github.com/mikzero/trydash/releases/download/v${version}/trydash-${version}-${suffix}`);
+  }
+  assert.ok(html.includes(`href="https://github.com/mikzero/trydash/releases/download/v${version}/SHA256SUMS"`));
 });
 
 test('the landing page is in Italian and has no personal email', () => {

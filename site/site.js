@@ -1,6 +1,5 @@
-// Suggests the download for the visitor's system (see detect.js) and points the
-// download links at the files of the latest release. Without JavaScript or the
-// GitHub API, every link still opens the latest release page.
+// Suggests the download for the visitor's system (see detect.js). The download
+// links are direct links to the release files, also without JavaScript.
 (function () {
   var REPO = 'mikzero/trydash';
   var LABELS = {
@@ -11,7 +10,10 @@
     'windows-x64.exe': 'Windows x64',
   };
 
-  var release = { version: '', files: {} };
+  // The page ships with direct links to the current release; the GitHub API, when
+  // it answers, moves them to a newer one.
+  var current = document.querySelector('.v');
+  var release = { version: current ? current.textContent : '', files: {} };
   var choice = null;
 
   function el(tag, text, attrs) {

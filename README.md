@@ -229,6 +229,13 @@ git push origin v1.1.0                            # avvia il workflow
 
 Segui l’avanzamento in **Actions** su GitHub, oppure con `gh run watch`.
 
+Quando la release è pubblicata, porta i link diretti del sito alla nuova versione e fai push su `main`: la pagina si ripubblica da sola. Un test controlla che tutti i link usino la stessa versione.
+
+```sh
+sed -i 's/1\.0\.0/1.1.0/g' site/index.html     # vecchia → nuova versione
+bun test test/site.test.js
+```
+
 ### Le note della release (messaggio del tag)
 
 Il messaggio del tag annotato diventa il testo della Release. È Markdown:
@@ -295,7 +302,7 @@ La landing page sta in `site/`: HTML, CSS e JavaScript statici, senza build. Il 
 
 `site/images/logo.svg`, `site/favicon.svg` e `site/favicon.png` sono copie di quelli in `public/`: un test controlla che restino uguali.
 
-I link di download puntano ai file dell’ultima release, letti dall’API di GitHub. Senza JavaScript aprono la pagina della release.
+I link di download sono link diretti ai file della release, scritti in `site/index.html`, e funzionano anche senza JavaScript. Il pulsante principale propone il file per il sistema di chi visita. Se l’API di GitHub segnala una release più recente, la pagina aggiorna da sola i link.
 
 ## Struttura
 
