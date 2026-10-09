@@ -9,6 +9,8 @@
   root.querySelectorAll('[data-el]').forEach(function (node) { el[node.dataset.el] = node; });
   var buttons = Array.prototype.slice.call(root.querySelectorAll('[data-step]'));
   var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var t = window.trydashT;
+  var locale = window.trydashLang === 'it' ? 'it-IT' : 'en-US';
 
   var URL = 'https://quiet-river-lamp.trycloudflare.com';
   var DURATIONS = [3400, 4400, 4600, 6500];
@@ -73,13 +75,13 @@
   }
 
   function count(node, to, ms, fast) {
-    if (fast) { node.textContent = to.toLocaleString('it-IT'); return Promise.resolve(); }
+    if (fast) { node.textContent = to.toLocaleString(locale); return Promise.resolve(); }
     var steps = 20;
     var i = 0;
     function next() {
       if (i >= steps) return Promise.resolve();
       i += 1;
-      node.textContent = Math.round((to * i) / steps).toLocaleString('it-IT');
+      node.textContent = Math.round((to * i) / steps).toLocaleString(locale);
       return sleep(ms / steps).then(next);
     }
     return next();
@@ -94,15 +96,15 @@
     toggle(el.port.parentNode, 'focus', false);
     toggle(el.session, 'show', false);
     toggle(el.session, 'live', false);
-    el.sstate.textContent = 'in avvio';
+    el.sstate.textContent = t('starting');
     el.bar.style.width = '0';
     toggle(el.empty, 'hide', false);
     toggle(el.head, 'show', false);
     toggle(el.stats, 'show', false);
     toggle(el.chip, 'live', false);
-    el.chip.textContent = 'IN AVVIO';
+    el.chip.textContent = t('startingChip');
     toggle(el.url, 'live', false);
-    el.url.textContent = 'in attesa dell’URL…';
+    el.url.textContent = t('waitingUrl');
     toggle(el.copy, 'ready', false);
     el.inflight.textContent = '0';
     el.total.textContent = '0';
@@ -149,10 +151,10 @@
           log('inf', '|  ' + URL + '  |', true);
           el.url.textContent = URL;
           toggle(el.url, 'live', true);
-          el.chip.textContent = 'ATTIVO';
+          el.chip.textContent = t('liveChip');
           toggle(el.chip, 'live', true);
           toggle(el.session, 'live', true);
-          el.sstate.textContent = 'attivo';
+          el.sstate.textContent = t('live');
           toggle(el.copy, 'ready', true);
           return sleep(500, fast);
         })

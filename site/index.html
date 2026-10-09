@@ -1,18 +1,31 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
   <script>document.documentElement.classList.add('js')</script>
+  <script>
+    // First visit with an Italian browser: open the Italian page, unless a language was picked.
+    try {
+      var lang = (navigator.languages && navigator.languages[0]) || navigator.language || '';
+      if (!localStorage.getItem('trydash-lang') && /^it\b/i.test(lang)) {
+        location.replace('it/' + (location.protocol === 'file:' ? 'index.html' : '') + location.hash);
+      }
+    } catch (e) {}
+  </script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>trydash · dashboard per i quick tunnel di TryCloudflare</title>
-  <meta name="description" content="Dashboard locale per i quick tunnel di TryCloudflare: avvia più tunnel con un clic, segui stato, traffico e log in un posto solo. Eseguibile singolo per Linux, macOS e Windows.">
+  <title>trydash · a dashboard for TryCloudflare quick tunnels</title>
+  <meta name="description" content="A local dashboard for TryCloudflare quick tunnels: start several tunnels in one click and follow their status, traffic and logs in one place. A single executable for Linux, macOS and Windows.">
+  <link rel="alternate" hreflang="en" href="https://mikzero.github.io/trydash/">
+  <link rel="alternate" hreflang="it" href="https://mikzero.github.io/trydash/it/">
+  <link rel="alternate" hreflang="x-default" href="https://mikzero.github.io/trydash/">
   <meta property="og:type" content="website">
   <meta property="og:title" content="trydash">
-  <meta property="og:description" content="Dashboard locale per i quick tunnel di TryCloudflare. Un unico eseguibile, nessuna dipendenza.">
+  <meta property="og:description" content="A local dashboard for TryCloudflare quick tunnels. One executable, no dependencies.">
   <meta property="og:url" content="https://mikzero.github.io/trydash/">
   <meta property="og:image" content="https://mikzero.github.io/trydash/images/screenshot-light.png">
-  <meta property="og:locale" content="it_IT">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:locale:alternate" content="it_IT">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="icon" href="favicon.png" type="image/png">
@@ -35,30 +48,34 @@
   <header class="top">
     <div class="wrap top-in">
       <a class="brand" href="./"><img src="images/logo.svg" alt="" width="28" height="28">trydash</a>
-      <nav class="top-nav" aria-label="Sezioni">
-        <a href="#funzioni">Funzioni</a>
+      <nav class="top-nav" aria-label="Sections">
+        <a href="#features">Features</a>
         <a href="#download">Download</a>
         <a href="https://github.com/mikzero/trydash">GitHub</a>
+      </nav>
+      <nav class="lang-switch" aria-label="Language">
+        <a href="./" hreflang="en" lang="en" data-lang="en" aria-current="page">EN</a>
+        <a href="it/" hreflang="it" lang="it" data-lang="it">IT</a>
       </nav>
     </div>
   </header>
 
   <main>
-    <section class="hero" data-mascot="Ciao! Sono Inari Bash 👋">
+    <section class="hero" data-mascot="Hi! I’m Inari Bash 👋">
       <div class="wrap">
-        <p class="eyebrow"><span class="pulse" aria-hidden="true"></span><span id="eyebrow-text">Software libero · GPL-3.0</span></p>
-        <h1>I tuoi quick tunnel di TryCloudflare,<br>in una dashboard sola.</h1>
+        <p class="eyebrow"><span class="pulse" aria-hidden="true"></span><span id="eyebrow-text">Free software · GPL-3.0</span></p>
+        <h1>Your TryCloudflare quick tunnels,<br>in one dashboard.</h1>
         <p class="lead">
-          Esponi un servizio di sviluppo con un clic, tieni d’occhio tutti i tunnel e leggi i loro log in un posto solo.
-          Un unico eseguibile per Linux, macOS e Windows: niente da installare oltre a <code>cloudflared</code>.
+          Expose a dev service in one click, keep an eye on every tunnel and read their logs in one place.
+          A single executable for Linux, macOS and Windows: nothing to install besides <code>cloudflared</code>.
         </p>
         <div class="cta">
-          <a class="btn btn-primary" id="primary-download" href="#download"><svg class="btn-ico" aria-hidden="true"><use href="#i-download"/></svg><span id="primary-label">Scarica trydash</span></a>
-          <a class="btn" href="https://github.com/mikzero/trydash"><svg class="btn-ico" aria-hidden="true"><use href="#i-github"/></svg>Codice su GitHub</a>
+          <a class="btn btn-primary" id="primary-download" href="#download"><svg class="btn-ico" aria-hidden="true"><use href="#i-download"/></svg><span id="primary-label">Download trydash</span></a>
+          <a class="btn" href="https://github.com/mikzero/trydash"><svg class="btn-ico" aria-hidden="true"><use href="#i-github"/></svg>Code on GitHub</a>
         </div>
-        <p class="hint" id="primary-hint">Eseguibili per 5 sistemi, verificabili con <code>SHA256SUMS</code>.</p>
+        <p class="hint" id="primary-hint">Executables for 5 systems, verifiable with <code>SHA256SUMS</code>.</p>
         <figure class="demo-wrap" id="demo">
-          <p class="sr-only">Animazione: si avvia trydash dal terminale, si scrive la porta 3000 e si preme Crea; il tunnel parte, riceve un URL pubblico da copiare e mostra log e traffico.</p>
+          <p class="sr-only">Animation: trydash is started from a terminal, port 3000 is typed and Create is pressed; the tunnel starts, gets a public URL to copy and shows its logs and traffic.</p>
           <div class="demo" aria-hidden="true">
             <div class="d-chrome">
               <span class="d-dots"><i></i><i></i><i></i></span>
@@ -68,27 +85,27 @@
               <aside class="d-side">
                 <div class="d-brand"><img src="images/logo.svg" alt="" width="16" height="16">trydash</div>
                 <div class="d-form">
-                  <div class="d-input"><span class="d-typed" data-el="port"></span><span class="d-caret"></span><span class="d-ph" data-el="ph">Porta o URL</span></div>
-                  <div class="d-create" data-el="create">Crea</div>
+                  <div class="d-input"><span class="d-typed" data-el="port"></span><span class="d-caret"></span><span class="d-ph" data-el="ph">Port or URL</span></div>
+                  <div class="d-create" data-el="create">Create</div>
                 </div>
                 <div class="d-session" data-el="session">
                   <span class="d-dot" data-el="dot"></span>
                   <span class="d-sname">:3000</span>
-                  <span class="d-sstate" data-el="sstate">in avvio</span>
+                  <span class="d-sstate" data-el="sstate">starting</span>
                   <span class="d-bar"><span data-el="bar"></span></span>
                 </div>
               </aside>
               <div class="d-main">
-                <div class="d-empty" data-el="empty"><span>Scrivi una porta e premi <b>Crea</b></span></div>
+                <div class="d-empty" data-el="empty"><span>Type a port and press <b>Create</b></span></div>
                 <div class="d-head" data-el="head">
-                  <span class="d-chip" data-el="chip">IN AVVIO</span>
-                  <span class="d-url" data-el="url">in attesa dell’URL…</span>
-                  <span class="d-copy" data-el="copy">Copia URL</span>
+                  <span class="d-chip" data-el="chip">STARTING</span>
+                  <span class="d-url" data-el="url">waiting for the URL…</span>
+                  <span class="d-copy" data-el="copy">Copy URL</span>
                 </div>
                 <div class="d-stats" data-el="stats">
-                  <div><b data-el="inflight">0</b><small>in corso / 200</small></div>
-                  <div><b data-el="total">0</b><small>richieste</small></div>
-                  <div><b>0</b><small>errori</small></div>
+                  <div><b data-el="inflight">0</b><small>in flight / 200</small></div>
+                  <div><b data-el="total">0</b><small>requests</small></div>
+                  <div><b>0</b><small>errors</small></div>
                   <svg class="d-spark" viewBox="0 0 120 30" preserveAspectRatio="none"><path data-el="spark" pathLength="1" d="M0 26 L10 25 L20 22 L30 24 L40 18 L50 20 L60 12 L70 15 L80 9 L90 13 L100 6 L110 10 L120 4"/></svg>
                 </div>
                 <ol class="d-logs" data-el="logs"></ol>
@@ -98,87 +115,87 @@
               <div class="d-tline"><span class="d-prompt">$</span> <span data-el="cmd"></span><span class="d-caret light"></span></div>
               <div class="d-tline d-tout" data-el="tout">trydash 1.0.0 · <u>http://127.0.0.1:8787</u></div>
             </div>
-            <div class="d-toast" data-el="toast">✓ URL copiato</div>
+            <div class="d-toast" data-el="toast">✓ URL copied</div>
             <svg class="d-cursor" data-el="cursor" viewBox="0 0 16 20"><path d="M1 1l13 10.5-6 .6 3.6 6.4-2.6 1.3-3.5-6.5L1 17z"/></svg>
           </div>
           <figcaption class="d-steps">
-            <button type="button" data-step="0">Avvia trydash</button>
-            <button type="button" data-step="1">Scrivi la porta</button>
-            <button type="button" data-step="2">Condividi l’URL</button>
-            <button type="button" data-step="3">Segui log e traffico</button>
+            <button type="button" data-step="0">Start trydash</button>
+            <button type="button" data-step="1">Type the port</button>
+            <button type="button" data-step="2">Share the URL</button>
+            <button type="button" data-step="3">Follow logs and traffic</button>
           </figcaption>
         </figure>
       </div>
     </section>
 
-    <section class="why" data-mascot="Basta terminali sparsi ovunque!">
+    <section class="why" data-mascot="No more terminals scattered everywhere!">
       <div class="wrap narrow">
-        <h2>Perché</h2>
+        <h2>Why</h2>
         <p>
-          <code>cloudflared tunnel --url http://localhost:3000</code> è comodissimo, ma con due o tre servizi aperti ti ritrovi
-          con più terminali da tenere d’occhio, URL da ricopiare e log difficili da leggere.
-          trydash avvia e gestisce i quick tunnel al posto tuo.
+          <code>cloudflared tunnel --url http://localhost:3000</code> is great, but with two or three services running you end up
+          with several terminals to watch, URLs to copy around and logs that are hard to read.
+          trydash starts and manages quick tunnels for you.
         </p>
       </div>
     </section>
 
-    <section id="funzioni" class="features" data-mascot="Più tunnel, un posto solo. Comodo, no?">
+    <section id="features" class="features" data-mascot="Many tunnels, one place. Handy, right?">
       <div class="wrap">
-        <h2>Funzioni</h2>
+        <h2>Features</h2>
         <div class="grid">
           <article class="card reveal">
             <span class="ico" aria-hidden="true"><svg><use href="#i-tunnels"/></svg></span>
-            <h3>Più tunnel insieme</h3>
-            <p>Ognuno con stato, URL e numero di errori. Per crearne uno basta scrivere la porta: <code>3000</code> diventa <code>http://127.0.0.1:3000</code>.</p>
+            <h3>Many tunnels at once</h3>
+            <p>Each with its status, URL and error count. To create one, just type the port: <code>3000</code> becomes <code>http://127.0.0.1:3000</code>.</p>
           </article>
           <article class="card reveal">
             <span class="ico" aria-hidden="true"><svg><use href="#i-logs"/></svg></span>
-            <h3>Log leggibili</h3>
-            <p>Livelli colorati, filtri, ricerca con evidenziazione, scorrimento continuo e modalità “segui la coda”.</p>
+            <h3>Readable logs</h3>
+            <p>Colored levels, filters, highlighted search, infinite scrolling and a “follow the tail” mode.</p>
           </article>
           <article class="card reveal">
             <span class="ico" aria-hidden="true"><svg><use href="#i-mail"/></svg></span>
-            <h3>Accesso via email</h3>
-            <p>Limita il tunnel a indirizzi precisi o a interi domini (<code>*@azienda.it</code>). Va bene anche un elenco incollato da Outlook.</p>
+            <h3>Email access</h3>
+            <p>Limit a tunnel to specific addresses or whole domains (<code>*@company.com</code>). A list pasted from Outlook works too.</p>
           </article>
           <article class="card reveal">
             <span class="ico" aria-hidden="true"><svg><use href="#i-traffic"/></svg></span>
-            <h3>Traffico in tempo reale</h3>
-            <p>Richieste in corso rispetto al limite di 200, totali, errori, connessioni e un grafico degli ultimi 5 minuti.</p>
+            <h3>Live traffic</h3>
+            <p>Requests in flight against the 200 limit, totals, errors, connections and a chart of the last 5 minutes.</p>
           </article>
           <article class="card reveal">
             <span class="ico" aria-hidden="true"><svg><use href="#i-sliders"/></svg></span>
-            <h3>Opzioni dell’origine</h3>
-            <p>Host header, TLS non verificato per i certificati self-signed, origine HTTP/2. L’anteprima mostra il comando <code>cloudflared</code> equivalente.</p>
+            <h3>Origin options</h3>
+            <p>Host header, unverified TLS for self-signed certificates, HTTP/2 origin. A preview shows the equivalent <code>cloudflared</code> command.</p>
           </article>
           <article class="card reveal">
             <span class="ico" aria-hidden="true"><svg><use href="#i-alert"/></svg></span>
-            <h3>Avvertenze utili</h3>
-            <p>Ti avvisa se la tua origine non risponde, se ti avvicini al limite di richieste e quando un riavvio cambierà l’URL.</p>
+            <h3>Helpful warnings</h3>
+            <p>It tells you when your origin isn’t responding, when you get close to the request limit and when a restart will change the URL.</p>
           </article>
         </div>
         <figure class="shot reveal">
           <picture>
             <source media="(prefers-color-scheme: dark)" srcset="images/screenshot-dark.png">
-            <img src="images/screenshot-light.png" width="1280" height="720" alt="trydash: elenco dei tunnel a sinistra, log del tunnel selezionato al centro, dettaglio di una riga a destra">
+            <img src="images/screenshot-light.png" width="1280" height="720" alt="trydash: the tunnel list on the left, the selected tunnel’s logs in the middle, the details of one line on the right">
           </picture>
         </figure>
-        <p class="also">E poi: prova con Hello World senza un server locale, tunnel fermati ancora consultabili, tema chiaro e scuro, layout per mobile, scorciatoie da tastiera.</p>
+        <p class="also">Plus: a Hello World test without a local server, stopped tunnels you can still read, light and dark themes, a mobile layout and keyboard shortcuts. The interface is in Italian; error messages follow your browser, in English or Italian.</p>
       </div>
     </section>
 
-    <section id="download" class="download" data-mascot="Il file per il tuo computer è già evidenziato.">
+    <section id="download" class="download" data-mascot="The file for your computer is already highlighted.">
       <div class="wrap narrow">
         <h2>Download</h2>
         <ol class="steps">
           <li>
-            <h3>Installa <code>cloudflared</code></h3>
-            <p>Deve essere nel <code>PATH</code>. Segui la <a href="https://developers.cloudflare.com/tunnel/downloads/">guida di Cloudflare</a>; se manca, trydash ti mostra i comandi per il tuo sistema.</p>
+            <h3>Install <code>cloudflared</code></h3>
+            <p>It must be on your <code>PATH</code>. Follow <a href="https://developers.cloudflare.com/tunnel/downloads/">Cloudflare’s guide</a>; if it’s missing, trydash shows you the commands for your system.</p>
           </li>
           <li>
-            <h3>Scarica l’eseguibile</h3>
+            <h3>Download the executable</h3>
             <table class="files">
-              <thead><tr><th scope="col">Sistema</th><th scope="col">File</th></tr></thead>
+              <thead><tr><th scope="col">System</th><th scope="col">File</th></tr></thead>
               <tbody>
                 <tr><td>Linux x64</td><td><a data-suffix="linux-x64" href="https://github.com/mikzero/trydash/releases/download/v1.0.0/trydash-1.0.0-linux-x64"><code>trydash-<span class="v">1.0.0</span>-linux-x64</code></a></td></tr>
                 <tr><td>Linux ARM64</td><td><a data-suffix="linux-arm64" href="https://github.com/mikzero/trydash/releases/download/v1.0.0/trydash-1.0.0-linux-arm64"><code>trydash-<span class="v">1.0.0</span>-linux-arm64</code></a></td></tr>
@@ -187,60 +204,60 @@
                 <tr><td>Windows x64</td><td><a data-suffix="windows-x64.exe" href="https://github.com/mikzero/trydash/releases/download/v1.0.0/trydash-1.0.0-windows-x64.exe"><code>trydash-<span class="v">1.0.0</span>-windows-x64.exe</code></a></td></tr>
               </tbody>
             </table>
-            <p class="small">Controlla il file con <a data-file="SHA256SUMS" href="https://github.com/mikzero/trydash/releases/download/v1.0.0/SHA256SUMS"><code>SHA256SUMS</code></a>: <code>sha256sum -c SHA256SUMS --ignore-missing</code></p>
+            <p class="small">Check the file with <a data-file="SHA256SUMS" href="https://github.com/mikzero/trydash/releases/download/v1.0.0/SHA256SUMS"><code>SHA256SUMS</code></a>: <code>sha256sum -c SHA256SUMS --ignore-missing</code></p>
           </li>
           <li>
-            <h3>Avvialo</h3>
-<pre><code>chmod +x trydash-*-linux-x64     # Linux e macOS
+            <h3>Run it</h3>
+<pre><code>chmod +x trydash-*-linux-x64     # Linux and macOS
 ./trydash-*-linux-x64</code></pre>
-            <p>Apri l’indirizzo stampato, di solito <code>http://127.0.0.1:8787</code>, scrivi la porta del tuo servizio e premi <strong>Crea</strong>. Su Windows basta avviare il file <code>.exe</code>.</p>
-            <p class="small">I binari non sono firmati. Su macOS togli il blocco di Gatekeeper con <code>xattr -d com.apple.quarantine trydash-*</code>; su Windows, se compare SmartScreen, scegli “Ulteriori informazioni” e poi “Esegui comunque”.</p>
+            <p>Open the address it prints, usually <code>http://127.0.0.1:8787</code>, type your service’s port and press <strong>Crea</strong> (“Create”). On Windows, just run the <code>.exe</code> file.</p>
+            <p class="small">The binaries aren’t signed. On macOS, lift the Gatekeeper block with <code>xattr -d com.apple.quarantine trydash-*</code>; on Windows, if SmartScreen shows up, choose “More info” and then “Run anyway”.</p>
           </li>
         </ol>
-        <p class="small">Preferisci partire dai sorgenti? Serve <a href="https://bun.sh">Bun</a> ≥ 1.1: <code>git clone https://github.com/mikzero/trydash.git &amp;&amp; cd trydash &amp;&amp; bun start</code>.</p>
+        <p class="small">Prefer to run from source? You need <a href="https://bun.sh">Bun</a> ≥ 1.1: <code>git clone https://github.com/mikzero/trydash.git &amp;&amp; cd trydash &amp;&amp; bun start</code>.</p>
       </div>
     </section>
 
-    <section class="notes" data-mascot="Ricorda: l’URL cambia a ogni avvio!">
+    <section class="notes" data-mascot="Remember: the URL changes on every start!">
       <div class="wrap two">
         <div>
-          <h2>Cose da sapere sui quick tunnel</h2>
+          <h2>Good to know about quick tunnels</h2>
           <ul>
-            <li>l’URL <code>*.trycloudflare.com</code> è casuale e cambia a ogni avvio;</li>
-            <li>al massimo 200 richieste contemporanee per tunnel, oltre la risposta è <code>429</code>;</li>
-            <li>i Server-Sent Events non sono supportati;</li>
-            <li>nessuna garanzia di uptime: per la produzione serve un Cloudflare Tunnel con nome.</li>
+            <li>the <code>*.trycloudflare.com</code> URL is random and changes on every start;</li>
+            <li>at most 200 concurrent requests per tunnel; beyond that the response is <code>429</code>;</li>
+            <li>Server-Sent Events aren’t supported;</li>
+            <li>no uptime guarantee: for production you need a named Cloudflare Tunnel.</li>
           </ul>
         </div>
         <div>
-          <h2>Sicurezza</h2>
+          <h2>Security</h2>
           <ul>
-            <li>la dashboard ascolta solo su <code>127.0.0.1</code>;</li>
-            <li>le altre pagine aperte nel browser non possono comandarla;</li>
-            <li>niente account, token o credenziali: i log restano in memoria;</li>
-            <li>un tunnel rende pubblico il servizio che esponi: proteggilo con l’accesso via email.</li>
+            <li>the dashboard only listens on <code>127.0.0.1</code>;</li>
+            <li>other pages open in your browser can’t control it;</li>
+            <li>no accounts, tokens or credentials: logs stay in memory;</li>
+            <li>a tunnel makes the service you expose public: protect it with email access.</li>
           </ul>
         </div>
       </div>
     </section>
   </main>
 
-  <footer class="foot" data-mascot="Ciao! Ci vediamo dall’altra parte del tunnel.">
+  <footer class="foot" data-mascot="Bye! See you on the other side of the tunnel.">
     <div class="wrap">
-      <nav class="social" aria-label="Autore">
+      <nav class="social" aria-label="Author">
         <a href="https://x.com/mikvise" rel="me noopener" target="_blank"><svg aria-hidden="true"><use href="#i-x"/></svg>@mikvise</a>
         <a href="https://www.linkedin.com/in/mirkovisentin" rel="me noopener" target="_blank"><svg aria-hidden="true"><use href="#i-linkedin"/></svg>LinkedIn</a>
         <a href="https://fabulab.com/" rel="me noopener" target="_blank"><svg aria-hidden="true"><use href="#i-globe"/></svg>fabulab.com</a>
         <a href="https://github.com/mikzero" rel="me noopener" target="_blank"><svg aria-hidden="true"><use href="#i-github"/></svg>GitHub</a>
       </nav>
-      <p>trydash è software libero, distribuito con licenza <a href="https://github.com/mikzero/trydash/blob/main/LICENSE" target="_blank" rel="noopener">GNU GPL v3.0 o successiva</a>.</p>
-      <p>È un progetto indipendente e non è affiliato a Cloudflare. “Cloudflare” e “TryCloudflare” sono marchi dei rispettivi proprietari.</p>
+      <p>trydash is free software, released under the <a href="https://github.com/mikzero/trydash/blob/main/LICENSE" target="_blank" rel="noopener">GNU GPL v3.0 or later</a>.</p>
+      <p>It’s an independent project and isn’t affiliated with Cloudflare. “Cloudflare” and “TryCloudflare” are trademarks of their respective owners.</p>
     </div>
   </footer>
 
   <div class="mascot" id="mascot">
     <p class="bubble" id="bubble" aria-hidden="true"></p>
-    <button type="button" class="mascot-btn" id="mascot-btn" aria-label="Inari Bash: tocca per un suggerimento">
+    <button type="button" class="mascot-btn" id="mascot-btn" aria-label="Inari Bash: tap for a tip">
       <picture>
         <source type="image/webp" srcset="images/volpina-wave-footer-200-dark.webp 200w, images/volpina-wave-footer-800-dark.webp 800w" sizes="(max-width: 560px) 76px, 120px">
         <img class="volpina" src="images/volpina-wave-footer-200-dark.png" srcset="images/volpina-wave-footer-200-dark.png 200w, images/volpina-wave-footer-800-dark.png 800w" sizes="(max-width: 560px) 76px, 120px" width="120" height="120" alt="">
@@ -248,6 +265,7 @@
     </button>
   </div>
 
+  <script src="i18n.js"></script>
   <script src="detect.js"></script>
   <script src="site.js"></script>
   <script src="demo.js"></script>

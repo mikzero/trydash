@@ -22,7 +22,7 @@
   function line(section) {
     // The download line only holds when detect.js found the visitor's system.
     if (section.id === 'download' && !document.querySelector('.files tr.mine')) {
-      return 'Scegli il file per il tuo sistema qui sotto.';
+      return window.trydashT('pickYourFile');
     }
     return section.dataset.mascot;
   }

@@ -93,6 +93,11 @@ section.hero { border-top: 0; padding-top: 3.5rem; }
 .top-nav { display: flex; gap: 1.25rem; }
 .top-nav a { color: var(--muted); text-decoration: none; font-size: 0.95rem; }
 .top-nav a:hover { color: var(--text); }
+.top-nav { margin-left: auto; }
+.lang-switch { display: flex; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); }
+.lang-switch a { padding: 0.15rem 0.55rem; border-radius: 999px; color: var(--muted); font-size: 0.8rem; font-weight: 700; text-decoration: none; }
+.lang-switch a:hover { color: var(--text); }
+.lang-switch a[aria-current="page"] { background: var(--inv); color: var(--inv-t); }
 
 /* Hero */
 .hero { text-align: center; }

@@ -232,7 +232,7 @@ Segui l’avanzamento in **Actions** su GitHub, oppure con `gh run watch`.
 Quando la release è pubblicata, porta i link diretti del sito alla nuova versione e fai push su `main`: la pagina si ripubblica da sola. Un test controlla che tutti i link usino la stessa versione.
 
 ```sh
-sed -i 's/1\.0\.0/1.1.0/g' site/index.html     # vecchia → nuova versione
+sed -i 's/1\.0\.0/1.1.0/g' site/index.html site/it/index.html   # vecchia → nuova versione
 bun test test/site.test.js
 ```
 
@@ -298,7 +298,7 @@ I tag seguono il [versionamento semantico](https://semver.org/lang/it/), `vMAGGI
 
 ## Sito
 
-La landing page sta in `site/`: HTML, CSS e JavaScript statici, senza build. Il workflow `.github/workflows/pages.yml` la pubblica su GitHub Pages a ogni push su `main` che la tocca. Per vederla basta aprire `site/index.html` nel browser.
+La landing page sta in `site/`: HTML, CSS e JavaScript statici, senza build. È in due lingue: inglese in `site/index.html`, la pagina principale, e italiano in `site/it/index.html`. I testi scritti dagli script stanno in `site/i18n.js`. Un browser in italiano che arriva sulla pagina inglese viene portato su quella italiana, a meno che il visitatore non abbia già scelto una lingua dal selettore EN/IT. Un test controlla che le due pagine abbiano la stessa struttura. Il workflow `.github/workflows/pages.yml` la pubblica su GitHub Pages a ogni push su `main` che la tocca. Per vederla basta aprire `site/index.html` nel browser.
 
 `site/images/logo.svg`, `site/favicon.svg` e `site/favicon.png` sono copie di quelli in `public/`: un test controlla che restino uguali.
 
@@ -314,7 +314,7 @@ src/traffic.js       lettura periodica delle metriche di cloudflared
 src/load-dashboard.js carica le librerie condivise nel server
 scripts/build.js     build degli eseguibili autonomi
 scripts/release-notes.js bozza delle note di release dai commit
-site/                landing page (GitHub Pages), con logo e screenshot usati anche qui
+site/                landing page (GitHub Pages) in inglese, site/it/ in italiano
 .github/workflows/   release automatica sui tag v* e pubblicazione del sito
 public/js/           librerie condivise (parse, sessions, window, i18n…) e interfaccia
 public/css/app.css   tema "Paper" chiaro/scuro
