@@ -5,247 +5,253 @@
 <h1 align="center">trydash</h1>
 
 <p align="center">
-  Dashboard locale per i quick tunnel di <a href="https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/">TryCloudflare</a>.<br>
-  Esponi un servizio di sviluppo con un clic, tieni d’occhio tutti i tunnel e leggi i loro log in un posto solo.
+  A local dashboard for <a href="https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/">TryCloudflare</a> quick tunnels.<br>
+  Expose a dev service in one click, keep an eye on every tunnel and read their logs in one place.
+</p>
+
+<p align="center">
+  <b>English</b> · <a href="README.it.md">Italiano</a> · <a href="https://mikzero.github.io/trydash/">Website</a>
 </p>
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="site/images/screenshot-dark.png">
-    <img src="site/images/screenshot-light.png" alt="trydash: elenco dei tunnel a sinistra, log del tunnel selezionato al centro, dettaglio di una riga a destra" width="880">
+    <img src="site/images/screenshot-light.png" alt="trydash: the tunnel list on the left, the selected tunnel’s logs in the middle, the details of one line on the right" width="880">
   </picture>
 </p>
 
 ---
 
-## Perché
+## Why
 
-`cloudflared tunnel --url http://localhost:3000` è comodissimo, ma con due o tre servizi aperti ti ritrovi con più terminali da tenere d’occhio, URL da ricopiare e log difficili da leggere. trydash avvia e gestisce i quick tunnel al posto tuo:
+`cloudflared tunnel --url http://localhost:3000` is great, but with two or three services running you end up with several terminals to watch, URLs to copy around and logs that are hard to read. trydash starts and manages quick tunnels for you:
 
-- **più tunnel insieme**, ciascuno con stato (in avvio, attivo, fermato, terminato), URL e numero di errori;
-- **un clic** per creare, fermare, riavviare o rimuovere un tunnel. Per crearne uno basta scrivere la porta: `3000` diventa `http://127.0.0.1:3000`;
-- **log leggibili**: livelli colorati, filtri, ricerca con evidenziazione, scorrimento continuo e modalità “segui la coda”;
-- **i tunnel fermati restano consultabili**: puoi rileggerne i log e riavviarli. L’URL cambia a ogni avvio, ed è un limite dei quick tunnel;
-- tema **chiaro e scuro**, layout per **mobile**, scorciatoie da tastiera.
+- **many tunnels at once**, each with its status (starting, live, stopped, exited), URL and error count;
+- **one click** to create, stop, restart or remove a tunnel. To create one, just type the port: `3000` becomes `http://127.0.0.1:3000`;
+- **readable logs**: colored levels, filters, highlighted search, infinite scrolling and a “follow the tail” mode;
+- **stopped tunnels stay readable**: you can go back to their logs and restart them. The URL changes on every start, which is a limit of quick tunnels;
+- **light and dark** themes, a **mobile** layout, keyboard shortcuts.
 
-## Funzioni
+The interface is in Italian. Error messages are in English or Italian, following your browser (see [Error language](#error-language)). Below, Italian labels are followed by their translation.
 
-### Accesso via email
+## Features
 
-Apri **Accesso via email** nel modulo di creazione e scrivi gli indirizzi autorizzati: `mario@cliente.it` per una persona, `*@azienda.it` per tutto un dominio. Si separano con virgola, punto e virgola, spazio o a capo. Va bene anche un elenco incollato da Outlook con i nomi (`Mario Rossi <mario@cliente.it>; …`): trydash tiene solo gli indirizzi. Al massimo 20 voci.
+### Email access
 
-trydash avvia il tunnel con `--allowed-mail` e lo segna con 🔒 nella sidebar. Chi apre l’URL deve prima fare l’accesso con uno degli indirizzi autorizzati.
+Open **Accesso via email** (“Email access”) in the create form and type the allowed addresses: `mario@client.com` for one person, `*@company.com` for a whole domain. Separate them with commas, semicolons, spaces or new lines. A list pasted from Outlook with names (`Mario Rossi <mario@client.com>; …`) works too: trydash keeps only the addresses. At most 20 entries.
 
-Gli ultimi indirizzi usati compaiono come suggerimenti cliccabili (“recenti”). Restano solo nel tuo browser (`localStorage`), mai sul server.
+trydash starts the tunnel with `--allowed-mail` and marks it with 🔒 in the sidebar. Whoever opens the URL must first sign in with one of the allowed addresses.
 
-### Traffico
+The last addresses you used show up as clickable suggestions (“recenti”, recent). They stay in your browser only (`localStorage`), never on the server.
 
-trydash avvia ogni tunnel con `--metrics` e ogni 2 secondi legge le metriche di `cloudflared`:
+### Traffic
 
-- **nella sidebar**, una barra delle richieste in corso rispetto al limite di 200: arancione da 150, rossa a 200;
-- **nell’intestazione del tunnel**, le richieste in corso, il totale delle richieste, gli errori, le connessioni verso Cloudflare e un piccolo grafico degli ultimi 5 minuti.
+trydash starts every tunnel with `--metrics` and reads the `cloudflared` metrics every 2 seconds:
 
-Se le metriche non rispondono, i numeri diventano grigi con “dati non aggiornati”. Quando il tunnel è fermo restano i totali finali.
+- **in the sidebar**, a bar of the requests in flight against the 200 limit: orange from 150, red at 200;
+- **in the tunnel header**, the requests in flight, the total requests, errors, connections to Cloudflare and a small chart of the last 5 minutes.
 
-### Opzioni dell’origine
+If the metrics stop answering, the numbers turn grey with “dati non aggiornati” (stale data). When the tunnel is stopped, the final totals stay.
 
-Sotto **Opzioni origine**:
+### Origin options
 
-- **Host header**, cioè `--http-host-header`, per i server che rispondono solo a un nome host preciso;
-- **Non verificare TLS**, cioè `--no-tls-verify`, per un’origine https con un certificato self-signed;
-- **Origine HTTP/2**, cioè `--http2-origin`.
+Under **Opzioni origine** (“Origin options”):
 
-Email e opzioni restano uguali quando riavvii il tunnel. L’anteprima sotto il campo mostra il comando `cloudflared` equivalente. Si può copiare così com’è: le voci con `*` sono già tra apici.
+- **Host header**, that is `--http-host-header`, for servers that only answer to a specific host name;
+- **Non verificare TLS** (“Don’t verify TLS”), that is `--no-tls-verify`, for an https origin with a self-signed certificate;
+- **Origine HTTP/2** (“HTTP/2 origin”), that is `--http2-origin`.
 
-### Prova con Hello World
+Email and options stay the same when you restart the tunnel. The preview under the field shows the equivalent `cloudflared` command. You can copy it as is: entries with `*` are already quoted.
 
-Il pulsante avvia `cloudflared tunnel --hello-world`, che serve una pagina di prova. Ti fa verificare che `cloudflared` e la rete funzionino anche senza un server locale.
+### Try with Hello World
 
-### Avvertenze
+The **Prova con Hello World** button runs `cloudflared tunnel --hello-world`, which serves a test page. It lets you check that `cloudflared` and the network work, even without a local server.
 
-| Quando | Cosa vedi |
+### Warnings
+
+| When | What you see |
 |---|---|
-| l’origine non risponde (negli ultimi 60 s) | banner “Il tuo server su :3000 non risponde — è avviato?” con **Riavvia** e **Prova con Hello World** |
-| 150 o più richieste in corso | banner sul limite di 200: le richieste in più ricevono `429` |
-| `--no-tls-verify` attivo | etichetta “Certificato dell’origine non verificato” e ⚠ nella sidebar |
-| tunnel protetto | etichetta con gli indirizzi autorizzati e 🔒 nella sidebar |
-| Riavvia | il primo clic mostra “Nuovo URL — conferma”: un quick tunnel riavviato cambia URL |
-| sempre, nel modulo | “Solo per prove · niente SSE · nessuna garanzia di uptime” |
+| the origin doesn’t answer (in the last 60 s) | a “Il tuo server su :3000 non risponde — è avviato?” banner (“Your server on :3000 isn’t responding — is it running?”) with **Riavvia** (Restart) and **Prova con Hello World** |
+| 150 or more requests in flight | a banner about the 200 limit: extra requests get `429` |
+| `--no-tls-verify` on | a “Certificato dell’origine non verificato” label (origin certificate not verified) and ⚠ in the sidebar |
+| protected tunnel | a label with the allowed addresses and 🔒 in the sidebar |
+| Restart | the first click shows “Nuovo URL — conferma” (New URL — confirm): a restarted quick tunnel changes URL |
+| always, in the form | “Solo per prove · niente SSE · nessuna garanzia di uptime” (testing only · no SSE · no uptime guarantee) |
 
-### Lingua degli errori
+### Error language
 
-I messaggi d’errore sono in italiano o in inglese, secondo la lingua del browser. Valgono anche per le risposte dell’API: il server legge l’header `Accept-Language`. Il resto dell’interfaccia è in italiano. I testi stanno in `public/js/i18n-it.js` e `public/js/i18n-en.js`.
+Error messages are in English or Italian, following the browser language. This also applies to API responses: the server reads the `Accept-Language` header. The rest of the interface is in Italian. The texts live in `public/js/i18n-en.js` and `public/js/i18n-it.js`.
 
-## Installazione
+## Installation
 
-Il modo più semplice è l’eseguibile già pronto: un unico file, senza Bun né altre dipendenze. Serve solo [`cloudflared`](https://developers.cloudflare.com/tunnel/downloads/) nel `PATH`. Se manca, la dashboard mostra i comandi per installarlo.
+The easiest way is the ready-made executable: a single file, without Bun or any other dependency. You only need [`cloudflared`](https://developers.cloudflare.com/tunnel/downloads/) on your `PATH`. If it’s missing, the dashboard shows the commands to install it.
 
-1. Dalla pagina **Releases** del repository scarica il file per il tuo sistema:
+1. From the repository’s **Releases** page, or from the [website](https://mikzero.github.io/trydash/#download), download the file for your system:
 
-   | Sistema | File |
+   | System | File |
    |---|---|
-   | Linux x64 | `trydash-<versione>-linux-x64` |
-   | Linux ARM64 | `trydash-<versione>-linux-arm64` |
-   | macOS Apple Silicon | `trydash-<versione>-darwin-arm64` |
-   | macOS Intel | `trydash-<versione>-darwin-x64` |
-   | Windows x64 | `trydash-<versione>-windows-x64.exe` |
+   | Linux x64 | `trydash-<version>-linux-x64` |
+   | Linux ARM64 | `trydash-<version>-linux-arm64` |
+   | macOS Apple Silicon | `trydash-<version>-darwin-arm64` |
+   | macOS Intel | `trydash-<version>-darwin-x64` |
+   | Windows x64 | `trydash-<version>-windows-x64.exe` |
 
-2. Facoltativo: controlla il file con `SHA256SUMS`, pubblicato nella stessa release:
+2. Optional: check the file with `SHA256SUMS`, published in the same release:
 
    ```sh
    sha256sum -c SHA256SUMS --ignore-missing
    ```
 
-3. Avvialo:
+3. Run it:
 
    ```sh
-   chmod +x trydash-1.0.0-linux-x64          # Linux e macOS
-   xattr -d com.apple.quarantine trydash-1.0.0-darwin-arm64   # solo macOS, vedi sotto
+   chmod +x trydash-1.0.0-linux-x64          # Linux and macOS
+   xattr -d com.apple.quarantine trydash-1.0.0-darwin-arm64   # macOS only, see below
    ./trydash-1.0.0-linux-x64
    ```
 
-   Su Windows basta avviare il file `.exe`, da un terminale o con doppio clic.
+   On Windows, just run the `.exe` file, from a terminal or with a double click.
 
-`./trydash-… --version` stampa la versione. Le [variabili d’ambiente](#variabili-dambiente) sono le stesse dell’avvio da sorgente.
+`./trydash-… --version` prints the version. The [environment variables](#environment-variables) are the same as when running from source.
 
-**macOS e Windows avvisano** perché i binari non sono firmati. Su macOS il comando `xattr` toglie il blocco di Gatekeeper sul file scaricato. Su Windows, se compare SmartScreen, scegli “Ulteriori informazioni” e poi “Esegui comunque”.
+**macOS and Windows show a warning** because the binaries aren’t signed. On macOS, the `xattr` command lifts the Gatekeeper block on the downloaded file. On Windows, if SmartScreen shows up, choose “More info” and then “Run anyway”.
 
-## Requisiti per lo sviluppo
+## Development requirements
 
 - [Bun](https://bun.sh) ≥ 1.1
-- [`cloudflared`](https://developers.cloudflare.com/tunnel/downloads/) nel `PATH`
+- [`cloudflared`](https://developers.cloudflare.com/tunnel/downloads/) on your `PATH`
 
-Nessuna dipendenza npm.
+No npm dependencies.
 
-## Avvio da sorgente
+## Running from source
 
 ```sh
 git clone https://github.com/mikzero/trydash.git
 cd trydash
-bun start            # oppure: bun server.js
+bun start            # or: bun server.js
 ```
 
-Apri l’indirizzo stampato, di solito <http://127.0.0.1:8787>, scrivi la porta del tuo servizio e premi **Crea**.
+Open the printed address, usually <http://127.0.0.1:8787>, type your service’s port and press **Crea** (Create).
 
-### Variabili d’ambiente
+### Environment variables
 
-| Variabile | Default | A cosa serve |
+| Variable | Default | What it does |
 |---|---|---|
-| `PORT` | `8787` | Porta della dashboard, che ascolta solo su `127.0.0.1`. |
-| `DASHBOARD_SEED` | — | Con `1` carica una sessione d’esempio dai log in `test/fixtures/`. Utile per provare l’interfaccia senza aprire tunnel. |
-| `DASHBOARD_PROBE` | `auto` | `present` o `missing` simulano la presenza o l’assenza di `cloudflared`, senza eseguirlo. |
-| `DASHBOARD_PROBE_VERSION` | — | Testo della versione mostrato quando `DASHBOARD_PROBE=present`. |
+| `PORT` | `8787` | Port of the dashboard, which only listens on `127.0.0.1`. |
+| `DASHBOARD_SEED` | — | With `1`, loads a sample session from the logs in `test/fixtures/`. Handy to try the interface without opening tunnels. |
+| `DASHBOARD_PROBE` | `auto` | `present` or `missing` pretend that `cloudflared` is there or not, without running it. |
+| `DASHBOARD_PROBE_VERSION` | — | Version text shown when `DASHBOARD_PROBE=present`. |
 
-Per provare la dashboard senza toccare la rete:
+To try the dashboard without touching the network:
 
 ```sh
 DASHBOARD_SEED=1 DASHBOARD_PROBE=present bun server.js
 ```
 
-## Scorciatoie
+## Shortcuts
 
-| Tasto | Azione |
+| Key | Action |
 |---|---|
-| `j` / `↓` | riga successiva |
-| `k` / `↑` | riga precedente |
-| `/` | cerca nei log |
-| `Esc` | svuota la ricerca, chiude il dettaglio o il menu |
+| `j` / `↓` | next line |
+| `k` / `↑` | previous line |
+| `/` | search the logs |
+| `Esc` | clear the search, close the details or the menu |
 
-## Cose da sapere sui quick tunnel
+## Good to know about quick tunnels
 
-I quick tunnel sono pensati per **test e sviluppo**. Dalla [documentazione Cloudflare](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/):
+Quick tunnels are meant for **testing and development**. From the [Cloudflare documentation](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/):
 
-- l’URL `*.trycloudflare.com` è casuale e **cambia a ogni avvio**;
-- al massimo **200 richieste contemporanee** per tunnel; oltre, la risposta è `429`;
-- i **Server-Sent Events** non sono supportati;
-- **nessuna garanzia di uptime**. Per la produzione serve un Cloudflare Tunnel con nome.
+- the `*.trycloudflare.com` URL is random and **changes on every start**;
+- at most **200 concurrent requests** per tunnel; beyond that, the response is `429`;
+- **Server-Sent Events** aren’t supported;
+- **no uptime guarantee**. For production you need a named Cloudflare Tunnel.
 
-## Sicurezza
+## Security
 
-- La dashboard ascolta solo su `127.0.0.1`, quindi non è raggiungibile da altre macchine.
-- Le altre pagine aperte nel browser non possono comandarla. Le richieste con un `Host` diverso da `127.0.0.1`/`localhost` vengono rifiutate, e questo blocca il DNS rebinding. Lo stesso vale per le richieste di modifica (`POST`, `DELETE`) con un `Origin` di un altro sito. Gli script locali senza `Origin`, come `curl`, continuano a funzionare.
-- **Un tunnel rende pubblico il servizio che esponi**: chiunque abbia l’URL può raggiungerlo. Per limitarlo a persone precise usa l’accesso via email. Comunque non esporre servizi con dati reali o pannelli di amministrazione senza protezione.
-- trydash non chiede né salva credenziali, token o account. I log restano in memoria e spariscono quando chiudi il server.
-- Le origini con credenziali nell’URL (`http://user:pass@…`) vengono rifiutate.
+- The dashboard only listens on `127.0.0.1`, so other machines can’t reach it.
+- Other pages open in your browser can’t control it. Requests with a `Host` other than `127.0.0.1`/`localhost` are refused, which blocks DNS rebinding. The same goes for changing requests (`POST`, `DELETE`) with an `Origin` from another site. Local scripts without an `Origin`, like `curl`, keep working.
+- **A tunnel makes the service you expose public**: anyone with the URL can reach it. To limit it to specific people, use email access. Either way, don’t expose services with real data or admin panels without protection.
+- trydash doesn’t ask for or store credentials, tokens or accounts. Logs stay in memory and disappear when you close the server.
+- Origins with credentials in the URL (`http://user:pass@…`) are refused.
 
 ## API
 
-Il frontend usa una piccola API JSON, utile anche per script:
+The frontend uses a small JSON API, also handy for scripts:
 
-| Metodo | Percorso | Descrizione |
+| Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/state` | stato di `cloudflared` e di tutte le sessioni |
-| `GET` | `/api/probe?fresh=1` | ricontrolla `cloudflared` |
-| `POST` | `/api/sessions` | crea un tunnel, body `{ "origin": "3000", "options": { … } }` (vedi sotto) |
-| `POST` | `/api/sessions/:id/stop` | ferma il tunnel |
-| `POST` | `/api/sessions/:id/restart` | riavvia un tunnel fermato o terminato |
-| `DELETE` | `/api/sessions/:id` | ferma e rimuove la sessione |
-| `GET` | `/api/sessions/:id/logs?offset=&limit=&levels=error,warn&q=testo` | pagina di log, filtrata (massimo 200 righe) |
-| `GET` | `/api/sessions/:id/entries/:index` | una singola riga di log |
+| `GET` | `/api/state` | state of `cloudflared` and of every session |
+| `GET` | `/api/probe?fresh=1` | check `cloudflared` again |
+| `POST` | `/api/sessions` | create a tunnel, body `{ "origin": "3000", "options": { … } }` (see below) |
+| `POST` | `/api/sessions/:id/stop` | stop the tunnel |
+| `POST` | `/api/sessions/:id/restart` | restart a stopped or exited tunnel |
+| `DELETE` | `/api/sessions/:id` | stop and remove the session |
+| `GET` | `/api/sessions/:id/logs?offset=&limit=&levels=error,warn&q=text` | a page of logs, filtered (at most 200 lines) |
+| `GET` | `/api/sessions/:id/entries/:index` | a single log line |
 
-`options` è facoltativo:
+`options` is optional:
 
 ```json
 {
   "mode": "origin",
-  "allowedMail": "mario@cliente.it, *@azienda.it",
+  "allowedMail": "mario@client.com, *@company.com",
   "hostHeader": "app.local",
   "noTlsVerify": false,
   "http2Origin": false
 }
 ```
 
-Con `"mode": "hello"` l’origine viene ignorata e il tunnel serve la pagina Hello World. Le risposte d’errore hanno la forma `{ "error": "…", "key": "options.mailInvalid", "params": { … } }`.
+With `"mode": "hello"` the origin is ignored and the tunnel serves the Hello World page. Error responses look like `{ "error": "…", "key": "options.mailInvalid", "params": { … } }`.
 
-## Build locale
+## Local build
 
 ```sh
-bun run build                                 # eseguibile per il sistema corrente, in dist/
-bun run build -- --all --version 1.0.0        # tutti e 5 i sistemi
-bun run build -- --target bun-linux-arm64     # un sistema preciso
+bun run build                                 # executable for the current system, in dist/
+bun run build -- --all --version 1.0.0        # all 5 systems
+bun run build -- --target bun-linux-arm64     # one specific system
 ```
 
-La build genera `build/entry.js`, che incorpora tutti i file di `public/`, e lo compila con `bun build --compile`. In `dist/` finiscono gli eseguibili e `SHA256SUMS`. Ogni eseguibile pesa circa 85 MB, perché contiene il runtime di Bun. `build/` e `dist/` sono ignorate da git.
+The build generates `build/entry.js`, which embeds every file in `public/`, and compiles it with `bun build --compile`. The executables and `SHA256SUMS` end up in `dist/`. Each executable is about 85 MB, because it contains the Bun runtime. `build/` and `dist/` are ignored by git.
 
-## Rilasciare una versione
+## Releasing a version
 
-Le release partono da un **tag git**. Il workflow `.github/workflows/release.yml` si attiva sui tag che iniziano con `v` ed esegue, nell’ordine:
+Releases start from a **git tag**. The `.github/workflows/release.yml` workflow runs on tags that start with `v` and does, in order:
 
-1. i test (`bun test`);
-2. la build dei 5 eseguibili, con la versione presa dal tag;
-3. uno smoke test dell’eseguibile Linux: `--version`, avvio, risposta di `/` e `/api/state`;
-4. la pubblicazione della Release su GitHub, con eseguibili, `SHA256SUMS` e il **messaggio del tag come note**.
+1. the tests (`bun test`);
+2. the build of the 5 executables, with the version taken from the tag;
+3. a smoke test of the Linux executable: `--version`, start-up, answers from `/` and `/api/state`;
+4. the GitHub Release, with the executables, `SHA256SUMS` and the **tag message as notes**.
 
-Se un passo fallisce, la release non viene creata.
+If a step fails, no release is created.
 
 ```sh
 git checkout main && git pull
-bun test                                          # verifica locale
-bun scripts/release-notes.js v1.1.0               # bozza in release-notes.md
-# rileggi e ritocca release-notes.md
+bun test                                          # local check
+bun scripts/release-notes.js v1.1.0               # draft in release-notes.md
+# read and polish release-notes.md
 git tag -a v1.1.0 -F release-notes.md --cleanup=verbatim
-git push origin v1.1.0                            # avvia il workflow
+git push origin v1.1.0                            # starts the workflow
 ```
 
-Segui l’avanzamento in **Actions** su GitHub, oppure con `gh run watch`.
+Follow the progress in **Actions** on GitHub, or with `gh run watch`.
 
-Quando la release è pubblicata, porta i link diretti del sito alla nuova versione e fai push su `main`: la pagina si ripubblica da sola. Un test controlla che tutti i link usino la stessa versione.
+Once the release is out, move the website’s direct links to the new version and push to `main`: the site republishes itself. A test checks that every link uses the same version.
 
 ```sh
-sed -i 's/1\.0\.0/1.1.0/g' site/index.html site/it/index.html   # vecchia → nuova versione
+sed -i 's/1\.0\.0/1.1.0/g' site/index.html site/it/index.html   # old → new version
 bun test test/site.test.js
 ```
 
-### Le note della release (messaggio del tag)
+### Release notes (the tag message)
 
-Il messaggio del tag annotato diventa il testo della Release. È Markdown e si scrive **in inglese**, come il sito principale:
+The annotated tag message becomes the text of the Release. It’s Markdown, written **in English**:
 
 ```markdown
-trydash 1.1.0                      ← prima riga: titolo della Release
+trydash 1.1.0                      ← first line: Release title
 
 One or two sentences on what this version brings.
 
-## ⚠️ Breaking changes             ← solo se ce ne sono (versione MAGGIORE)
+## ⚠️ Breaking changes             ← only if there are any (MAJOR version)
 - …
 
 ## ✨ New
@@ -254,85 +260,85 @@ One or two sentences on what this version brings.
 ## 🐛 Fixes
 - **server**: …
 
-## 🔒 Security                      ← facoltativa
+## 🔒 Security                      ← optional
 - …
 
 ## 🧰 Maintenance                   ← ci, docs, test, refactor
 - …
 ```
 
-GitHub aggiunge in fondo il link **Full Changelog** con il confronto rispetto alla versione precedente.
+GitHub appends a **Full Changelog** link comparing with the previous version.
 
-`scripts/release-notes.js` prepara la bozza dai commit successivi all’ultimo tag. Si basa su [Conventional Commits](https://www.conventionalcommits.org/it/), lo stile dei messaggi di commit del progetto:
+`scripts/release-notes.js` drafts the notes from the commits since the last tag. It relies on [Conventional Commits](https://www.conventionalcommits.org/en/), the commit message style of the project:
 
-| Commit | Sezione |
+| Commit | Section |
 |---|---|
 | `feat(ui): …` | New |
 | `fix(server): …` | Fixes |
 | `feat!: …` | Breaking changes |
-| `ci:`, `docs:`, `test:`, `refactor:`, altri | Maintenance |
+| `ci:`, `docs:`, `test:`, `refactor:`, others | Maintenance |
 
-La bozza è un punto di partenza. Riscrivi le voci in inglese per chi usa trydash, non per chi legge il codice, e aggiungi la sezione Security quando serve.
+The draft is a starting point. Rewrite the entries for people who use trydash, not for people who read the code, and add a Security section when needed.
 
-Due avvertenze sul comando `git tag`:
-- **`--cleanup=verbatim` è necessario.** Senza, git tratta le righe che iniziano con `#` come commenti e cancella i titoli Markdown.
-- **Un tag senza messaggio** (`git tag v1.1.0`) pubblica comunque la Release, ma solo con le note automatiche di GitHub.
+Two things to know about the `git tag` command:
+- **`--cleanup=verbatim` is required.** Without it, git treats lines starting with `#` as comments and drops the Markdown headings.
+- **A tag without a message** (`git tag v1.1.0`) still publishes the Release, but only with GitHub’s automatic notes.
 
-Per vedere il messaggio di un tag: `git tag -l --format='%(contents)' v1.0.0`.
+To read a tag’s message: `git tag -l --format='%(contents)' v1.0.0`.
 
-### Come scegliere il numero di versione
+### Picking the version number
 
-I tag seguono il [versionamento semantico](https://semver.org/lang/it/), `vMAGGIORE.MINORE.PATCH`:
+Tags follow [semantic versioning](https://semver.org/), `vMAJOR.MINOR.PATCH`:
 
-| Cambia | Quando | Esempio |
+| Bump | When | Example |
 |---|---|---|
-| **PATCH** | correzioni che non cambiano il comportamento previsto | `v1.0.0` → `v1.0.1` |
-| **MINORE** | funzioni nuove compatibili con le precedenti | `v1.0.1` → `v1.1.0` |
-| **MAGGIORE** | cambiamenti incompatibili (API, variabili d’ambiente, comportamento) | `v1.4.2` → `v2.0.0` |
+| **PATCH** | fixes that don’t change the expected behavior | `v1.0.0` → `v1.0.1` |
+| **MINOR** | new features, backward compatible | `v1.0.1` → `v1.1.0` |
+| **MAJOR** | breaking changes (API, environment variables, behavior) | `v1.4.2` → `v2.0.0` |
 
-- **Pre-release:** un tag con un trattino, come `v1.1.0-rc.1` o `v2.0.0-beta.2`, crea una release segnata come *pre-release*, che GitHub non mostra come “ultima versione”. Serve a provare una versione prima di pubblicarla davvero.
-- **Tag annotati** (`git tag -a`): registrano autore, data e messaggio. Sono quelli giusti per le release.
-- **Tagga solo `main`**, dopo che i test sono verdi.
-- **Non spostare né riusare un tag già pubblicato.** Chi ha scaricato `v1.0.0` deve poter contare sul fatto che resti identica. Se una release ha un errore, pubblica la successiva (`v1.0.1`). Se il workflow è fallito prima di pubblicare, puoi cancellare il tag (`git push origin :refs/tags/v1.0.0` e `git tag -d v1.0.0`), correggere e ricrearlo.
-- **Elenco delle versioni:** `git tag --sort=-v:refname`, oppure `gh release list`.
+- **Pre-releases:** a tag with a hyphen, like `v1.1.0-rc.1` or `v2.0.0-beta.2`, creates a release marked as *pre-release*, which GitHub doesn’t show as the “latest”. Use it to try a version before publishing it for real.
+- **Annotated tags** (`git tag -a`) record author, date and message. They’re the right ones for releases.
+- **Only tag `main`**, after the tests are green.
+- **Don’t move or reuse a published tag.** Whoever downloaded `v1.0.0` must be able to count on it staying the same. If a release has a bug, publish the next one (`v1.0.1`). If the workflow failed before publishing, you can delete the tag (`git push origin :refs/tags/v1.0.0` and `git tag -d v1.0.0`), fix things and create it again.
+- **List of versions:** `git tag --sort=-v:refname`, or `gh release list`.
 
-## Sito
+## Website
 
-La landing page sta in `site/`: HTML, CSS e JavaScript statici, senza build. È in due lingue: inglese in `site/index.html`, la pagina principale, e italiano in `site/it/index.html`. I testi scritti dagli script stanno in `site/i18n.js`. Un browser in italiano che arriva sulla pagina inglese viene portato su quella italiana, a meno che il visitatore non abbia già scelto una lingua dal selettore EN/IT. Un test controlla che le due pagine abbiano la stessa struttura. Il workflow `.github/workflows/pages.yml` la pubblica su GitHub Pages a ogni push su `main` che la tocca. Per vederla basta aprire `site/index.html` nel browser.
+The landing page lives in `site/`: static HTML, CSS and JavaScript, no build. It comes in two languages: English in `site/index.html`, the main page, and Italian in `site/it/index.html`. The texts written by the scripts live in `site/i18n.js`. An Italian browser landing on the English page is sent to the Italian one, unless the visitor already picked a language from the EN/IT switch. A test checks that both pages have the same structure. The `.github/workflows/pages.yml` workflow publishes it to GitHub Pages on every push to `main` that touches it. To look at it, just open `site/index.html` in a browser.
 
-`site/images/logo.svg`, `site/favicon.svg` e `site/favicon.png` sono copie di quelli in `public/`: un test controlla che restino uguali.
+`site/images/logo.svg`, `site/favicon.svg` and `site/favicon.png` are copies of the ones in `public/`: a test checks they stay the same.
 
-I link di download sono link diretti ai file della release, scritti in `site/index.html`, e funzionano anche senza JavaScript. Il pulsante principale propone il file per il sistema di chi visita. Se l’API di GitHub segnala una release più recente, la pagina aggiorna da sola i link.
+The download links are direct links to the release files, written in the HTML, and they work without JavaScript too. The main button suggests the file for the visitor’s system. If the GitHub API reports a newer release, the page updates the links by itself.
 
-## Struttura
+## Layout
 
 ```
-server.js            server HTTP e API (Bun, solo moduli node:*)
-src/assets.js        lettura dei file del progetto (dal disco o incorporati nel binario)
-src/runtime.js       avvio/arresto di cloudflared e lettura dello stream
-src/traffic.js       lettura periodica delle metriche di cloudflared
-src/load-dashboard.js carica le librerie condivise nel server
-scripts/build.js     build degli eseguibili autonomi
-scripts/release-notes.js bozza delle note di release dai commit
-site/                landing page (GitHub Pages) in inglese, site/it/ in italiano
-.github/workflows/   release automatica sui tag v* e pubblicazione del sito
-public/js/           librerie condivise (parse, sessions, window, i18n…) e interfaccia
-public/css/app.css   tema "Paper" chiaro/scuro
-test/                test con bun test
+server.js            HTTP server and API (Bun, node:* modules only)
+src/assets.js        reads project files (from disk or embedded in the binary)
+src/runtime.js       starts/stops cloudflared and reads its stream
+src/traffic.js       polls the cloudflared metrics
+src/load-dashboard.js loads the shared libraries in the server
+scripts/build.js     builds the standalone executables
+scripts/release-notes.js drafts release notes from the commits
+site/                landing page (GitHub Pages) in English, site/it/ in Italian
+.github/workflows/   automatic release on v* tags and website publishing
+public/js/           shared libraries (parse, sessions, window, i18n…) and the interface
+public/css/app.css   light/dark "Paper" theme
+test/                tests with bun test
 ```
 
-## Test
+## Tests
 
 ```sh
 bun test
 ```
 
-I test usano processi finti e non avviano mai `cloudflared`. Il test della build compila un eseguibile per il sistema corrente e lo avvia da un’altra cartella: ci vogliono un paio di secondi.
+The tests use fake processes and never start `cloudflared`. The build test compiles an executable for the current system and runs it from another folder: it takes a couple of seconds.
 
-## Licenza
+## License
 
-trydash è software libero, distribuito con licenza [GNU GPL v3.0 o successiva](LICENSE).
+trydash is free software, released under the [GNU GPL v3.0 or later](LICENSE).
 
 ---
 
-trydash è un progetto indipendente e non è affiliato a Cloudflare. “Cloudflare” e “TryCloudflare” sono marchi dei rispettivi proprietari.
+trydash is an independent project and isn’t affiliated with Cloudflare. “Cloudflare” and “TryCloudflare” are trademarks of their respective owners.

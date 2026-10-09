@@ -1,6 +1,6 @@
 {
   "name": "trydash",
-  "description": "Dashboard locale per i quick tunnel di TryCloudflare",
+  "description": "A local dashboard for TryCloudflare quick tunnels",
   "license": "GPL-3.0-or-later",
   "repository": {
     "type": "git",
