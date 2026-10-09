@@ -2,6 +2,15 @@
 <html lang="it">
 <head>
   <script>document.documentElement.classList.add('js')</script>
+  <script>
+    // Browser not in Italian: open the English page, unless a language was picked from the EN/IT switch.
+    try {
+      var lang = (navigator.languages && navigator.languages[0]) || navigator.language || '';
+      if (!localStorage.getItem('trydash-lang') && lang && !/^it\b/i.test(lang)) {
+        location.replace('../' + (location.protocol === 'file:' ? 'index.html' : '') + location.hash);
+      }
+    } catch (e) {}
+  </script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">

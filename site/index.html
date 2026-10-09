@@ -3,7 +3,7 @@
 <head>
   <script>document.documentElement.classList.add('js')</script>
   <script>
-    // First visit with an Italian browser: open the Italian page, unless a language was picked.
+    // Italian browser: open the Italian page, unless a language was picked from the EN/IT switch.
     try {
       var lang = (navigator.languages && navigator.languages[0]) || navigator.language || '';
       if (!localStorage.getItem('trydash-lang') && /^it\b/i.test(lang)) {

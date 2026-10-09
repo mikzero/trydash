@@ -92,8 +92,8 @@
     reveals.forEach(function (node) { node.classList.add('in'); });
   }
 
-  // Remember the language picked in the header, so the English page stops
-  // sending Italian browsers to it/ (see the script in the <head> of index.html).
+  // Remember the language picked in the header: from then on the pages stop
+  // following the browser language (see the script in the <head> of each page).
   // Opened straight from disk, folders do not serve their index.html.
   document.querySelectorAll('a[data-lang]').forEach(function (a) {
     if (location.protocol === 'file:' && /\/$/.test(a.getAttribute('href'))) a.href = a.getAttribute('href') + 'index.html';

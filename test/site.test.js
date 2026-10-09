@@ -28,6 +28,8 @@ for (const [lang, page] of Object.entries(PAGES)) {
     const html = read(page);
     assert.match(html, new RegExp(`<html lang="${lang}">`));
     for (const other of Object.keys(PAGES)) assert.match(html, new RegExp(`hreflang="${other}"`));
+    // Each page follows the browser language until the visitor picks one.
+    assert.match(html, /localStorage\.getItem\('trydash-lang'\)[\s\S]*location\.replace\(/);
     assert.doesNotMatch(html, /[\w.+-]+@[\w-]+\.[\w.]+/);
   });
 
