@@ -68,6 +68,13 @@ for (const [lang, page] of Object.entries(PAGES)) {
   });
 }
 
+test('both pages tell visitors to leave HTTP/3 off until the next update', () => {
+  assert.match(read(PAGES.en), /data-mascot="Don’t use HTTP\/3 until the next update!"/);
+  assert.match(read(PAGES.it), /data-mascot="Non usare HTTP\/3 fino al prossimo aggiornamento!"/);
+  assert.match(read(PAGES.en), /don’t use HTTP\/3 until the next update: the server stays on HTTP\/1\.1/);
+  assert.match(read(PAGES.it), /non usare HTTP\/3 fino al prossimo aggiornamento: il server resta su HTTP\/1\.1/);
+});
+
 test('both languages have the same page structure and release version', () => {
   // Everything the scripts look up must exist in both pages, in the same order.
   const skeleton = (html) => [...html.matchAll(/\b(id|data-el|data-step|data-suffix|data-file|data-lang|class="v")(?:="([^"]*)")?/g)]
