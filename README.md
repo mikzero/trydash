@@ -118,7 +118,7 @@ The easiest way is the ready-made executable: a single file, without Bun or any 
 
 ## Development requirements
 
-- [Bun](https://bun.sh) ≥ 1.1
+- [Bun](https://bun.sh) ≥ 1.1 to run from source. The [release workflow](.github/workflows/release.yml) installs Bun 1.4.3, and the executables embed it.
 - [`cloudflared`](https://developers.cloudflare.com/tunnel/downloads/) on your `PATH`
 
 No npm dependencies.
@@ -169,6 +169,7 @@ Quick tunnels are meant for **testing and development**. From the [Cloudflare do
 ## Security
 
 - The dashboard only listens on `127.0.0.1`, so other machines can’t reach it.
+- HTTP/3 stays off. trydash listens with `node:http` on TCP. Bun serves HTTP/3 only from `Bun.serve` when `http3` is true and a TLS certificate is set, and those responses advertise `Alt-Svc`. Release builds embed Bun 1.4.3, which still has no fix for the QPACK amplification bug in that experimental server ([FoxIO, October 2026](https://foxio.io/blog/header-accordions-qpack-amplification-attacks-against-http-3-servers)). The announced fix is Bun 1.4.4, and that release is not published. Until a release includes it, do not pass `http3: true`.
 - Other pages open in your browser can’t control it. Requests with a `Host` other than `127.0.0.1`/`localhost` are refused, which blocks DNS rebinding. The same goes for changing requests (`POST`, `DELETE`) with an `Origin` from another site. Local scripts without an `Origin`, like `curl`, keep working.
 - **A tunnel makes the service you expose public**: anyone with the URL can reach it. To limit it to specific people, use email access. Either way, don’t expose services with real data or admin panels without protection.
 - trydash doesn’t ask for or store credentials, tokens or accounts. Logs stay in memory and disappear when you close the server.

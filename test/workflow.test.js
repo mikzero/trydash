@@ -14,6 +14,15 @@ test('every action is pinned to a commit SHA', () => {
   }
 });
 
+test('the release pins the Bun version named in both readmes', () => {
+  const setup = steps.find((s) => String(s.uses).startsWith('oven-sh/setup-bun@'));
+  const version = setup.with['bun-version'];
+  for (const name of ['README.md', 'README.it.md']) {
+    const text = fs.readFileSync(path.join(projectRoot, name), 'utf8');
+    assert.ok(text.includes(`Bun ${version}`), name);
+  }
+});
+
 test('checkout does not keep the token', () => {
   for (const step of steps.filter((s) => String(s.uses).startsWith('actions/checkout@'))) {
     assert.equal(step.with && step.with['persist-credentials'], false);
