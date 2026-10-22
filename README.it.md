@@ -116,7 +116,7 @@ Il modo più semplice è l’eseguibile già pronto: un unico file, senza Bun n�
 
 ## Requisiti per lo sviluppo
 
-- [Bun](https://bun.sh) ≥ 1.1 per avviare dai sorgenti. Il [workflow di release](.github/workflows/release.yml) installa Bun 1.4.3, e gli eseguibili lo incorporano.
+- [Bun](https://bun.sh) ≥ 1.1 per avviare dai sorgenti. Il [workflow di release](.github/workflows/release.yml) installa Bun 1.4.4, e gli eseguibili lo incorporano.
 - [`cloudflared`](https://developers.cloudflare.com/tunnel/downloads/) nel `PATH`
 
 Nessuna dipendenza npm.
@@ -167,7 +167,7 @@ I quick tunnel sono pensati per **test e sviluppo**. Dalla [documentazione Cloud
 ## Sicurezza
 
 - La dashboard ascolta solo su `127.0.0.1`, quindi non è raggiungibile da altre macchine.
-- HTTP/3 resta spento. trydash ascolta con `node:http` su TCP. Bun serve HTTP/3 solo da `Bun.serve`, con `http3` a true e un certificato TLS, e in quel caso le risposte annunciano `Alt-Svc`. Le release incorporano Bun 1.4.3, che non ha ancora la correzione del bug di amplificazione QPACK di quel server sperimentale ([FoxIO, ottobre 2026](https://foxio.io/blog/header-accordions-qpack-amplification-attacks-against-http-3-servers)). La correzione annunciata è Bun 1.4.4, non ancora pubblicata. Finché una release non la include, non passare `http3: true`.
+- HTTP/3 resta spento. trydash ascolta con `node:http` su TCP. Bun serve HTTP/3 solo da `Bun.serve`, con `http3` a true e un certificato TLS, e in quel caso le risposte annunciano `Alt-Svc`. `fetch()` e `Bun.serve()` lasciano HTTP/3 spento se il chiamante non lo chiede. Le build di release incorporano Bun 1.4.4. Quella release conta la dimensione degli header decodificati come dice RFC 9114 §4.2.2, per `Bun.serve({ http3: true })` e per `fetch` con `protocol: "http3"`. Il limite del server è `--max-http-header-size`, 16 KB di default, e una richiesta oltre quel limite riceve lo stato `431`. È la correzione del bug di amplificazione QPACK delle release Bun precedenti ([FoxIO, ottobre 2026](https://foxio.io/blog/header-accordions-qpack-amplification-attacks-against-http-3-servers)). La stessa release porta il decoder Brotli a 1.2.1, con la correzione di CVE-2026-111497. I binari pubblicati di trydash 1.0.0 incorporano Bun 1.4.2, quindi non hanno nessuna delle due correzioni. Non passare `http3: true` su un binario 1.0.0.
 - Le altre pagine aperte nel browser non possono comandarla. Le richieste con un `Host` diverso da `127.0.0.1`/`localhost` vengono rifiutate, e questo blocca il DNS rebinding. Lo stesso vale per le richieste di modifica (`POST`, `DELETE`) con un `Origin` di un altro sito. Gli script locali senza `Origin`, come `curl`, continuano a funzionare.
 - **Un tunnel rende pubblico il servizio che esponi**: chiunque abbia l’URL può raggiungerlo. Per limitarlo a persone precise usa l’accesso via email. Comunque non esporre servizi con dati reali o pannelli di amministrazione senza protezione.
 - trydash non chiede né salva credenziali, token o account. I log restano in memoria e spariscono quando chiudi il server.

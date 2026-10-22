@@ -68,11 +68,11 @@ for (const [lang, page] of Object.entries(PAGES)) {
   });
 }
 
-test('both pages tell visitors to leave HTTP/3 off until the next update', () => {
-  assert.match(read(PAGES.en), /data-mascot="Don’t use HTTP\/3 until the next update!"/);
-  assert.match(read(PAGES.it), /data-mascot="Non usare HTTP\/3 fino al prossimo aggiornamento!"/);
-  assert.match(read(PAGES.en), /don’t use HTTP\/3 until the next update: the server stays on HTTP\/1\.1/);
-  assert.match(read(PAGES.it), /non usare HTTP\/3 fino al prossimo aggiornamento: il server resta su HTTP\/1\.1/);
+test('both pages tell visitors the published 1.0.0 binaries still leave HTTP/3 off', () => {
+  assert.match(read(PAGES.en), /data-mascot="Don’t use HTTP\/3\. The 1\.0\.0 binaries don’t have the fix yet\."/);
+  assert.match(read(PAGES.it), /data-mascot="Non usare HTTP\/3\. I binari 1\.0\.0 non hanno ancora la correzione\."/);
+  assert.match(read(PAGES.en), /don’t use HTTP\/3: the server stays on HTTP\/1\.1\. The 1\.0\.0 binaries embed Bun 1\.4\.2, without the QPACK fix/);
+  assert.match(read(PAGES.it), /non usare HTTP\/3: il server resta su HTTP\/1\.1\. I binari 1\.0\.0 incorporano Bun 1\.4\.2, senza la correzione QPACK/);
 });
 
 test('both languages have the same page structure and release version', () => {
