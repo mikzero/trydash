@@ -3,7 +3,8 @@
 
   var api = root.TryDash || (root.TryDash = {});
   var SUPPORTED = ['it', 'en'];
-  var FALLBACK = 'it';
+  // A browser in neither language gets English, the language of the site.
+  var FALLBACK = 'en';
 
   function catalog(lang) {
     var messages = api.messages || {};
@@ -24,6 +25,16 @@
   }
 
   // Works for navigator.language ("en-US") and Accept-Language ("fr-FR,en;q=0.8").
+  // `{n}` plus a `.one` or `.other` key, for counts.
+  function tn(key, n, params, lang) {
+    var values = Object.assign({ n: n }, params || {});
+    return t(key + (n === 1 ? '.one' : '.other'), values, lang);
+  }
+
+  function locale(lang) {
+    return (lang || api.lang || FALLBACK) === 'it' ? 'it-IT' : 'en-US';
+  }
+
   function pickLang(input) {
     var parts = String(input == null ? '' : input).split(',');
     for (var i = 0; i < parts.length; i += 1) {
@@ -50,6 +61,9 @@
   }
 
   api.t = t;
+  api.tn = tn;
+  api.locale = locale;
+  api.SUPPORTED_LANGS = SUPPORTED;
   api.pickLang = pickLang;
   api.appError = appError;
   api.errorBody = errorBody;

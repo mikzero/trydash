@@ -2,13 +2,14 @@
   'use strict';
 
   var api = root.TryDash || (root.TryDash = {});
+  // Labels are keys: they are read in the current language when drawn.
   var GROUPS = [
-    { group: 'info', label: 'Info', tag: 'INFO' },
-    { group: 'warn', label: 'Avvisi', tag: 'WARN' },
-    { group: 'error', label: 'Errori', tag: 'ERR' },
-    { group: 'debug', label: 'Debug', tag: 'DBG' },
+    { group: 'info', label: 'ui.level.info', tag: 'INFO' },
+    { group: 'warn', label: 'ui.level.warn', tag: 'WARN' },
+    { group: 'error', label: 'ui.level.error', tag: 'ERR' },
+    { group: 'debug', label: 'ui.level.debug', tag: 'DBG' },
   ];
-  var STATUS_PILL = { starting: 'IN AVVIO', running: 'ATTIVO', stopped: 'FERMATO', exited: 'TERMINATO' };
+  var STATUS_PILL = { starting: 'ui.status.starting', running: 'ui.status.running', stopped: 'ui.status.stopped', exited: 'ui.status.exited' };
   var OVERSCAN = 30;
   var BOTTOM_SLACK = 4;
   var PLACEHOLDERS = 6;
@@ -18,7 +19,7 @@
     return GROUPS.filter(function (item) {
       return source[item.group] > 0;
     }).map(function (item) {
-      return { group: item.group, label: item.label, count: source[item.group] };
+      return { group: item.group, label: api.t(item.label), count: source[item.group] };
     });
   }
 
@@ -52,13 +53,12 @@
     var then = Date.parse(iso);
     if (!Number.isFinite(then)) return '';
     var seconds = Math.max(0, Math.floor(((nowMs == null ? Date.now() : nowMs) - then) / 1000));
-    if (seconds < 60) return 'adesso';
+    if (seconds < 60) return api.t('ui.time.now');
     var minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return minutes === 1 ? '1 minuto fa' : minutes + ' minuti fa';
+    if (minutes < 60) return api.tn('ui.time.minutes', minutes);
     var hours = Math.floor(minutes / 60);
-    if (hours < 24) return hours === 1 ? '1 ora fa' : hours + ' ore fa';
-    var days = Math.floor(hours / 24);
-    return days === 1 ? '1 giorno fa' : days + ' giorni fa';
+    if (hours < 24) return api.tn('ui.time.hours', hours);
+    return api.tn('ui.time.days', Math.floor(hours / 24));
   }
 
   function clock(timestamp) {
@@ -80,7 +80,7 @@
   var SPARK_H = 24;
 
   function formatCount(n) {
-    return typeof n === 'number' && Number.isFinite(n) ? n.toLocaleString('it-IT') : '—';
+    return typeof n === 'number' && Number.isFinite(n) ? n.toLocaleString(api.locale()) : '—';
   }
 
   // Right-aligned on one slot per sample, so a fresh tunnel grows from the right edge.
@@ -129,7 +129,7 @@
           h('div', { className: 'head-sub' }, [
             h('span', { id: 'tunnel-sub' }),
             h('code', { id: 'tunnel-cmd', className: 'head-cmd' }),
-            h('button', { type: 'button', className: 'link-btn', title: 'Copia comando', 'aria-label': 'Copia comando', text: '⧉', dataset: { action: 'copy-cmd' } }),
+            h('button', { type: 'button', className: 'link-btn', title: api.t('ui.head.copyCommand'), 'aria-label': api.t('ui.head.copyCommand'), text: '⧉', dataset: { action: 'copy-cmd' } }),
           ]),
           h('div', { id: 'tunnel-badges', className: 'head-badges' }),
           h('div', { id: 'tunnel-traffic', className: 'head-traffic mono', hidden: true }, [
@@ -138,53 +138,53 @@
             h('span', { id: 'traffic-total' }),
             h('span', { id: 'traffic-errors' }),
             h('span', { id: 'traffic-conn' }),
-            h('span', { id: 'traffic-stale', className: 'stale', hidden: true, text: 'dati non aggiornati' }),
+            h('span', { id: 'traffic-stale', className: 'stale', hidden: true, text: api.t('ui.traffic.stale') }),
           ]),
         ]),
         h('div', { className: 'head-actions' }, [
-          h('button', { type: 'button', className: 'btn inv', 'aria-label': 'Copia URL', dataset: { action: 'copy-url' } }, [
+          h('button', { type: 'button', className: 'btn inv', 'aria-label': api.t('ui.head.copyUrl'), dataset: { action: 'copy-url' } }, [
             h('span', { className: 'ico', 'aria-hidden': 'true', text: '⧉' }),
-            h('span', { className: 'lbl', text: 'Copia URL' }),
+            h('span', { className: 'lbl', text: api.t('ui.head.copyUrl') }),
           ]),
-          h('a', { id: 'open-url', className: 'btn', target: '_blank', rel: 'noopener', 'aria-label': 'Apri URL', dataset: { action: 'open' } }, [
-            h('span', { className: 'lbl', text: 'Apri' }),
+          h('a', { id: 'open-url', className: 'btn', target: '_blank', rel: 'noopener', 'aria-label': api.t('ui.head.openUrl'), dataset: { action: 'open' } }, [
+            h('span', { className: 'lbl', text: api.t('ui.head.open') }),
             h('span', { className: 'ico', 'aria-hidden': 'true', text: '↗' }),
           ]),
-          can('stop') ? h('button', { type: 'button', className: 'btn', 'aria-label': 'Ferma', dataset: { action: 'stop' } }, [
+          can('stop') ? h('button', { type: 'button', className: 'btn', 'aria-label': api.t('ui.head.stop'), dataset: { action: 'stop' } }, [
             h('span', { className: 'ico', 'aria-hidden': 'true', text: '■' }),
-            h('span', { className: 'lbl', text: 'Ferma' }),
+            h('span', { className: 'lbl', text: api.t('ui.head.stop') }),
           ]) : null,
-          h('button', { type: 'button', className: 'btn', 'aria-label': 'Riavvia', dataset: { action: 'restart' } }, [
+          h('button', { type: 'button', className: 'btn', 'aria-label': api.t('ui.head.restart'), dataset: { action: 'restart' } }, [
             h('span', { className: 'ico', 'aria-hidden': 'true', text: '↻' }),
-            h('span', { className: 'lbl', text: 'Riavvia' }),
+            h('span', { className: 'lbl', text: api.t('ui.head.restart') }),
           ]),
-          can('remove') ? h('button', { type: 'button', className: 'btn danger', 'aria-label': 'Rimuovi', dataset: { action: 'remove' } }, [
+          can('remove') ? h('button', { type: 'button', className: 'btn danger', 'aria-label': api.t('ui.head.remove'), dataset: { action: 'remove' } }, [
             h('span', { className: 'ico', 'aria-hidden': 'true', text: '✕' }),
-            h('span', { className: 'lbl', text: 'Rimuovi' }),
+            h('span', { className: 'lbl', text: api.t('ui.head.remove') }),
           ]) : null,
         ]),
       ]),
       h('div', { id: 'tunnel-warnings', className: 'tunnel-warnings', role: 'status' }),
-      h('div', { className: 'tabs', role: 'tablist', 'aria-label': 'Vista' }, [
+      h('div', { className: 'tabs', role: 'tablist', 'aria-label': api.t('ui.tabs.label') }, [
         h('button', { type: 'button', id: 'tab-log', className: 'tab is-on', role: 'tab', 'aria-selected': 'true', 'aria-controls': 'pane-log', dataset: { action: 'tab', tab: 'log' } }, [
-          h('span', { text: 'Log' }),
+          h('span', { text: api.t('ui.tabs.log') }),
         ]),
         h('button', { type: 'button', id: 'tab-requests', className: 'tab', role: 'tab', 'aria-selected': 'false', 'aria-controls': 'pane-requests', dataset: { action: 'tab', tab: 'requests' } }, [
-          h('span', { text: 'Richieste' }),
+          h('span', { text: api.t('ui.tabs.requests') }),
           h('span', { id: 'tab-requests-count', className: 'tab-count', hidden: true }),
         ]),
       ]),
       h('div', { id: 'pane-log', className: 'tab-pane', role: 'tabpanel', 'aria-labelledby': 'tab-log' }, [
         h('div', { className: 'log-toolbar' }, [
-          h('div', { id: 'level-chips', className: 'chips', role: 'group', 'aria-label': 'Livelli' }),
+          h('div', { id: 'level-chips', className: 'chips', role: 'group', 'aria-label': api.t('ui.log.levels') }),
           h('span', { id: 'log-count', className: 'log-count' }),
           h('label', { className: 'search' }, [
             h('span', { className: 'search-ico', 'aria-hidden': 'true', text: '⌕' }),
             h('input', {
               id: 'log-search',
               type: 'search',
-              placeholder: 'Cerca nei log',
-              'aria-label': 'Cerca nei log',
+              placeholder: api.t('ui.log.search'),
+              'aria-label': api.t('ui.log.search'),
               autocomplete: 'off',
               spellcheck: 'false',
             }),
@@ -193,15 +193,15 @@
         ]),
         h('div', { className: 'log-body' }, [
           h('div', { className: 'log-pane' }, [
-            h('div', { id: 'log-scroller', className: 'log-scroller', tabindex: '0', 'aria-label': 'Righe di log' }, [
+            h('div', { id: 'log-scroller', className: 'log-scroller', tabindex: '0', 'aria-label': api.t('ui.log.rows') }, [
               h('div', { id: 'log-spacer', className: 'log-spacer' }, [
-                h('ol', { id: 'log-rows', className: 'log-rows mono', role: 'listbox', 'aria-label': 'Log' }),
+                h('ol', { id: 'log-rows', className: 'log-rows mono', role: 'listbox', 'aria-label': api.t('ui.tabs.log') }),
               ]),
               h('p', { id: 'log-empty', className: 'log-empty', hidden: true }),
             ]),
             h('button', { type: 'button', id: 'new-rows', className: 'new-rows', hidden: true, dataset: { action: 'tail' } }),
           ]),
-          h('aside', { id: 'log-detail', className: 'detail', hidden: true, 'aria-label': 'Dettaglio riga' }),
+          h('aside', { id: 'log-detail', className: 'detail', hidden: true, 'aria-label': api.t('ui.log.detail') }),
         ]),
       ]),
       api.buildRequestsPane ? api.buildRequestsPane() : null,
@@ -229,17 +229,17 @@
     };
     return [
       h('div', { className: 'detail-head' }, [
-        h('h2', { text: 'Riga #' + entry.index }),
-        h('button', { type: 'button', className: 'link-btn', 'aria-label': 'Chiudi dettaglio', text: '✕', dataset: { action: 'close-detail' } }),
+        h('h2', { text: api.t('ui.log.line', { n: entry.index }) }),
+        h('button', { type: 'button', className: 'link-btn', 'aria-label': api.t('ui.closeDetail'), text: '✕', dataset: { action: 'close-detail' } }),
       ]),
       h('div', { className: 'detail-meta' }, [
-        field('Livello', h('span', { className: 'lv mono l-' + api.levelGroup(entry.level), text: tagFor(entry.level) })),
-        field('Ora', h('p', { className: 'v mono', text: entry.timestamp || 'nessun timestamp' })),
+        field(api.t('ui.log.level'), h('span', { className: 'lv mono l-' + api.levelGroup(entry.level), text: tagFor(entry.level) })),
+        field(api.t('ui.timeLabel'), h('p', { className: 'v mono', text: entry.timestamp || api.t('ui.log.noTimestamp') })),
       ]),
       entry.url ? field('URL', h('p', { className: 'v mono', text: entry.url })) : null,
-      field('Messaggio', h('pre', { className: 'message', text: entry.message })),
-      field('Riga originale', h('pre', { className: 'raw', text: entry.raw })),
-      h('div', null, [h('button', { type: 'button', className: 'btn', text: 'Copia riga', dataset: { action: 'copy-row' } })]),
+      field(api.t('ui.log.message'), h('pre', { className: 'message', text: entry.message })),
+      field(api.t('ui.log.raw'), h('pre', { className: 'raw', text: entry.raw })),
+      h('div', null, [h('button', { type: 'button', className: 'btn', text: api.t('ui.log.copyRow'), dataset: { action: 'copy-row' } })]),
     ].filter(Boolean);
   }
 
@@ -255,10 +255,10 @@
     var mails = options.allowedMail || [];
     var badges = [];
     if (mails.length) {
-      badges.push(h('span', { className: 'badge-protected', title: mails.join(', '), text: '🔒 Protetto · solo: ' + mails.join(', ') + ' — chi visita deve fare l\'accesso' }));
+      badges.push(h('span', { className: 'badge-protected', title: mails.join(', '), text: api.t('ui.badge.protected', { mails: mails.join(', ') }) }));
     }
     if (options.noTlsVerify) {
-      badges.push(h('span', { className: 'badge-tls', text: '⚠ Certificato dell\'origine non verificato' }));
+      badges.push(h('span', { className: 'badge-tls', text: api.t('ui.badge.tls') }));
     }
     var sig = JSON.stringify([mails, !!options.noTlsVerify]);
     if (box.dataset.sig === sig) return;
@@ -282,11 +282,11 @@
       node.hidden = !!hidden;
     };
     var limit = api.INFLIGHT_LIMIT || 200;
-    set('traffic-inflight', 'in corso ' + formatCount(traffic.inflight) + '/' + limit, !live);
+    set('traffic-inflight', api.t('ui.traffic.inflight', { n: formatCount(traffic.inflight), limit: limit }), !live);
     set('traffic-spark', null, !live);
-    set('traffic-total', 'richieste ' + formatCount(traffic.total));
-    set('traffic-errors', 'errori ' + formatCount(traffic.errors));
-    set('traffic-conn', 'connessioni ' + formatCount(traffic.connections), !live);
+    set('traffic-total', api.t('ui.traffic.total', { n: formatCount(traffic.total) }));
+    set('traffic-errors', api.t('ui.traffic.errors', { n: formatCount(traffic.errors) }));
+    set('traffic-conn', api.t('ui.traffic.connections', { n: formatCount(traffic.connections) }), !live);
     set('traffic-stale', null, !stale);
     var line = el('traffic-line');
     if (line && live) line.setAttribute('points', sparkPoints(traffic.history, SPARK_W, SPARK_H));
@@ -305,10 +305,10 @@
       return h('div', { className: 'warning k-' + warning.kind }, [
         h('span', { className: 'warning-text', text: warning.text }),
         warning.actions.indexOf('restart') >= 0
-          ? h('button', { type: 'button', className: 'btn', text: 'Riavvia', dataset: { action: 'force-restart' } })
+          ? h('button', { type: 'button', className: 'btn', text: api.t('ui.head.restart'), dataset: { action: 'force-restart' } })
           : null,
         warning.actions.indexOf('hello') >= 0
-          ? h('button', { type: 'button', className: 'btn', text: 'Prova con Hello World', dataset: { action: 'hello' } })
+          ? h('button', { type: 'button', className: 'btn', text: api.t('ui.hello'), dataset: { action: 'hello' } })
           : null,
       ]);
     }));
@@ -409,9 +409,9 @@
         empty.hidden = true;
       } else {
         empty.hidden = false;
-        if (waiting) empty.textContent = 'In attesa dell’URL…';
-        else if (filterActive()) empty.textContent = 'Nessuna riga corrisponde ai filtri.';
-        else empty.textContent = 'Ancora nessuna riga.';
+        if (waiting) empty.textContent = api.t('ui.log.waiting');
+        else if (filterActive()) empty.textContent = api.t('ui.log.noMatch');
+        else empty.textContent = api.t('ui.log.empty');
       }
       return waiting;
     }
@@ -450,14 +450,14 @@
       var button = el('new-rows');
       if (!button) return;
       button.hidden = follow || newRows <= 0;
-      button.textContent = newRows === 1 ? '↓ 1 nuova riga' : '↓ ' + newRows + ' nuove righe';
+      button.textContent = api.tn('ui.log.newRows', newRows);
     }
 
     function paintChips() {
       var host = el('level-chips');
       if (!host || !session) return;
       var count = el('log-count');
-      if (count) count.textContent = filterActive() ? cache.total + ' di ' + session.entryCount + ' righe' : '';
+      if (count) count.textContent = filterActive() ? api.t('ui.log.count', { shown: cache.total, total: session.entryCount }) : '';
       var sig = JSON.stringify([session.entryCount, session.counts, levels]);
       if (chipsPainted.host === host && chipsPainted.sig === sig) return;
       chipsPainted.host = host;
@@ -471,13 +471,13 @@
           dataset: { action: 'chip', group: group },
         });
       };
-      var chips = [chip('', 'Tutti · ' + session.entryCount, levels.length === 0)];
+      var chips = [chip('', api.t('ui.log.all', { n: session.entryCount }), levels.length === 0)];
       chipGroups(session.counts).forEach(function (item) {
         var text = item.group === 'info' ? item.label : item.label + ' · ' + item.count;
         chips.push(chip(item.group, text, levels.indexOf(item.group) >= 0));
       });
       levels.forEach(function (group) {
-        if (!session.counts || !session.counts[group]) chips.push(chip(group, GROUPS.filter(function (g) { return g.group === group; })[0].label + ' · 0', true));
+        if (!session.counts || !session.counts[group]) chips.push(chip(group, api.t(GROUPS.filter(function (g) { return g.group === group; })[0].label) + ' · 0', true));
       });
       host.replaceChildren.apply(host, chips);
     }
@@ -486,7 +486,7 @@
       if (!session) return;
       var status = el('tunnel-status');
       if (status) {
-        status.textContent = STATUS_PILL[session.status] || session.status;
+        status.textContent = STATUS_PILL[session.status] ? api.t(STATUS_PILL[session.status]) : session.status;
         status.className = 'pill st-' + session.status;
       }
       var url = el('tunnel-url');
@@ -504,8 +504,8 @@
       var sub = el('tunnel-sub');
       if (sub) {
         var when = session.active
-          ? 'avviato ' + relativeTime(session.startedAt)
-          : 'fermato ' + relativeTime(session.stoppedAt || session.startedAt);
+          ? api.t('ui.head.started', { when: relativeTime(session.startedAt) })
+          : api.t('ui.head.stoppedAt', { when: relativeTime(session.stoppedAt || session.startedAt) });
         var source = session.mode === 'hello' ? 'Hello World'
           : session.mode === 'folder' ? '📁 ' + (session.options && session.options.folder)
             : hostOf(session.origin);

@@ -242,7 +242,7 @@ export function createApp(options = {}) {
       if (!store.get(id) || processes.get(id) !== proc) return;
       store.appendChunk(id, JSON.stringify({
         level: 'error',
-        message: `cloudflared non parte: ${error.message}`,
+        message: `cloudflared did not start: ${error.message}`,
       }));
       store.markExited(id, null);
     });

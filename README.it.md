@@ -32,7 +32,7 @@
 - **ogni richiesta sotto gli occhi**: header e body di ciò che arriva al tuo servizio dal tunnel, da rimandare con un clic. Comodo per i webhook;
 - **log leggibili**: livelli colorati, filtri, ricerca con evidenziazione, scorrimento continuo e modalità “segui la coda”;
 - **i tunnel fermati restano consultabili**: puoi rileggerne i log e riavviarli. L’URL cambia a ogni avvio, ed è un limite dei quick tunnel;
-- tema **chiaro e scuro**, layout per **mobile**, scorciatoie da tastiera.
+- tema **chiaro e scuro**, layout per **mobile**, scorciatoie da tastiera, interfaccia in **italiano e inglese**.
 
 ## Funzioni
 
@@ -107,9 +107,9 @@ Il pulsante avvia `cloudflared tunnel --hello-world`, che serve una pagina di pr
 | Riavvia | il primo clic mostra “Nuovo URL — conferma”: un quick tunnel riavviato cambia URL |
 | sempre, nel modulo | “Solo per prove · niente SSE · nessuna garanzia di uptime” |
 
-### Lingua degli errori
+### Lingua
 
-I messaggi d’errore sono in italiano o in inglese, secondo la lingua del browser. Valgono anche per le risposte dell’API: il server legge l’header `Accept-Language`. Il resto dell’interfaccia è in italiano. I testi stanno in `public/js/i18n-it.js` e `public/js/i18n-en.js`.
+L’interfaccia e i messaggi d’errore sono in italiano o in inglese. trydash segue la lingua del browser, e un browser in qualsiasi altra lingua riceve l’inglese. Il pulsante **EN**/**IT** accanto al tema cambia lingua e ricorda la scelta nel browser (`localStorage`). Le risposte dell’API seguono l’header `Accept-Language`, in inglese se manca. Le righe che trydash aggiunge ai log (riavvii, uscite, un’origine che non risponde) sono in inglese, come quelle di `cloudflared`. I testi stanno in `public/js/i18n-it.js` e `public/js/i18n-en.js`.
 
 ## Installazione
 

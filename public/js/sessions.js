@@ -131,7 +131,7 @@
         session.exitCode = code == null ? null : code;
         session.stoppedAt = now();
         var label = code == null ? '?' : String(code);
-        synthetic(session, code === 0 ? 'info' : 'error', 'cloudflared terminato (codice ' + label + ')');
+        synthetic(session, code === 0 ? 'info' : 'error', 'cloudflared exited (code ' + label + ')');
         return session;
       },
       // Points cloudflared at the inspector's proxy; kept across restarts.
@@ -163,7 +163,7 @@
         session.stoppedAt = null;
         session.startedAt = now();
         session.restarts += 1;
-        synthetic(session, 'info', '— riavvio #' + session.restarts + ' —');
+        synthetic(session, 'info', '— restart #' + session.restarts + ' —');
         return session;
       },
       recordTraffic: function (id, sample) {

@@ -13,10 +13,10 @@
     parent.replaceChildren(h('main', { className: 'gate', dataset: { phase: 'file' } }, [
       h('section', { className: 'gate-card' }, [
         h('p', { className: 'eyebrow', text: 'try.cloudflare.com' }),
-        h('h1', { text: 'Avvia il server locale' }),
-        h('p', { className: 'lead', text: 'Aprire questo file dal disco non collega i log. Dalla cartella del progetto esegui:' }),
+        h('h1', { text: api.t('ui.fileGate.title') }),
+        h('p', { className: 'lead', text: api.t('ui.fileGate.lead') }),
         h('pre', { className: 'cmd', text: 'bun server.js' }),
-        h('p', { className: 'lead', style: { marginTop: '14px' }, text: 'Poi apri l’indirizzo che stampa, di solito http://127.0.0.1:8787' }),
+        h('p', { className: 'lead', style: { marginTop: '14px' }, text: api.t('ui.fileGate.then') }),
       ]),
     ]));
   }
@@ -26,10 +26,10 @@
     parent.replaceChildren(h('main', { className: 'gate', dataset: { phase: 'auth' } }, [
       h('section', { className: 'gate-card' }, [
         h('p', { className: 'eyebrow', text: 'try.cloudflare.com' }),
-        h('h1', { text: 'Serve il link con il token' }),
-        h('p', { className: 'lead', text: 'Per sicurezza la dashboard risponde solo a chi apre l’indirizzo che trydash stampa all’avvio. Copialo dal terminale e aprilo in questa finestra:' }),
+        h('h1', { text: api.t('ui.auth.title') }),
+        h('p', { className: 'lead', text: api.t('ui.auth.lead') }),
         h('pre', { className: 'cmd', text: 'http://127.0.0.1:8787/?token=…' }),
-        h('p', { className: 'lead', style: { marginTop: '14px' }, text: 'Il token cambia a ogni avvio. Per uno fisso, avvia trydash con la variabile TRYDASH_TOKEN.' }),
+        h('p', { className: 'lead', style: { marginTop: '14px' }, text: api.t('ui.auth.hint') }),
       ]),
     ]));
   }
@@ -38,7 +38,7 @@
     parent.replaceChildren(h('main', { className: 'gate', dataset: { phase: 'checking' } }, [
       h('section', { className: 'gate-card' }, [
         h('p', { className: 'eyebrow', text: 'try.cloudflare.com' }),
-        h('p', { className: 'lead', text: 'Controllo cloudflared…' }),
+        h('p', { className: 'lead', text: api.t('ui.checking') }),
       ]),
     ]));
   }
@@ -48,7 +48,7 @@
       return h('li', { className: 'step' }, [
         h('div', { className: 'step-head' }, [
           h('h2', { text: step.title }),
-          h('button', { type: 'button', className: 'btn', text: 'Copia', dataset: { action: 'copy' } }),
+          h('button', { type: 'button', className: 'btn', text: api.t('ui.copy'), dataset: { action: 'copy' } }),
         ]),
         h('pre', { className: 'cmd', text: step.command }),
       ]);
@@ -56,16 +56,16 @@
     return h('main', { className: 'install', dataset: { phase: 'install' } }, [
       h('section', { className: 'install-card' }, [
         h('p', { className: 'eyebrow', text: 'try.cloudflare.com' }),
-        h('h1', { text: 'Manca cloudflared' }),
+        h('h1', { text: api.t('ui.install.title') }),
         h('p', { className: 'lead', text: vm.install.summary }),
         h('p', { className: 'missing', text: vm.install.missing }),
         h('ol', { className: 'steps' }, steps),
         h('div', { className: 'install-actions' }, [
           vm.actions.indexOf('recheck') >= 0
-            ? h('button', { type: 'button', className: 'btn inv', text: 'Ricontrolla', dataset: { action: 'recheck' } })
+            ? h('button', { type: 'button', className: 'btn inv', text: api.t('ui.install.recheck'), dataset: { action: 'recheck' } })
             : null,
         ]),
-        h('p', { id: 'probe-status', className: 'status', text: 'cloudflared non è nel PATH.' }),
+        h('p', { id: 'probe-status', className: 'status', text: api.t('ui.install.notInPath') }),
       ]),
       toastHost(),
     ]);
@@ -78,10 +78,10 @@
   function buildEmptyState() {
     return h('section', { id: 'empty-state', className: 'empty-state' }, [
       h('div', { className: 'hero' }, [
-        h('h2', { className: 'hero-title', text: 'Esponi un servizio locale' }),
-        h('p', { className: 'hero-lead', text: 'Crea un quick tunnel su trycloudflare.com e segui i suoi log qui.' }),
+        h('h2', { className: 'hero-title', text: api.t('ui.hero.title') }),
+        h('p', { className: 'hero-lead', text: api.t('ui.hero.lead') }),
         h('div', { id: 'hero-slot', className: 'hero-slot' }),
-        h('p', { className: 'hero-hint', text: 'Basta la porta. Accetta anche un URL completo http/https, o il percorso di una cartella da pubblicare così com’è.' }),
+        h('p', { className: 'hero-hint', text: api.t('ui.hero.hint') }),
       ]),
     ]);
   }
@@ -93,7 +93,7 @@
       h('div', { className: 'nav-scrim', 'aria-hidden': 'true', dataset: { action: 'menu-close' } }),
       h('main', { className: 'main-area' }, [
         h('div', { className: 'mobile-bar' }, [
-          h('button', { type: 'button', className: 'btn icon', 'aria-label': 'Tunnel', 'aria-controls': 'sidebar', text: '☰', dataset: { action: 'menu' } }),
+          h('button', { type: 'button', className: 'btn icon', 'aria-label': api.t('ui.tunnels'), 'aria-controls': 'sidebar', text: '☰', dataset: { action: 'menu' } }),
           h('span', { className: 'brand' }, [
             h('img', { src: 'logo.svg', alt: '', width: '22', height: '22', className: 'brand-logo' }),
             h('span', { text: 'trydash' }),
@@ -243,9 +243,9 @@
     sessions.forEach(function (session) {
       var prev = state.prevById[session.id];
       if (prev && prev.status !== session.status) {
-        if (session.status === 'running' && session.url) notify('Nuovo URL: ' + session.url);
+        if (session.status === 'running' && session.url) notify(api.t('ui.toast.newUrl', { url: session.url }));
         if (session.status === 'exited') {
-          notify('cloudflared terminato (codice ' + (session.exitCode == null ? '?' : session.exitCode) + ')', 'error');
+          notify(api.t('ui.toast.exited', { code: session.exitCode == null ? '?' : session.exitCode }), 'error');
         }
       }
       next[session.id] = { status: session.status };
@@ -295,7 +295,7 @@
     }
     if (nextPhase === 'install') {
       var status = document.getElementById('probe-status');
-      if (status) status.textContent = 'cloudflared non è nel PATH.';
+      if (status) status.textContent = api.t('ui.install.notInPath');
       return;
     }
     announceTransitions(data.sessions);
@@ -323,7 +323,7 @@
   }
 
   async function api_(method, path, body) {
-    var headers = { 'Accept-Language': api.lang || 'it' };
+    var headers = { 'Accept-Language': api.lang || 'en' };
     if (body) headers['Content-Type'] = 'application/json';
     var response = await fetch(path, {
       method: method,
@@ -353,7 +353,7 @@
       var data = await api_('POST', '/api/sessions', { origin: origin, options: options });
       api.rememberMail(data.session.options ? data.session.options.allowedMail : []);
       resetCreateForm(form);
-      await selectCreated(data.session, 'Tunnel creato');
+      await selectCreated(data.session, api.t('ui.toast.created'));
     } finally {
       state.creating = false;
       if (submit) submit.disabled = false;
@@ -401,7 +401,7 @@
       var data = await api_('POST', '/api/sessions', { options: { mode: 'hello', allowedMail: allowedMail } });
       api.rememberMail(data.session.options ? data.session.options.allowedMail : []);
       if (form && !fromBanner) api.paintRecentMail(form);
-      await selectCreated(data.session, 'Tunnel Hello World creato');
+      await selectCreated(data.session, api.t('ui.toast.helloCreated'));
     } finally {
       state.creating = false;
     }
@@ -429,7 +429,7 @@
   }
 
   function armedLabel(action) {
-    return action === 'remove' ? 'Conferma rimozione' : 'Nuovo URL — conferma';
+    return action === 'remove' ? api.t('ui.confirm.remove') : api.t('ui.confirm.restart');
   }
 
   function confirmStep(armed, action, nowMs) {
@@ -492,12 +492,12 @@
     var id = encodeURIComponent(session.id);
     if (action === 'stop') {
       await api_('POST', '/api/sessions/' + id + '/stop');
-      notify('Tunnel fermato');
+      notify(api.t('ui.toast.stopped'));
     } else if (action === 'restart') {
-      notify('Riavvio…');
+      notify(api.t('ui.toast.restarting'));
       await api_('POST', '/api/sessions/' + id + '/restart');
     } else if (action === 'force-restart') {
-      notify('Riavvio…');
+      notify(api.t('ui.toast.restarting'));
       await api_('POST', '/api/sessions/' + id + '/stop');
       await api_('POST', '/api/sessions/' + id + '/restart');
     } else if (action === 'remove') {
@@ -505,7 +505,7 @@
       state.currentId = null;
       resetView();
       writeHash(null);
-      notify('Tunnel rimosso');
+      notify(api.t('ui.toast.removed'));
     }
     await refresh();
   }
@@ -553,7 +553,7 @@
     }
     if (action === 'recheck') {
       var status = document.getElementById('probe-status');
-      if (status) status.textContent = 'Controllo…';
+      if (status) status.textContent = api.t('ui.install.checkingShort');
       fetch('/api/probe?fresh=1').then(refresh).catch(function (err) {
         if (status) status.textContent = err.message;
       });
@@ -562,7 +562,7 @@
     if (action === 'copy') {
       var step = node.closest('.step');
       var pre = step && step.querySelector('.cmd');
-      if (pre) copyText(pre.textContent, 'Comando copiato');
+      if (pre) copyText(pre.textContent, api.t('ui.toast.commandCopied'));
       return;
     }
     if (action === 'menu') {
@@ -572,6 +572,12 @@
     }
     if (action === 'menu-close') {
       closeNav();
+      return;
+    }
+    if (action === 'lang') {
+      // Every text is drawn once, so a new language is a reload away.
+      api.langPref.set(api.langPref.other());
+      if (typeof location !== 'undefined' && location.reload) location.reload();
       return;
     }
     if (action === 'theme') {
@@ -585,7 +591,7 @@
     }
     if (action === 'copy-url') {
       var session = currentSession();
-      if (session && session.url) copyText(session.url, 'URL copiato');
+      if (session && session.url) copyText(session.url, api.t('ui.toast.urlCopied'));
       return;
     }
     if (action === 'stop' || action === 'restart' || action === 'force-restart' || action === 'remove') {
@@ -594,7 +600,7 @@
     }
     if (action === 'copy-cmd') {
       var current = currentSession();
-      if (current) copyText(api.commandFor(current), api.platform === 'win32' ? 'Comando copiato (PowerShell o cmd)' : 'Comando copiato');
+      if (current) copyText(api.commandFor(current), api.platform === 'win32' ? api.t('ui.toast.commandCopiedWindows') : api.t('ui.toast.commandCopied'));
       return;
     }
     if (action === 'open') {
@@ -621,7 +627,7 @@
     }
     if (action === 'copy-row') {
       var entry = state.view.detail();
-      if (entry) copyText(entry.raw, 'Riga copiata');
+      if (entry) copyText(entry.raw, api.t('ui.toast.rowCopied'));
       return;
     }
     if (node.dataset.session) {
@@ -647,7 +653,7 @@
       return true;
     }
     if (action === 'clear-requests') {
-      view.clear().then(function () { notify('Richieste svuotate'); }, fail);
+      view.clear().then(function () { notify(api.t('ui.toast.requestsCleared')); }, fail);
       return true;
     }
     if (action === 'close-req') {
@@ -656,13 +662,13 @@
     }
     if (action === 'copy-curl') {
       var curl = view.curl();
-      if (curl) copyText(curl, 'Comando curl copiato');
+      if (curl) copyText(curl, api.t('ui.toast.curlCopied'));
       return true;
     }
     if (action === 'replay') {
       node.disabled = true;
       view.replay().then(function (row) {
-        if (row) notify('Richiesta rimandata · ' + (row.status == null ? (row.error || 'nessuna risposta') : row.status), row && api.isProblemRequest(row) ? 'error' : 'info');
+        if (row) notify(api.t('ui.toast.replayed', { result: row.status == null ? (row.error || api.t('ui.toast.noResponse')) : row.status }), row && api.isProblemRequest(row) ? 'error' : 'info');
       }, function (err) {
         node.disabled = false;
         fail(err);
@@ -779,7 +785,8 @@
     if (typeof document === 'undefined') return;
     var app = document.getElementById('app');
     if (!app) return;
-    api.lang = api.pickLang(typeof navigator !== 'undefined' && navigator ? navigator.language : '');
+    api.lang = api.langPref.choose(typeof navigator !== 'undefined' && navigator ? navigator.language : '');
+    if (document.documentElement) document.documentElement.lang = api.lang;
     var protocol = typeof location !== 'undefined' && location ? location.protocol : 'http:';
     if (protocol === 'file:') {
       renderFileGate(app);

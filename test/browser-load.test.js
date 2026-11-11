@@ -16,7 +16,7 @@ function browserSandbox(location) {
     clearInterval,
     requestAnimationFrame(fn) { return setTimeout(fn, 0); },
     cancelAnimationFrame(id) { clearTimeout(id); },
-    navigator: { platform: 'Linux', clipboard: { writeText() { return Promise.resolve(); } } },
+    navigator: { platform: 'Linux', language: 'it-IT', clipboard: { writeText() { return Promise.resolve(); } } },
     location: location || { protocol: 'http:', href: 'http://127.0.0.1:8787/' },
     document: {
       readyState: 'complete',
@@ -30,6 +30,8 @@ function browserSandbox(location) {
   };
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
+  // The checks below read the Italian texts; the English ones have a test of their own.
+  sandbox.TryDash = { lang: 'it' };
   return sandbox;
 }
 
@@ -604,8 +606,8 @@ test('traffic strip, badges, banners and two-click restart', () => {
   assert.equal(host.querySelector('#traffic-stale').hidden, true);
   assert.equal(host.querySelector('#traffic-spark').hidden, false);
   const badges = textOf(host.querySelector('#tunnel-badges'));
-  assert.match(badges, /Protetto · solo: a@b\.it, \*@x\.it — chi visita deve fare l'accesso/);
-  assert.match(badges, /Certificato dell'origine non verificato/);
+  assert.match(badges, /Protetto · solo: a@b\.it, \*@x\.it — chi visita deve fare l’accesso/);
+  assert.match(badges, /Certificato dell’origine non verificato/);
   const banners = host.querySelector('#tunnel-warnings').children;
   assert.equal(banners.length, 1);
   assert.match(banners[0].className, /\bk-warn\b/);
@@ -684,4 +686,39 @@ test('near-limit banner is not shown on stale traffic', () => {
   const s = { origin: 'http://127.0.0.1:3000', mode: 'origin', active: true, lastOriginError: null, traffic: { inflight: 180, ok: false } };
   assert.equal(T.warningsFor(s, Date.now()).length, 0);
   assert.equal(T.warningsFor({ ...s, traffic: { inflight: 180, ok: true } }, Date.now())[0].id, 'near-limit');
+});
+
+test('the interface speaks English, and the EN/IT choice is remembered', () => {
+  const { T, host, sandbox } = domSandbox();
+  T.lang = 'en';
+  T.renderPhase(host, { present: true, version: 'test', platform: 'linux' });
+  const text = textOf(host);
+  for (const phrase of ['＋ New tunnel', 'Email access', 'Origin options', 'Inspect requests', 'Try with Hello World', 'Testing only · no SSE · no uptime guarantee', 'Requests', 'Copy URL', 'Expose a local service']) {
+    assert.ok(text.includes(phrase), phrase);
+  }
+  for (const italian of ['Nuovo tunnel', 'Accesso via email', 'Richieste', 'Prova con Hello World', 'Esponi un servizio']) {
+    assert.equal(text.includes(italian), false, italian);
+  }
+  assert.equal(host.querySelector('#lang-toggle').textContent, 'EN');
+  assert.equal(T.relativeTime(new Date(Date.now() - 120000).toISOString()), '2 minutes ago');
+  assert.equal(T.relativeTime(new Date(Date.now() - 3600000).toISOString()), '1 hour ago');
+  assert.equal(T.formatCount(12840), '12,840');
+  assert.equal(T.formatBytes(1536), '1.5 kB');
+  assert.equal(T.statusText({ status: 'stopped', entryCount: 1 }), 'stopped · 1 line');
+  assert.equal(T.theme.label('dark'), '☾ dark');
+  assert.equal(T.warningsFor({ origin: 'http://127.0.0.1:3000', mode: 'origin', active: true, lastOriginError: { at: new Date().toISOString() }, traffic: null }, Date.now())[0].text,
+    'Your server on :3000 isn’t responding — is it running?');
+  assert.equal(T.viewForProbe({ present: false, platform: 'darwin' }).install.steps[1].title, 'Check');
+
+  const store = new Map();
+  sandbox.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)) };
+  assert.equal(T.langPref.choose('it-IT'), 'it');
+  assert.equal(T.langPref.choose('fr-FR'), 'en');
+  T.langPref.set('it');
+  assert.equal(store.get('trydash.lang'), 'it');
+  assert.equal(T.langPref.choose('en-US'), 'it');
+  assert.equal(T.langPref.other(), 'en');
+  sandbox.localStorage = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('denied'); } };
+  assert.equal(T.langPref.choose('en-US'), 'en');
+  assert.doesNotThrow(() => T.langPref.set('en'));
 });

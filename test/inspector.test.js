@@ -196,12 +196,12 @@ test('an origin that does not answer gets a 502, a log line and the warning', as
     const target = await inspector.open(session);
     const res = await request(target, { path: '/x' });
     assert.equal(res.status, 502);
-    assert.match(res.body, /non risponde/);
+    assert.match(res.body, /is not responding/);
     const row = await until(() => inspector.list(session.id).requests.find((r) => r.state === 'error'));
     assert.equal(row.status, 502);
     assert.equal(row.error, 'ECONNREFUSED');
     assert.ok(session.lastOriginError);
-    assert.match(session.lastOriginError.message, /Impossibile raggiungere l’origine/);
+    assert.match(session.lastOriginError.message, /Unable to reach the origin/);
     assert.equal(session.entries.at(-1).level, 'error');
   } finally {
     await inspector.closeAll();

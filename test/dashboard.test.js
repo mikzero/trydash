@@ -181,7 +181,7 @@ test('a multi-thousand-line window is capped and the offset resolves that entry'
 });
 
 test('bad origins are rejected before a tunnel command exists', () => {
-  assert.throws(() => dash.buildQuickTunnelCommand(''), /origine/i);
+  assert.throws(() => dash.buildQuickTunnelCommand(''), /origin/i);
   assert.throws(() => dash.buildQuickTunnelCommand('ftp://127.0.0.1/file'), /http/i);
   const command = dash.buildQuickTunnelCommand('http://localhost:3000/');
   assert.equal(command.origin, 'http://localhost:3000');
@@ -340,7 +340,7 @@ test('session lifecycle: starting, running, stopped, exited, restart', () => {
   assert.equal(s.restarts, 1);
   assert.equal(s.stoppedAt, null);
   assert.equal(s.entries.length, before + 1);
-  assert.equal(s.entries.at(-1).message, '— riavvio #1 —');
+  assert.equal(s.entries.at(-1).message, '— restart #1 —');
   assert.equal(s.entries.at(-1).index, before);
   assert.throws(() => store.restart(s.id), (e) => e.code === 'CONFLICT');
 
@@ -348,7 +348,7 @@ test('session lifecycle: starting, running, stopped, exited, restart', () => {
   assert.equal(s.status, 'exited');
   assert.equal(s.exitCode, 2);
   assert.equal(s.active, false);
-  assert.equal(s.entries.at(-1).message, 'cloudflared terminato (codice 2)');
+  assert.equal(s.entries.at(-1).message, 'cloudflared exited (code 2)');
   assert.equal(s.entries.at(-1).level, 'error');
 
   const ok = store.create('4000');
@@ -399,7 +399,8 @@ test('HTTP restart, filtered logs, cached probe, stale exit', async () => {
 
     const busy = await post(`/api/sessions/${id}/restart`);
     assert.equal(busy.status, 409);
-    assert.equal(busy.body.error, 'Il tunnel è già attivo');
+    // Without Accept-Language the API answers in English.
+    assert.equal(busy.body.error, 'The tunnel is already running');
 
     assert.equal((await post(`/api/sessions/${id}/stop`)).status, 200);
     const both = await Promise.all([post(`/api/sessions/${id}/restart`), post(`/api/sessions/${id}/restart`)]);

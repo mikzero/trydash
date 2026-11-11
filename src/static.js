@@ -101,7 +101,7 @@ async function listing(dir, urlPath) {
   });
   if (urlPath !== '/') items.unshift('<li><a href="../">../</a></li>');
   const html = `<!doctype html>
-<html lang="it">
+<html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)}</title>
@@ -135,31 +135,31 @@ function parseRange(header, size) {
 // What to answer: { status, headers, body (Buffer) | file + start/end }.
 export async function planStatic(root, req) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
-    return textPlan(405, 'Metodo non consentito: questa cartella si può solo leggere.\n', { Allow: 'GET, HEAD' });
+    return textPlan(405, 'Method not allowed: this folder is read-only.\n', { Allow: 'GET, HEAD' });
   }
   const urlPath = String(req.url || '/').split('?')[0].split('#')[0] || '/';
   let decoded;
   try {
     decoded = decodeURIComponent(urlPath);
   } catch {
-    return textPlan(400, 'Percorso non valido.\n');
+    return textPlan(400, 'Invalid path.\n');
   }
-  if (decoded.includes('\0') || decoded.includes('\\')) return textPlan(400, 'Percorso non valido.\n');
+  if (decoded.includes('\0') || decoded.includes('\\')) return textPlan(400, 'Invalid path.\n');
   const segments = decoded.split('/').filter(Boolean);
-  if (segments.some((segment) => segment.startsWith('.'))) return textPlan(404, 'Non trovato.\n');
+  if (segments.some((segment) => segment.startsWith('.'))) return textPlan(404, 'Not found.\n');
   const target = path.join(root, ...segments);
-  if (!inside(root, target)) return textPlan(404, 'Non trovato.\n');
+  if (!inside(root, target)) return textPlan(404, 'Not found.\n');
   let real;
   let stat;
   try {
     real = await fsp.realpath(target);
     stat = await fsp.stat(real);
   } catch {
-    return textPlan(404, 'Non trovato.\n');
+    return textPlan(404, 'Not found.\n');
   }
-  if (!inside(root, real)) return textPlan(404, 'Non trovato.\n');
+  if (!inside(root, real)) return textPlan(404, 'Not found.\n');
   // The real name counts too: on Windows `ENV~1` is the short name of `.env`.
-  if (path.relative(root, real).split(path.sep).some((segment) => segment.startsWith('.'))) return textPlan(404, 'Non trovato.\n');
+  if (path.relative(root, real).split(path.sep).some((segment) => segment.startsWith('.'))) return textPlan(404, 'Not found.\n');
 
   let file = real;
   if (stat.isDirectory()) {
@@ -177,7 +177,7 @@ export async function planStatic(root, req) {
       return listing(real, urlPath);
     }
   }
-  if (!stat.isFile()) return textPlan(404, 'Non trovato.\n');
+  if (!stat.isFile()) return textPlan(404, 'Not found.\n');
 
   const etag = `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
   const headers = {

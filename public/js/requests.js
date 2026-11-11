@@ -3,25 +3,21 @@
 
   var api = root.TryDash || (root.TryDash = {});
 
-  var DISABLED = {
-    hello: 'Il tunnel Hello World non passa dall’ispettore.',
-    http2: 'L’ispettore non supporta un’origine HTTP/2: questo tunnel va dritto all’origine.',
-    off: 'Ispettore spento per questo tunnel. Per usarlo, crea il tunnel con «Ispeziona richieste» attivo, in Opzioni origine.',
-  };
+  var DISABLED = { hello: 'ui.req.disabled.hello', http2: 'ui.req.disabled.http2', off: 'ui.req.disabled.off' };
   // Headers a copied curl leaves out: curl sets them itself, or Cloudflare added them.
   var CURL_SKIP = /^(host|content-length|connection|accept-encoding|transfer-encoding|cdn-loop|cf-[\w-]+)$/i;
 
   function formatBytes(n) {
     if (typeof n !== 'number' || !Number.isFinite(n)) return '—';
     if (n < 1000) return n + ' B';
-    if (n < 1000 * 1000) return (n / 1000).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + ' kB';
-    return (n / 1000 / 1000).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + ' MB';
+    if (n < 1000 * 1000) return (n / 1000).toLocaleString(api.locale(), { maximumFractionDigits: 1 }) + ' kB';
+    return (n / 1000 / 1000).toLocaleString(api.locale(), { maximumFractionDigits: 1 }) + ' MB';
   }
 
   function formatDuration(ms) {
     if (typeof ms !== 'number' || !Number.isFinite(ms)) return '…';
     if (ms < 1000) return Math.round(ms) + ' ms';
-    if (ms < 60000) return (ms / 1000).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + ' s';
+    if (ms < 60000) return (ms / 1000).toLocaleString(api.locale(), { maximumFractionDigits: 1 }) + ' s';
     return Math.floor(ms / 60000) + ' min';
   }
 
@@ -41,7 +37,7 @@
   function statusLabel(row) {
     if (row.status != null) return String(row.status);
     if (row.state === 'pending') return '…';
-    return row.state === 'aborted' ? 'ANN' : 'ERR';
+    return row.state === 'aborted' ? api.t('ui.req.abortedShort') : 'ERR';
   }
 
   function requestMatches(row, filter) {
@@ -83,7 +79,7 @@
     var note = '';
     if (body.size > 0) {
       if (body.text != null && !body.truncated && !body.decoded) parts.push('--data-raw ' + word(body.text));
-      else note = '# body non incluso: ' + (body.truncated ? 'troppo grande' : 'binario') + '\n';
+      else note = api.t('ui.req.curlNoBody', { why: body.truncated ? api.t('ui.req.curlTooLarge') : api.t('ui.req.curlBinary') }) + '\n';
     }
     parts.push(word(url));
     return note + parts.join(' \\\n  ');
@@ -114,16 +110,16 @@
     var h = api.h;
     return h('div', { id: 'pane-requests', className: 'tab-pane', role: 'tabpanel', 'aria-labelledby': 'tab-requests', hidden: true }, [
       h('div', { className: 'log-toolbar' }, [
-        h('div', { id: 'req-chips', className: 'chips', role: 'group', 'aria-label': 'Filtro richieste' }),
+        h('div', { id: 'req-chips', className: 'chips', role: 'group', 'aria-label': api.t('ui.req.filterGroup') }),
         h('span', { id: 'req-count', className: 'log-count' }),
-        h('button', { type: 'button', id: 'req-clear', className: 'chip', text: 'Svuota', dataset: { action: 'clear-requests' } }),
+        h('button', { type: 'button', id: 'req-clear', className: 'chip', text: api.t('ui.req.clear'), dataset: { action: 'clear-requests' } }),
         h('label', { className: 'search' }, [
           h('span', { className: 'search-ico', 'aria-hidden': 'true', text: '⌕' }),
           h('input', {
             id: 'req-search',
             type: 'search',
-            placeholder: 'Filtra per percorso, metodo o stato',
-            'aria-label': 'Filtra richieste',
+            placeholder: api.t('ui.req.search'),
+            'aria-label': api.t('ui.req.searchLabel'),
             autocomplete: 'off',
             spellcheck: 'false',
           }),
@@ -132,12 +128,12 @@
       ]),
       h('div', { className: 'log-body' }, [
         h('div', { className: 'log-pane' }, [
-          h('div', { id: 'req-scroller', className: 'log-scroller', tabindex: '0', 'aria-label': 'Richieste' }, [
-            h('ol', { id: 'req-rows', className: 'req-rows mono', role: 'listbox', 'aria-label': 'Richieste' }),
+          h('div', { id: 'req-scroller', className: 'log-scroller', tabindex: '0', 'aria-label': api.t('ui.tabs.requests') }, [
+            h('ol', { id: 'req-rows', className: 'req-rows mono', role: 'listbox', 'aria-label': api.t('ui.tabs.requests') }),
             h('p', { id: 'req-empty', className: 'req-empty', hidden: true }),
           ]),
         ]),
-        h('aside', { id: 'req-detail', className: 'detail req-detail', hidden: true, 'aria-label': 'Dettaglio richiesta' }),
+        h('aside', { id: 'req-detail', className: 'detail req-detail', hidden: true, 'aria-label': api.t('ui.req.detail') }),
       ]),
     ]);
   }
@@ -155,20 +151,20 @@
       ]);
     });
     return h('details', { className: 'hdrs', open: true }, [
-      h('summary', { text: 'Header · ' + rows.length }),
+      h('summary', { text: api.t('ui.req.headers', { n: rows.length }) }),
       h('div', { className: 'hdr-list mono' }, rows),
     ]);
   }
 
   function bodyBlock(view) {
     var h = api.h;
-    if (!view || !view.size) return h('p', { className: 'body-note', text: 'Nessun body' });
+    if (!view || !view.size) return h('p', { className: 'body-note', text: api.t('ui.req.noBody') });
     var notes = [];
-    if (view.decoded) notes.push('decompresso da ' + view.decoded);
-    if (view.truncated) notes.push('mostrati solo i primi byte di ' + formatBytes(view.size));
+    if (view.decoded) notes.push(api.t('ui.req.decoded', { enc: view.decoded }));
+    if (view.truncated) notes.push(api.t('ui.req.truncated', { size: formatBytes(view.size) }));
     if (view.binary) {
-      var what = view.encoding ? 'compresso (' + view.encoding + ')' : 'binario';
-      return h('p', { className: 'body-note', text: 'Contenuto ' + what + ' · ' + formatBytes(view.size) + (view.contentType ? ' · ' + view.contentType : '') });
+      var what = view.encoding ? api.t('ui.req.compressed', { enc: view.encoding }) : api.t('ui.req.binary');
+      return h('p', { className: 'body-note', text: what + ' · ' + formatBytes(view.size) + (view.contentType ? ' · ' + view.contentType : '') });
     }
     return h('div', { className: 'body' }, [
       h('p', { className: 'body-note', text: formatBytes(view.size) + (view.contentType ? ' · ' + view.contentType : '') + (notes.length ? ' · ' + notes.join(' · ') : '') }),
@@ -182,35 +178,35 @@
       return h('div', { className: 'field' }, [h('p', { className: 'k', text: label }), node]);
     };
     var replayTitle = detail.websocket ? api.t('inspect.replayWebsocket')
-      : !detail.replayable ? api.t('inspect.replayTruncated') : 'Manda di nuovo questa richiesta alla tua origine';
+      : !detail.replayable ? api.t('inspect.replayTruncated') : api.t('ui.req.replayTitle');
     return [
       h('div', { className: 'detail-head' }, [
         h('h2', { className: 'req-title mono', title: detail.method + ' ' + detail.path, text: detail.method + ' ' + detail.path }),
-        h('button', { type: 'button', className: 'link-btn', 'aria-label': 'Chiudi dettaglio', text: '✕', dataset: { action: 'close-req' } }),
+        h('button', { type: 'button', className: 'link-btn', 'aria-label': api.t('ui.closeDetail'), text: '✕', dataset: { action: 'close-req' } }),
       ]),
       h('div', { className: 'detail-meta' }, [
-        field('Stato', h('p', { className: 'v mono' }, [statusPill(detail), detail.statusText ? ' ' + detail.statusText : null])),
-        field('Durata', h('p', { className: 'v mono', text: formatDuration(detail.durationMs) })),
-        field('Ora', h('p', { className: 'v mono', text: clock(detail.startedAt) })),
-        detail.remote ? field('Da', h('p', { className: 'v mono', text: detail.remote })) : null,
+        field(api.t('ui.req.status'), h('p', { className: 'v mono' }, [statusPill(detail), detail.statusText ? ' ' + detail.statusText : null])),
+        field(api.t('ui.req.duration'), h('p', { className: 'v mono', text: formatDuration(detail.durationMs) })),
+        field(api.t('ui.timeLabel'), h('p', { className: 'v mono', text: clock(detail.startedAt) })),
+        detail.remote ? field(api.t('ui.req.from'), h('p', { className: 'v mono', text: detail.remote })) : null,
       ]),
       detail.replayOf != null ? h('p', { className: 'replay-note' }, [
-        '↻ Rimandata dalla ',
-        h('button', { type: 'button', className: 'link-btn', text: 'richiesta #' + detail.replayOf, dataset: { req: String(detail.replayOf) } }),
+        api.t('ui.req.replayOf') + ' ',
+        h('button', { type: 'button', className: 'link-btn', text: api.t('ui.req.requestN', { n: detail.replayOf }), dataset: { req: String(detail.replayOf) } }),
       ]) : null,
-      detail.error ? h('p', { className: 'req-error', text: detail.state === 'aborted' ? 'Interrotta da chi l’ha mandata' : 'Errore: ' + detail.error }) : null,
+      detail.error ? h('p', { className: 'req-error', text: detail.state === 'aborted' ? api.t('ui.req.aborted') : api.t('ui.req.error', { error: detail.error }) }) : null,
       h('div', { className: 'req-actions' }, [
-        h('button', { type: 'button', className: 'btn inv', text: '↻ Rimanda', title: replayTitle, disabled: !detail.replayable, dataset: { action: 'replay' } }),
-        h('button', { type: 'button', className: 'btn', text: 'Copia come curl', dataset: { action: 'copy-curl' } }),
+        h('button', { type: 'button', className: 'btn inv', text: api.t('ui.req.replay'), title: replayTitle, disabled: !detail.replayable, dataset: { action: 'replay' } }),
+        h('button', { type: 'button', className: 'btn', text: api.t('ui.req.copyCurl'), dataset: { action: 'copy-curl' } }),
       ]),
       h('section', { className: 'req-side' }, [
-        h('h3', { text: 'Richiesta' }),
+        h('h3', { text: api.t('ui.req.request') }),
         headerList(detail.requestHeaders),
         bodyBlock(detail.requestBody),
       ]),
       h('section', { className: 'req-side' }, [
-        h('h3', { text: detail.websocket ? 'Risposta · WebSocket' : 'Risposta' }),
-        detail.status == null ? h('p', { className: 'body-note', text: detail.state === 'pending' ? 'In attesa della risposta…' : 'Nessuna risposta' }) : headerList(detail.responseHeaders),
+        h('h3', { text: detail.websocket ? api.t('ui.req.responseWs') : api.t('ui.req.response') }),
+        detail.status == null ? h('p', { className: 'body-note', text: detail.state === 'pending' ? api.t('ui.req.pending') : api.t('ui.req.noResponse') }) : headerList(detail.responseHeaders),
         detail.status == null ? null : bodyBlock(detail.responseBody),
       ]),
     ].filter(Boolean);
@@ -261,14 +257,14 @@
         });
       };
       host.replaceChildren(
-        chip('all', 'Tutte · ' + rows.length, !onlyProblems),
-        chip('problems', 'Errori · ' + problems, onlyProblems)
+        chip('all', api.t('ui.req.all', { n: rows.length }), !onlyProblems),
+        chip('problems', api.t('ui.req.problems', { n: problems }), onlyProblems)
       );
       var count = el('req-count');
       if (count) {
         var shown = visible().length;
-        if (q || onlyProblems) count.textContent = shown + ' di ' + rows.length;
-        else if (total > rows.length) count.textContent = 'ultime ' + rows.length + ' di ' + total;
+        if (q || onlyProblems) count.textContent = api.t('ui.req.count', { shown: shown, total: rows.length });
+        else if (total > rows.length) count.textContent = api.t('ui.req.latest', { shown: rows.length, total: total });
         else count.textContent = '';
       }
       var clear = el('req-clear');
@@ -278,7 +274,7 @@
     function rowNode(row) {
       var isSelected = row.seq === selected;
       var path = h('span', { className: 'req-path' });
-      if (row.replayOf != null) path.append(h('span', { className: 'req-tag', title: 'Rimandata dalla #' + row.replayOf, text: '↻' }));
+      if (row.replayOf != null) path.append(h('span', { className: 'req-tag', title: api.t('ui.req.replayTag', { n: row.replayOf }), text: '↻' }));
       if (row.websocket) path.append(h('span', { className: 'req-tag', text: 'WS' }));
       api.highlightParts(row.path, q).forEach(function (part) {
         path.append(part.mark ? h('mark', { text: part.text }) : document.createTextNode(part.text));
@@ -308,7 +304,7 @@
       if (!enabled()) {
         list.replaceChildren();
         empty.hidden = false;
-        empty.textContent = session ? DISABLED[session.inspect ? session.inspect.reason : 'off'] || DISABLED.off : '';
+        empty.textContent = session ? api.t(DISABLED[session.inspect ? session.inspect.reason : 'off'] || DISABLED.off) : '';
         listSig = '';
         paintChips();
         return;
@@ -320,8 +316,8 @@
       listSig = sig;
       list.replaceChildren.apply(list, shown.map(rowNode));
       empty.hidden = shown.length > 0;
-      if (!rows.length) empty.textContent = 'Ancora nessuna richiesta. Apri l’URL del tunnel o manda un webhook: le richieste compaiono qui.';
-      else empty.textContent = 'Nessuna richiesta corrisponde ai filtri.';
+      if (!rows.length) empty.textContent = api.t('ui.req.empty');
+      else empty.textContent = api.t('ui.req.noMatch');
     }
 
     function paintDetail() {

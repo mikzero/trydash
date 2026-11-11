@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process';
 export const MAX_LINE = 16 * 1024;
 
 function clip(line, max) {
-  return line.length > max ? `${line.slice(0, max)} … [riga troncata]` : line;
+  return line.length > max ? `${line.slice(0, max)} … [line cut]` : line;
 }
 
 export function lineSplitter(onLine, max = MAX_LINE) {

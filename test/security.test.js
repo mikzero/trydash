@@ -148,7 +148,7 @@ test('stored logs and single lines are bounded', async () => {
   split.push('DEFGHIJ still the same line');
   split.push(' end\nnext\npart');
   split.end();
-  assert.deepEqual(seen, ['short', '0123456789 … [riga troncata]', 'next', 'part']);
+  assert.deepEqual(seen, ['short', '0123456789 … [line cut]', 'next', 'part']);
   assert.equal(MAX_LINE, 16 * 1024);
 });
 
@@ -195,7 +195,7 @@ test('a stopped tunnel’s proxy refuses traffic but still replays', async () =>
     live = false;
     const refused = await raw(target, { path: '/b' });
     assert.equal(refused.status, 503);
-    assert.match(refused.body, /tunnel è fermo/);
+    assert.match(refused.body, /tunnel is stopped/);
     assert.equal(inspector.list(session.id).requests.length, 1);
     const replayed = await inspector.replay(session.id, first.seq);
     assert.equal(replayed.status, 200);

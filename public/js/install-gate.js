@@ -38,7 +38,7 @@
         },
         {
           id: 'check',
-          title: 'Verifica',
+          title: api.t('ui.install.check'),
           command: 'cloudflared --version',
         },
       ];
@@ -48,12 +48,12 @@
       return [
         {
           id: 'exe',
-          title: 'Eseguibile',
+          title: api.t('ui.install.exe'),
           command: 'https://github.com/cloudflare/cloudflared/releases/latest/download/' + exe,
         },
         {
           id: 'check',
-          title: 'Verifica',
+          title: api.t('ui.install.check'),
           command: 'cloudflared --version',
         },
       ];
@@ -62,7 +62,7 @@
     return [
       {
         id: 'binary',
-        title: 'Binario',
+        title: api.t('ui.install.binary'),
         command: 'curl -fsSL -o cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/' + binary + '\nchmod +x cloudflared\nsudo mv cloudflared /usr/local/bin/cloudflared',
       },
       {
@@ -72,7 +72,7 @@
       },
       {
         id: 'check',
-        title: 'Verifica',
+        title: api.t('ui.install.check'),
         command: 'cloudflared --version',
       },
     ];
@@ -86,7 +86,7 @@
         actions: INSTALL_ACTIONS.slice(),
         install: {
           missing: 'cloudflared',
-          summary: 'I log dei quick tunnel arrivano da cloudflared. Senza il binario nel PATH qui resta solo l’installazione.',
+          summary: api.t('ui.install.summary'),
           steps: installSteps(info.platform, info.arch),
         },
         workspace: null,

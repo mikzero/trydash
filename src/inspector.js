@@ -239,7 +239,7 @@ export function createInspector({
   function originFailed(entry, rec, error) {
     const reason = error.code || error.message;
     finish(entry, rec, 'error', reason);
-    if (store.get(entry.id)) store.recordOriginError(entry.id, `Impossibile raggiungere l’origine ${entry.origin}: ${reason}`);
+    if (store.get(entry.id)) store.recordOriginError(entry.id, `Unable to reach the origin ${entry.origin}: ${reason}`);
   }
 
   function upstreamOptions(entry, req, headers) {
@@ -265,7 +265,7 @@ export function createInspector({
   }
 
   function refuse(res) {
-    const body = 'trydash: questo tunnel è fermo.\n';
+    const body = 'trydash: this tunnel is stopped.\n';
     res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8', 'Content-Length': Buffer.byteLength(body), Connection: 'close' });
     res.end(body);
   }
@@ -295,7 +295,7 @@ export function createInspector({
         return;
       }
       rec.status = 502;
-      const body = `trydash: l’origine ${entry.origin} non risponde (${error.code || error.message})\n`;
+      const body = `trydash: the origin ${entry.origin} is not responding (${error.code || error.message})\n`;
       rec.responseHeaders = [['Content-Type', 'text/plain; charset=utf-8']];
       take(rec.responseBody, Buffer.from(body));
       originFailed(entry, rec, error);
@@ -347,7 +347,7 @@ export function createInspector({
         rec.status = 500;
         finish(entry, rec, 'error', error.code || error.message);
         if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
-        res.end('Errore del server.\n');
+        res.end('Server error.\n');
       });
     });
   }

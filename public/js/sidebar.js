@@ -16,15 +16,15 @@
   }
 
   function lines(count) {
-    return count === 1 ? '1 riga' : (count || 0) + ' righe';
+    return api.tn('ui.lines', count || 0);
   }
 
   function statusText(session) {
-    if (session.status === 'starting') return 'in attesa dell’URL…';
-    if (session.status === 'running') return session.url ? session.url.replace(/^https?:\/\//, '') : 'attivo';
-    if (session.status === 'stopped') return 'fermato · ' + lines(session.entryCount);
+    if (session.status === 'starting') return api.t('ui.side.waiting');
+    if (session.status === 'running') return session.url ? session.url.replace(/^https?:\/\//, '') : api.t('ui.side.running');
+    if (session.status === 'stopped') return api.t('ui.side.stopped', { lines: lines(session.entryCount) });
     if (session.status === 'exited') {
-      return 'terminato (codice ' + (session.exitCode == null ? '?' : session.exitCode) + ')';
+      return api.t('ui.side.exited', { code: session.exitCode == null ? '?' : session.exitCode });
     }
     return session.status || '';
   }
@@ -60,30 +60,30 @@
           id: 'origin',
           type: 'text',
           className: 'input mono',
-          placeholder: '3000, http://127.0.0.1:3000 o ~/cartella',
-          'aria-label': 'Origine locale',
+          placeholder: api.t('ui.form.placeholder'),
+          'aria-label': api.t('ui.form.origin'),
           'aria-describedby': 'origin-preview',
           autocomplete: 'off',
           spellcheck: 'false',
         }),
-        h('button', { type: 'submit', className: 'btn inv', text: 'Crea', dataset: { action: 'create' } }),
+        h('button', { type: 'submit', className: 'btn inv', text: api.t('ui.form.create'), dataset: { action: 'create' } }),
       ]),
       h('p', { id: 'origin-preview', className: 'origin-preview mono', 'aria-live': 'polite' }),
       h('details', { id: 'mail-details', className: 'create-more' }, [
-        h('summary', { id: 'mail-summary', text: 'Accesso via email' }),
+        h('summary', { id: 'mail-summary', text: api.t('ui.form.mail') }),
         h('textarea', {
           id: 'allowed-mail',
           name: 'allowedMail',
           rows: '1',
           className: 'input mono',
-          placeholder: 'nome@cliente.it, *@azienda.it',
-          'aria-label': 'Email autorizzate',
+          placeholder: api.t('ui.form.mailPlaceholder'),
+          'aria-label': api.t('ui.form.mailLabel'),
           spellcheck: 'false',
         }),
         h('div', { id: 'recent-mail', className: 'recent-mail' }),
       ]),
       h('details', { id: 'origin-details', className: 'create-more' }, [
-        h('summary', { id: 'origin-summary', text: 'Opzioni origine' }),
+        h('summary', { id: 'origin-summary', text: api.t('ui.form.originOptions') }),
         h('label', { className: 'field' }, [
           h('span', { text: 'Host header' }),
           h('input', { id: 'host-header', name: 'hostHeader', type: 'text', className: 'input mono', autocomplete: 'off', spellcheck: 'false' }),
@@ -91,22 +91,22 @@
         h('div', { className: 'checks' }, [
           h('label', { className: 'check' }, [
             h('input', { id: 'no-tls-verify', name: 'noTlsVerify', type: 'checkbox' }),
-            h('span', { text: 'Non verificare TLS' }),
+            h('span', { text: api.t('ui.form.noTls') }),
           ]),
           h('label', { className: 'check' }, [
             h('input', { id: 'http2-origin', name: 'http2Origin', type: 'checkbox' }),
-            h('span', { text: 'Origine HTTP/2' }),
+            h('span', { text: api.t('ui.form.http2') }),
           ]),
-          h('label', { className: 'check', title: 'Mostra ogni richiesta che arriva dal tunnel, con header e body, e permette di rimandarla' }, [
+          h('label', { className: 'check', title: api.t('ui.form.inspectTitle') }, [
             h('input', { id: 'inspect', name: 'inspect', type: 'checkbox', checked: true }),
-            h('span', { id: 'inspect-label', text: 'Ispeziona richieste' }),
+            h('span', { id: 'inspect-label', text: api.t('ui.form.inspect') }),
           ]),
         ]),
       ]),
-      h('p', { className: 'quick-note', text: 'Solo per prove · niente SSE · nessuna garanzia di uptime' }),
+      h('p', { className: 'quick-note', text: api.t('ui.form.note') }),
       h('div', { className: 'hello-row' }, [
-        h('span', { className: 'hello-or', text: '— oppure —' }),
-        h('button', { type: 'button', className: 'btn', text: 'Prova con Hello World', dataset: { action: 'hello' } }),
+        h('span', { className: 'hello-or', text: api.t('ui.form.or') }),
+        h('button', { type: 'button', className: 'btn', text: api.t('ui.hello'), dataset: { action: 'hello' } }),
       ]),
     ]);
   }
@@ -140,7 +140,7 @@
       return;
     }
     var h = api.h;
-    slot.replaceChildren.apply(slot, [h('span', { className: 'recent-label', text: 'recenti:' })].concat(list.map(function (mail) {
+    slot.replaceChildren.apply(slot, [h('span', { className: 'recent-label', text: api.t('ui.form.recent') })].concat(list.map(function (mail) {
       return h('button', { type: 'button', className: 'chip mono', text: mail, dataset: { action: 'recent-mail', value: mail } });
     })));
   }
@@ -154,16 +154,16 @@
     } catch (err) {
       mails = options.allowedMail.split(/[\s,;]+/).filter(Boolean).length;
     }
-    if (mailSummary) mailSummary.textContent = 'Accesso via email' + (mails ? ' · ' + mails : '');
+    if (mailSummary) mailSummary.textContent = api.t('ui.form.mail') + (mails ? ' · ' + mails : '');
     var active = (options.hostHeader.trim() ? 1 : 0) + (options.noTlsVerify ? 1 : 0) + (options.http2Origin ? 1 : 0);
-    var label = options.noTlsVerify ? ' · TLS non verificato' : (active ? ' · ' + active : '');
-    if (!options.inspect || options.http2Origin) label += ' · senza ispettore';
-    if (originSummary) originSummary.textContent = 'Opzioni origine' + label;
+    var label = options.noTlsVerify ? ' · ' + api.t('ui.form.tlsOff') : (active ? ' · ' + active : '');
+    if (!options.inspect || options.http2Origin) label += ' · ' + api.t('ui.form.noInspector');
+    if (originSummary) originSummary.textContent = api.t('ui.form.originOptions') + label;
     // The inspector's proxy speaks HTTP/1.1 only.
     var inspect = field(form, 'inspect');
     var inspectLabel = field(form, 'inspect-label');
     if (inspect) inspect.disabled = !!options.http2Origin;
-    if (inspectLabel) inspectLabel.textContent = options.http2Origin ? 'Ispeziona richieste (non con HTTP/2)' : 'Ispeziona richieste';
+    if (inspectLabel) inspectLabel.textContent = options.http2Origin ? api.t('ui.form.inspectNoH2') : api.t('ui.form.inspect');
   }
 
   function hasOptions(options) {
@@ -180,7 +180,7 @@
       return;
     }
     if (api.looksLikeFolder(originValue)) {
-      preview.textContent = '→ cartella ' + String(originValue).trim() + ' · la serve trydash, senza file nascosti';
+      preview.textContent = api.t('ui.form.folderPreview', { path: String(originValue).trim() });
       preview.className = 'origin-preview mono';
       return;
     }
@@ -204,7 +204,7 @@
   function buildSidebar(vm) {
     var h = api.h;
     var version = vm.workspace && vm.workspace.version ? vm.workspace.version : '';
-    return h('aside', { id: 'sidebar', className: 'sidebar', 'aria-label': 'Tunnel' }, [
+    return h('aside', { id: 'sidebar', className: 'sidebar', 'aria-label': api.t('ui.tunnels') }, [
       h('div', { className: 'brand-row' }, [
         h('span', { className: 'brand' }, [
           h('img', { src: 'logo.svg', alt: '', width: '22', height: '22', className: 'brand-logo' }),
@@ -214,24 +214,33 @@
           type: 'button',
           id: 'theme-toggle',
           className: 'theme-toggle',
-          title: 'Tema',
+          title: api.t('ui.side.theme'),
           text: api.theme ? api.theme.label(api.theme.get()) : '◐ auto',
           dataset: { action: 'theme' },
+        }),
+        h('button', {
+          type: 'button',
+          id: 'lang-toggle',
+          className: 'theme-toggle',
+          title: api.t('ui.lang'),
+          'aria-label': api.t('ui.lang'),
+          text: api.lang === 'it' ? 'IT' : 'EN',
+          dataset: { action: 'lang' },
         }),
       ]),
       h('div', { id: 'new-tunnel', className: 'new-tunnel' }, [
         h('button', {
           type: 'button',
           className: 'new-toggle',
-          text: '＋ Nuovo tunnel',
+          text: api.t('ui.side.new'),
           'aria-expanded': 'false',
           'aria-controls': 'create-form',
           dataset: { action: 'new' },
         }),
         h('div', { id: 'create-slot', className: 'create-slot' }, [buildCreateForm()]),
       ]),
-      h('p', { id: 'tunnel-list-empty', className: 'tunnel-list-empty', text: 'Nessun tunnel ancora.' }),
-      h('ul', { id: 'tunnel-list', className: 'tunnel-list', 'aria-label': 'Tunnel' }),
+      h('p', { id: 'tunnel-list-empty', className: 'tunnel-list-empty', text: api.t('ui.side.empty') }),
+      h('ul', { id: 'tunnel-list', className: 'tunnel-list', 'aria-label': api.t('ui.tunnels') }),
       h('p', { id: 'cf-version', className: 'cf-version mono', title: version, text: version }),
     ]);
   }
@@ -261,7 +270,7 @@
     var share = Math.min(traffic.inflight / api.INFLIGHT_LIMIT, 1);
     var level = api.loadLevel(traffic.inflight);
     bar.className = 'load-bar' + (traffic.ok === false ? ' is-stale' : '');
-    bar.title = traffic.inflight + '/' + api.INFLIGHT_LIMIT + ' richieste in corso';
+    bar.title = api.t('ui.side.load', { n: traffic.inflight, limit: api.INFLIGHT_LIMIT });
     fill.className = 'load-fill' + (level ? ' ' + level : '');
     fill.style.width = Math.round(share * 100) + '%';
   }
@@ -292,9 +301,9 @@
         h('span', { className: 'tunnel-text' }, [
           h('span', { className: 'tunnel-origin' }, [
             h('span', { className: 'mono', text: originLabel(session) }),
-            mails.length ? h('span', { className: 'lock', title: mails.join(', '), 'aria-label': 'Protetto', text: '🔒' }) : null,
-            options.noTlsVerify ? h('span', { className: 'tls-off', title: 'Certificato dell\'origine non verificato', 'aria-label': 'TLS non verificato', text: '⚠' }) : null,
-            errors ? h('span', { className: 'badge-err', text: errors === 1 ? '1 errore' : errors + ' errori' }) : null,
+            mails.length ? h('span', { className: 'lock', title: mails.join(', '), 'aria-label': api.t('ui.side.protected'), text: '🔒' }) : null,
+            options.noTlsVerify ? h('span', { className: 'tls-off', title: api.t('ui.side.tlsTitle'), 'aria-label': api.t('ui.form.tlsOff'), text: '⚠' }) : null,
+            errors ? h('span', { className: 'badge-err', text: api.tn('ui.side.errors', errors) }) : null,
           ]),
           h('span', { className: 'tunnel-sub', text: statusText(session) }),
           loadBar(session),

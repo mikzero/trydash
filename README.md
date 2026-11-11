@@ -32,15 +32,15 @@
 - **every request in view**: headers and bodies of what reaches your service through the tunnel, with one-click replay. Handy for webhooks;
 - **readable logs**: colored levels, filters, highlighted search, infinite scrolling and a “follow the tail” mode;
 - **stopped tunnels stay readable**: you can go back to their logs and restart them. The URL changes on every start, which is a limit of quick tunnels;
-- **light and dark** themes, a **mobile** layout, keyboard shortcuts.
+- **light and dark** themes, a **mobile** layout, keyboard shortcuts, an interface in **English and Italian**.
 
-The interface is in Italian. Error messages are in English or Italian, following your browser (see [Error language](#error-language)). Below, Italian labels are followed by their translation.
+The interface is in English and Italian: it follows your browser, and the **EN**/**IT** button in the sidebar switches it (see [Language](#language)).
 
 ## Features
 
 ### Static folder
 
-Type the path of a folder instead of a port, for example `~/site/dist`, `./build` or `C:\site`, and press **Crea**. trydash serves the folder itself, on a local web server for that tunnel only, and `cloudflared` publishes it. It’s the quickest way to share a static build, a prototype or a few files.
+Type the path of a folder instead of a port, for example `~/site/dist`, `./build` or `C:\site`, and press **Create**. trydash serves the folder itself, on a local web server for that tunnel only, and `cloudflared` publishes it. It’s the quickest way to share a static build, a prototype or a few files.
 
 - `/` and every subfolder answer with their `index.html`. A folder without one shows the list of its files;
 - the right `Content-Type` for pages, styles, scripts, images, fonts, video and audio, with `ETag` and `Range` requests, so videos can be seeked;
@@ -48,31 +48,31 @@ Type the path of a folder instead of a port, for example `~/site/dist`, `./build
 - nothing outside the folder is reachable, symbolic links included;
 - only `GET` and `HEAD`: other methods get `405`.
 
-`~` is your home folder, and a relative path starts from the folder trydash runs in. The folder must exist when you create the tunnel, and it can’t be the root of the disk or your whole home folder. Its requests always appear in the **Richieste** tab, and the sidebar shows 📁 and the folder name. The origin options don’t apply to a folder.
+`~` is your home folder, and a relative path starts from the folder trydash runs in. The folder must exist when you create the tunnel, and it can’t be the root of the disk or your whole home folder. Its requests always appear in the **Requests** tab, and the sidebar shows 📁 and the folder name. The origin options don’t apply to a folder.
 
 ### Request inspector
 
-Every tunnel to a local origin goes through a small proxy that trydash runs on `127.0.0.1`. `cloudflared` connects to it instead of your server, and it forwards each request unchanged: same method, path, headers and body, WebSocket upgrades included. On the way it keeps a copy, which the **Richieste** (“Requests”) tab next to the logs shows:
+Every tunnel to a local origin goes through a small proxy that trydash runs on `127.0.0.1`. `cloudflared` connects to it instead of your server, and it forwards each request unchanged: same method, path, headers and body, WebSocket upgrades included. On the way it keeps a copy, which the **Requests** tab next to the logs shows:
 
 - the list of the latest 200 requests, with time, method, status, path, duration and response size, newest first;
-- **Errori** (“Errors”) for `4xx`, `5xx` and failed requests only, and a filter by path, method or status;
+- **Errors** for `4xx`, `5xx` and failed requests only, and a filter by path, method or status;
 - for each request, the headers and the body of both the request and the response. JSON is indented, and `gzip`, `br` and `deflate` bodies are decompressed for display;
-- **Rimanda** (“Replay”), which sends the same request to your origin again, for example a payment webhook after you fix the handler. The new request appears at the top with ↻ and a link to the original;
-- **Copia come curl** (“Copy as curl”), the same request as a `curl` command against your local origin. The headers Cloudflare adds (`Cf-*`) are left out.
+- **Replay**, which sends the same request to your origin again, for example a payment webhook after you fix the handler. The new request appears at the top with ↻ and a link to the original;
+- **Copy as curl**, the same request as a `curl` command against your local origin. The headers Cloudflare adds (`Cf-*`) are left out.
 
-trydash keeps the first 256 KB of each request body and the first 64 KB of each response body. A request with a larger body is shown cut and can’t be replayed. Everything stays in memory: **Svuota** (“Clear”) empties the list, and removing the tunnel deletes it.
+trydash keeps the first 256 KB of each request body and the first 64 KB of each response body. A request with a larger body is shown cut and can’t be replayed. Everything stays in memory: **Clear** empties the list, and removing the tunnel deletes it.
 
 When your server doesn’t answer, the proxy replies `502`, writes the error in the logs and shows the “server not responding” banner.
 
-The inspector is on by default. To turn it off, clear **Ispeziona richieste** (“Inspect requests”) under **Opzioni origine**. It’s also off for Hello World tunnels and with an HTTP/2 origin, because the proxy speaks HTTP/1.1 only. The equivalent `cloudflared` command shown in the header stays the one you would run without trydash.
+The inspector is on by default. To turn it off, clear **Inspect requests** under **Origin options**. It’s also off for Hello World tunnels and with an HTTP/2 origin, because the proxy speaks HTTP/1.1 only. The equivalent `cloudflared` command shown in the header stays the one you would run without trydash.
 
 ### Email access
 
-Open **Accesso via email** (“Email access”) in the create form and type the allowed addresses: `mario@client.com` for one person, `*@company.com` for a whole domain. Separate them with commas, semicolons, spaces or new lines. A list pasted from Outlook with names (`Mario Rossi <mario@client.com>; …`) works too: trydash keeps only the addresses. At most 20 entries.
+Open **Email access** in the create form and type the allowed addresses: `mario@client.com` for one person, `*@company.com` for a whole domain. Separate them with commas, semicolons, spaces or new lines. A list pasted from Outlook with names (`Mario Rossi <mario@client.com>; …`) works too: trydash keeps only the addresses. At most 20 entries.
 
 trydash starts the tunnel with `--allowed-mail` and marks it with 🔒 in the sidebar. Whoever opens the URL must first sign in with one of the allowed addresses.
 
-The last addresses you used show up as clickable suggestions (“recenti”, recent). They stay in your browser only (`localStorage`), never on the server.
+The last addresses you used show up as clickable suggestions (“recent”). They stay in your browser only (`localStorage`), never on the server.
 
 ### Traffic
 
@@ -81,37 +81,37 @@ trydash starts every tunnel with `--metrics` and reads the `cloudflared` metrics
 - **in the sidebar**, a bar of the requests in flight against the 200 limit: orange from 150, red at 200;
 - **in the tunnel header**, the requests in flight, the total requests, errors, connections to Cloudflare and a small chart of the last 5 minutes.
 
-If the metrics stop answering, the numbers turn grey with “dati non aggiornati” (stale data). When the tunnel is stopped, the final totals stay.
+If the metrics stop answering, the numbers turn grey with “data not up to date”. When the tunnel is stopped, the final totals stay.
 
 ### Origin options
 
-Under **Opzioni origine** (“Origin options”):
+Under **Origin options**:
 
 - **Host header**, that is `--http-host-header`, for servers that only answer to a specific host name;
-- **Non verificare TLS** (“Don’t verify TLS”), that is `--no-tls-verify`, for an https origin with a self-signed certificate;
-- **Origine HTTP/2** (“HTTP/2 origin”), that is `--http2-origin`. It turns the request inspector off;
-- **Ispeziona richieste** (“Inspect requests”), on by default: see [Request inspector](#request-inspector).
+- **Don’t verify TLS**, that is `--no-tls-verify`, for an https origin with a self-signed certificate;
+- **HTTP/2 origin**, that is `--http2-origin`. It turns the request inspector off;
+- **Inspect requests**, on by default: see [Request inspector](#request-inspector).
 
 Email and options stay the same when you restart the tunnel. The preview under the field shows the equivalent `cloudflared` command. You can copy it as is: entries with `*` are already quoted. When trydash runs on Windows, the command uses double quotes that work in both PowerShell and `cmd.exe`, with `$`, `` ` `` and `"` percent-encoded.
 
 ### Try with Hello World
 
-The **Prova con Hello World** button runs `cloudflared tunnel --hello-world`, which serves a test page. It lets you check that `cloudflared` and the network work, even without a local server.
+The **Try with Hello World** button runs `cloudflared tunnel --hello-world`, which serves a test page. It lets you check that `cloudflared` and the network work, even without a local server.
 
 ### Warnings
 
 | When | What you see |
 |---|---|
-| the origin doesn’t answer (in the last 60 s) | a “Il tuo server su :3000 non risponde — è avviato?” banner (“Your server on :3000 isn’t responding — is it running?”) with **Riavvia** (Restart) and **Prova con Hello World** |
+| the origin doesn’t answer (in the last 60 s) | a “Your server on :3000 isn’t responding — is it running?” banner with **Restart** and **Try with Hello World** |
 | 150 or more requests in flight | a banner about the 200 limit: extra requests get `429` |
-| `--no-tls-verify` on | a “Certificato dell’origine non verificato” label (origin certificate not verified) and ⚠ in the sidebar |
+| `--no-tls-verify` on | an “Origin certificate not verified” label and ⚠ in the sidebar |
 | protected tunnel | a label with the allowed addresses and 🔒 in the sidebar |
-| Restart | the first click shows “Nuovo URL — conferma” (New URL — confirm): a restarted quick tunnel changes URL |
-| always, in the form | “Solo per prove · niente SSE · nessuna garanzia di uptime” (testing only · no SSE · no uptime guarantee) |
+| Restart | the first click shows “New URL — confirm”: a restarted quick tunnel changes URL |
+| always, in the form | “Testing only · no SSE · no uptime guarantee” |
 
-### Error language
+### Language
 
-Error messages are in English or Italian, following the browser language. This also applies to API responses: the server reads the `Accept-Language` header. The rest of the interface is in Italian. The texts live in `public/js/i18n-en.js` and `public/js/i18n-it.js`.
+The interface and the error messages are in English or Italian. trydash follows the browser language, and a browser in any other language gets English. The **EN**/**IT** button next to the theme switches language and remembers the choice in the browser (`localStorage`). API responses follow the `Accept-Language` header, with English when it’s missing. The lines trydash adds to the logs (restarts, exits, an origin that doesn’t answer) are in English, like the ones from `cloudflared`. The texts live in `public/js/i18n-en.js` and `public/js/i18n-it.js`.
 
 ## Installation
 
@@ -162,7 +162,7 @@ cd trydash
 bun start            # or: bun server.js
 ```
 
-Open the printed address, usually `http://127.0.0.1:8787/?token=…`, type your service’s port, or the path of a folder to publish, and press **Crea** (Create).
+Open the printed address, usually `http://127.0.0.1:8787/?token=…`, type your service’s port, or the path of a folder to publish, and press **Create**.
 
 ### Environment variables
 
@@ -189,7 +189,7 @@ DASHBOARD_SEED=1 DASHBOARD_PROBE=present bun server.js
 | `/` | search the logs, or filter the requests |
 | `Esc` | clear the search, close the details or the menu |
 
-In the **Richieste** tab, `j`/`k` move between requests.
+In the **Requests** tab, `j`/`k` move between requests.
 
 ## Good to know about quick tunnels
 
@@ -207,10 +207,10 @@ Quick tunnels are meant for **testing and development**. From the [Cloudflare do
 - HTTP/3 stays off. trydash listens with `node:http` on TCP. Bun serves HTTP/3 only from `Bun.serve` when `http3` is true and a TLS certificate is set, and those responses advertise `Alt-Svc`. `fetch()` and `Bun.serve()` leave HTTP/3 off unless the caller asks for it. Release builds embed Bun 1.4.4. That release counts decoded header size as RFC 9114 §4.2.2 specifies, for `Bun.serve({ http3: true })` and for `fetch` with `protocol: "http3"`. The server limit is `--max-http-header-size`, 16 KB by default, and a request over it gets status `431`. This is the fix for the QPACK amplification bug in earlier Bun releases ([FoxIO, October 2026](https://foxio.io/blog/header-accordions-qpack-amplification-attacks-against-http-3-servers)). The same release updates the Brotli decoder to 1.2.1, which includes the fix for CVE-2026-111497. The published trydash 1.0.0 binaries embed Bun 1.4.2, so they include neither fix. Do not pass `http3: true` on a 1.0.0 binary.
 - Other pages open in your browser can’t control it. Requests with a `Host` other than `127.0.0.1`/`localhost` are refused, which blocks DNS rebinding. The same goes for changing requests (`POST`, `DELETE`) with an `Origin` from another site, and for every API call, `GET` included, that the browser marks as coming from another page (`Sec-Fetch-Site` other than `same-origin`), even a page on another port of `127.0.0.1`. Local scripts without these headers, like `curl`, keep working.
 - The dashboard can’t be shown inside another page (`frame-ancestors 'none'`, `X-Frame-Options: DENY`), so another site can’t trick you into clicking its buttons. Its `Content-Security-Policy` only allows its own scripts and styles.
-- **Stopping a tunnel stops it for real.** **Ferma** and **Rimuovi** send `SIGTERM` to `cloudflared`, and `SIGKILL` 5 seconds later if it’s still running. From the first click, the tunnel’s local proxy answers `503` to anything that still arrives. Closing trydash waits for its `cloudflared` processes to exit.
+- **Stopping a tunnel stops it for real.** **Stop** and **Remove** send `SIGTERM` to `cloudflared`, and `SIGKILL` 5 seconds later if it’s still running. From the first click, the tunnel’s local proxy answers `503` to anything that still arrives. Closing trydash waits for its `cloudflared` processes to exit.
 - Memory has limits: at most 50 tunnels, the latest 20,000 log lines per tunnel (the oldest go first), log lines cut at 16 KB, and the request inspector keeps its 200 requests with capped bodies. A burst of `cloudflared` checks shares one running check.
 - **A tunnel makes the service you expose public**: anyone with the URL can reach it. To limit it to specific people, use email access. Either way, don’t expose services with real data or admin panels without protection.
-- trydash doesn’t ask for or store credentials, tokens or accounts. Logs and inspected requests stay in memory and disappear when you close the server. Inspected requests can contain cookies and tokens sent to your service: they never leave your machine, and **Svuota** clears them.
+- trydash doesn’t ask for or store credentials, tokens or accounts. Logs and inspected requests stay in memory and disappear when you close the server. Inspected requests can contain cookies and tokens sent to your service: they never leave your machine, and **Clear** clears them.
 - The inspector’s proxy listens on `127.0.0.1` only, on a random port, and forwards only to the origin of its tunnel.
 - A folder tunnel makes every file in that folder public, except hidden ones. Pick the build folder, not your whole project or your home.
 - Origins with credentials in the URL (`http://user:pass@…`) are refused.
