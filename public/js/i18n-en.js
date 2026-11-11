@@ -27,5 +27,11 @@
     'client.offlineRetry': 'Server unreachable — retrying…',
     'client.stateUnavailable': 'State unavailable',
     'client.logsUnavailable': 'Logs unavailable',
+    'inspect.disabled': 'The inspector is not on for this tunnel',
+    'inspect.requestNotFound': 'Request not found: the inspector keeps only the latest ones',
+    'inspect.replayWebsocket': 'A WebSocket connection cannot be replayed',
+    'inspect.replayTruncated': 'The request body is too large to replay',
+    'inspect.replayFailed': 'The replayed request did not reach the origin',
+    'client.requestsUnavailable': 'Requests unavailable',
   };
 })(globalThis);

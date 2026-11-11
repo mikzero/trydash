@@ -17,7 +17,7 @@ test('renderEntry embeds every file and starts the server', () => {
 
 test('listAssets covers public/ and the seed fixture with forward slashes', () => {
   const files = listAssets(projectRoot);
-  for (const f of ['public/index.html', 'public/js/parse.js', 'public/favicon.png', 'test/fixtures/quick-tunnel.log']) assert.ok(files.includes(f), f);
+  for (const f of ['public/index.html', 'public/js/parse.js', 'public/favicon.png', 'test/fixtures/quick-tunnel.log', 'test/fixtures/requests.json']) assert.ok(files.includes(f), f);
   assert.equal(files.some((f) => f.includes('\\')), false);
 });
 

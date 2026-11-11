@@ -71,12 +71,15 @@
     var hello = input.mode === 'hello';
     var hostHeader = hello ? '' : String(input.hostHeader == null ? '' : input.hostHeader).trim();
     if (hostHeader && !HOST_HEADER_RE.test(hostHeader)) badOptions('options.hostHeaderInvalid', { value: hostHeader });
+    var http2Origin = !hello && input.http2Origin === true;
     return {
       mode: hello ? 'hello' : 'origin',
       allowedMail: mailList(input.allowedMail),
       hostHeader: hostHeader,
       noTlsVerify: !hello && input.noTlsVerify === true,
-      http2Origin: !hello && input.http2Origin === true,
+      http2Origin: http2Origin,
+      // The inspector's proxy speaks HTTP/1.1 only, so an HTTP/2 origin skips it.
+      inspect: !hello && !http2Origin && input.inspect !== false,
     };
   }
 
@@ -93,20 +96,24 @@
   // Quick tunnel: `cloudflared tunnel --url <origin>` or `--hello-world`.
   // `--metrics` feeds the traffic view; `--output json` only changes the log shape.
   // No named tunnel, login, or route.
-  function buildQuickTunnelCommand(originInput, rawOptions) {
+  // `target` is the inspector's local proxy: cloudflared connects there instead of the
+  // origin, while `equivalent` keeps the command a user would run without trydash.
+  function buildQuickTunnelCommand(originInput, rawOptions, target) {
     var options = normalizeTunnelOptions(rawOptions);
     var origin = options.mode === 'hello' ? null : normalizeOrigin(originInput);
     var source = origin == null ? ['--hello-world'] : ['--url', origin];
+    var spawned = origin != null && target ? ['--url', target] : source;
     var chosen = [];
     options.allowedMail.forEach(function (mail) { chosen.push('--allowed-mail', mail); });
     if (options.hostHeader) chosen.push('--http-host-header', options.hostHeader);
     if (options.noTlsVerify) chosen.push('--no-tls-verify');
     if (options.http2Origin) chosen.push('--http2-origin');
-    var args = ['tunnel'].concat(source, chosen, ['--metrics', '127.0.0.1:0', '--output', 'json', '--no-autoupdate']);
+    var args = ['tunnel'].concat(spawned, chosen, ['--metrics', '127.0.0.1:0', '--output', 'json', '--no-autoupdate']);
     return {
       bin: 'cloudflared',
       args: args,
       origin: origin,
+      target: origin != null && target ? target : null,
       mode: options.mode,
       options: options,
       equivalent: ['cloudflared', 'tunnel'].concat(source, chosen).map(shellWord).join(' '),
@@ -117,4 +124,5 @@
   api.normalizeTunnelOptions = normalizeTunnelOptions;
   api.isMailEntry = isMailEntry;
   api.buildQuickTunnelCommand = buildQuickTunnelCommand;
+  api.shellWord = shellWord;
 })(globalThis);

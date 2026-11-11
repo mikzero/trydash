@@ -812,6 +812,145 @@ mark { background: var(--mark); color: var(--mark-t); border-radius: 2px; paddin
 
 .detail .message, .detail .raw { background: var(--card); font-size: 11.5px; }
 
+/* ── Tunnel view: tabs ───────────────────────────────── */
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 20px;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.tab:hover { color: var(--text); }
+
+.tab.is-on { color: var(--text); border-bottom-color: var(--accent); }
+
+.tab-count {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--d-bg);
+  color: var(--muted);
+  font-size: 10.5px;
+  text-align: center;
+}
+
+.tab.is-on .tab-count { background: var(--accent-bg); color: var(--accent); }
+
+.tab-pane {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* ── Tunnel view: requests ───────────────────────────── */
+.req-rows { list-style: none; margin: 0; padding: 0; }
+
+.req-row {
+  height: var(--row-h);
+  display: grid;
+  grid-template-columns: 64px 56px 40px minmax(0, 1fr) 56px 60px;
+  gap: 10px;
+  align-items: center;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line2);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.req-row:hover { background: var(--bg); }
+
+.req-row.is-selected { background: var(--accent-bg); box-shadow: inset 3px 0 0 var(--accent); }
+
+.req-method { font-weight: 700; color: var(--d); }
+
+.req-status {
+  display: inline-block;
+  min-width: 34px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-align: center;
+  background: var(--d-bg);
+  color: var(--d);
+}
+
+.req-status.s-2xx { background: var(--ok-bg); color: var(--ok); }
+.req-status.s-3xx { background: var(--i-bg); color: var(--i); }
+.req-status.s-4xx { background: var(--w-bg); color: var(--w); }
+.req-status.s-5xx, .req-status.s-error { background: var(--e-bg); color: var(--e); }
+.req-status.s-pending { color: var(--muted); }
+
+.req-path { overflow: hidden; text-overflow: ellipsis; }
+
+.req-tag {
+  margin-right: 6px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--d-bg);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.req-num { color: var(--muted); text-align: right; }
+
+.req-empty { margin: 0; padding: 18px 16px; color: var(--muted); max-width: 60ch; }
+
+.req-detail { width: min(460px, 46vw); }
+
+.req-title { margin: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.detail-head { gap: 8px; min-width: 0; }
+
+.req-detail .detail-meta { flex-wrap: wrap; gap: 8px 18px; }
+
+.req-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.replay-note, .req-error { margin: 0; font-size: 12px; color: var(--muted); }
+
+.replay-note .link-btn { color: var(--accent); font-size: 12px; }
+
+.req-error { color: var(--e); }
+
+.req-side { display: grid; gap: 8px; min-width: 0; padding-top: 10px; border-top: 1px solid var(--line); }
+
+.req-side h3 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+
+.hdrs summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+
+.hdr-list { display: grid; gap: 2px; margin-top: 6px; font-size: 11.5px; }
+
+.hdr { display: grid; grid-template-columns: minmax(90px, 38%) minmax(0, 1fr); gap: 8px; }
+
+.hdr-k { color: var(--muted); overflow-wrap: anywhere; }
+
+.hdr-v { overflow-wrap: anywhere; }
+
+.body { display: grid; gap: 4px; min-width: 0; }
+
+.body-note { margin: 0; font-size: 11.5px; color: var(--muted); }
+
+.req-detail .body-text { background: var(--card); font-size: 11.5px; max-height: 360px; overflow: auto; }
+
 /* ── Traffic, protection badges, warnings ───────────── */
 .lock, .tls-off { font-size: 11px; line-height: 1; }
 .tls-off { color: var(--w); }
@@ -902,6 +1041,14 @@ mark { background: var(--mark); color: var(--mark-t); border-radius: 2px; paddin
   .search { order: -1; width: 100%; height: 40px; margin-left: 0; }
 
   .row { grid-template-columns: 58px 40px minmax(0, 1fr); gap: 8px; padding: 0 12px; }
+
+  .tabs { padding: 0 12px; }
+
+  .tab { min-height: 40px; }
+
+  .req-row { grid-template-columns: 48px 40px minmax(0, 1fr) 52px; gap: 8px; padding: 0 12px; }
+
+  .req-row .ts, .req-row .req-size { display: none; }
 
   .log-body { grid-template-columns: minmax(0, 1fr); }
 

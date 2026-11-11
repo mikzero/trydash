@@ -27,5 +27,11 @@
     'client.offlineRetry': 'Server non raggiungibile — riprovo…',
     'client.stateUnavailable': 'Stato non disponibile',
     'client.logsUnavailable': 'Log non disponibili',
+    'inspect.disabled': 'L’ispettore non è attivo per questo tunnel',
+    'inspect.requestNotFound': 'Richiesta non trovata: l’ispettore tiene solo le ultime',
+    'inspect.replayWebsocket': 'Una connessione WebSocket non si può rimandare',
+    'inspect.replayTruncated': 'Il body della richiesta è troppo grande per rimandarla',
+    'inspect.replayFailed': 'La richiesta rimandata non è arrivata all’origine',
+    'client.requestsUnavailable': 'Richieste non disponibili',
   };
 })(globalThis);

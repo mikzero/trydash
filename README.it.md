@@ -28,11 +28,28 @@
 
 - **più tunnel insieme**, ciascuno con stato (in avvio, attivo, fermato, terminato), URL e numero di errori;
 - **un clic** per creare, fermare, riavviare o rimuovere un tunnel. Per crearne uno basta scrivere la porta: `3000` diventa `http://127.0.0.1:3000`;
+- **ogni richiesta sotto gli occhi**: header e body di ciò che arriva al tuo servizio dal tunnel, da rimandare con un clic. Comodo per i webhook;
 - **log leggibili**: livelli colorati, filtri, ricerca con evidenziazione, scorrimento continuo e modalità “segui la coda”;
 - **i tunnel fermati restano consultabili**: puoi rileggerne i log e riavviarli. L’URL cambia a ogni avvio, ed è un limite dei quick tunnel;
 - tema **chiaro e scuro**, layout per **mobile**, scorciatoie da tastiera.
 
 ## Funzioni
+
+### Ispettore delle richieste
+
+Ogni tunnel verso un’origine locale passa da un piccolo proxy che trydash avvia su `127.0.0.1`. `cloudflared` si collega al proxy invece che al tuo server, e il proxy inoltra ogni richiesta così com’è: stesso metodo, percorso, header e body, compresi gli upgrade WebSocket. Intanto ne tiene una copia, che compare nella scheda **Richieste** accanto ai log:
+
+- l’elenco delle ultime 200 richieste, con ora, metodo, stato, percorso, durata e dimensione della risposta, dalla più recente;
+- **Errori** per vedere solo le risposte `4xx` e `5xx` e le richieste fallite, e un filtro per percorso, metodo o stato;
+- per ogni richiesta, header e body sia della richiesta sia della risposta. Il JSON è indentato, e i body `gzip`, `br` e `deflate` vengono decompressi per mostrarli;
+- **Rimanda**, che manda di nuovo la stessa richiesta alla tua origine, per esempio il webhook di un pagamento dopo che hai corretto il codice. La nuova richiesta compare in cima con ↻ e il collegamento all’originale;
+- **Copia come curl**, la stessa richiesta come comando `curl` verso l’origine locale. Gli header aggiunti da Cloudflare (`Cf-*`) restano fuori.
+
+trydash tiene i primi 256 KB del body di ogni richiesta e i primi 64 KB di ogni risposta. Una richiesta con un body più grande viene mostrata tagliata e non si può rimandare. Tutto resta in memoria: **Svuota** cancella l’elenco, e rimuovere il tunnel lo elimina.
+
+Se il tuo server non risponde, il proxy risponde `502`, scrive l’errore nei log e mostra il banner “non risponde”.
+
+L’ispettore è attivo di default. Per spegnerlo togli la spunta da **Ispeziona richieste** in **Opzioni origine**. È spento anche per i tunnel Hello World e con un’origine HTTP/2, perché il proxy parla solo HTTP/1.1. Il comando `cloudflared` equivalente mostrato nell’intestazione resta quello che useresti senza trydash.
 
 ### Accesso via email
 
@@ -57,7 +74,8 @@ Sotto **Opzioni origine**:
 
 - **Host header**, cioè `--http-host-header`, per i server che rispondono solo a un nome host preciso;
 - **Non verificare TLS**, cioè `--no-tls-verify`, per un’origine https con un certificato self-signed;
-- **Origine HTTP/2**, cioè `--http2-origin`.
+- **Origine HTTP/2**, cioè `--http2-origin`. Spegne l’ispettore delle richieste;
+- **Ispeziona richieste**, attivo di default: vedi [Ispettore delle richieste](#ispettore-delle-richieste).
 
 Email e opzioni restano uguali quando riavvii il tunnel. L’anteprima sotto il campo mostra il comando `cloudflared` equivalente. Si può copiare così com’è: le voci con `*` sono già tra apici.
 
@@ -136,7 +154,7 @@ Apri l’indirizzo stampato, di solito <http://127.0.0.1:8787>, scrivi la porta 
 | Variabile | Default | A cosa serve |
 |---|---|---|
 | `PORT` | `8787` | Porta della dashboard, che ascolta solo su `127.0.0.1`. |
-| `DASHBOARD_SEED` | — | Con `1` carica una sessione d’esempio dai log in `test/fixtures/`. Utile per provare l’interfaccia senza aprire tunnel. |
+| `DASHBOARD_SEED` | — | Con `1` carica una sessione d’esempio dai log e dalle richieste in `test/fixtures/`. Utile per provare l’interfaccia senza aprire tunnel. |
 | `DASHBOARD_PROBE` | `auto` | `present` o `missing` simulano la presenza o l’assenza di `cloudflared`, senza eseguirlo. |
 | `DASHBOARD_PROBE_VERSION` | — | Testo della versione mostrato quando `DASHBOARD_PROBE=present`. |
 
@@ -152,8 +170,10 @@ DASHBOARD_SEED=1 DASHBOARD_PROBE=present bun server.js
 |---|---|
 | `j` / `↓` | riga successiva |
 | `k` / `↑` | riga precedente |
-| `/` | cerca nei log |
+| `/` | cerca nei log, o filtra le richieste |
 | `Esc` | svuota la ricerca, chiude il dettaglio o il menu |
+
+Nella scheda **Richieste**, `j`/`k` passano da una richiesta all’altra.
 
 ## Cose da sapere sui quick tunnel
 
@@ -170,7 +190,8 @@ I quick tunnel sono pensati per **test e sviluppo**. Dalla [documentazione Cloud
 - HTTP/3 resta spento. trydash ascolta con `node:http` su TCP. Bun serve HTTP/3 solo da `Bun.serve`, con `http3` a true e un certificato TLS, e in quel caso le risposte annunciano `Alt-Svc`. `fetch()` e `Bun.serve()` lasciano HTTP/3 spento se il chiamante non lo chiede. Le build di release incorporano Bun 1.4.4. Quella release conta la dimensione degli header decodificati come dice RFC 9114 §4.2.2, per `Bun.serve({ http3: true })` e per `fetch` con `protocol: "http3"`. Il limite del server è `--max-http-header-size`, 16 KB di default, e una richiesta oltre quel limite riceve lo stato `431`. È la correzione del bug di amplificazione QPACK delle release Bun precedenti ([FoxIO, ottobre 2026](https://foxio.io/blog/header-accordions-qpack-amplification-attacks-against-http-3-servers)). La stessa release porta il decoder Brotli a 1.2.1, con la correzione di CVE-2026-111497. I binari pubblicati di trydash 1.0.0 incorporano Bun 1.4.2, quindi non hanno nessuna delle due correzioni. Non passare `http3: true` su un binario 1.0.0.
 - Le altre pagine aperte nel browser non possono comandarla. Le richieste con un `Host` diverso da `127.0.0.1`/`localhost` vengono rifiutate, e questo blocca il DNS rebinding. Lo stesso vale per le richieste di modifica (`POST`, `DELETE`) con un `Origin` di un altro sito. Gli script locali senza `Origin`, come `curl`, continuano a funzionare.
 - **Un tunnel rende pubblico il servizio che esponi**: chiunque abbia l’URL può raggiungerlo. Per limitarlo a persone precise usa l’accesso via email. Comunque non esporre servizi con dati reali o pannelli di amministrazione senza protezione.
-- trydash non chiede né salva credenziali, token o account. I log restano in memoria e spariscono quando chiudi il server.
+- trydash non chiede né salva credenziali, token o account. I log e le richieste ispezionate restano in memoria e spariscono quando chiudi il server. Le richieste ispezionate possono contenere cookie e token mandati al tuo servizio: non lasciano mai il tuo computer, e **Svuota** le cancella.
+- Il proxy dell’ispettore ascolta solo su `127.0.0.1`, su una porta casuale, e inoltra solo verso l’origine del suo tunnel.
 - Le origini con credenziali nell’URL (`http://user:pass@…`) vengono rifiutate.
 
 ## API
@@ -187,6 +208,10 @@ Il frontend usa una piccola API JSON, utile anche per script:
 | `DELETE` | `/api/sessions/:id` | ferma e rimuove la sessione |
 | `GET` | `/api/sessions/:id/logs?offset=&limit=&levels=error,warn&q=testo` | pagina di log, filtrata (massimo 200 righe) |
 | `GET` | `/api/sessions/:id/entries/:index` | una singola riga di log |
+| `GET` | `/api/sessions/:id/requests?version=` | le richieste ispezionate, dalla più recente; con la `version` attuale la risposta è solo `{ "unchanged": true }` |
+| `GET` | `/api/sessions/:id/requests/:seq` | una richiesta con header e body |
+| `POST` | `/api/sessions/:id/requests/:seq/replay` | rimanda la richiesta all’origine; restituisce quella nuova |
+| `DELETE` | `/api/sessions/:id/requests` | svuota l’elenco |
 
 `options` è facoltativo:
 
@@ -196,11 +221,12 @@ Il frontend usa una piccola API JSON, utile anche per script:
   "allowedMail": "mario@cliente.it, *@azienda.it",
   "hostHeader": "app.local",
   "noTlsVerify": false,
-  "http2Origin": false
+  "http2Origin": false,
+  "inspect": true
 }
 ```
 
-Con `"mode": "hello"` l’origine viene ignorata e il tunnel serve la pagina Hello World. Le risposte d’errore hanno la forma `{ "error": "…", "key": "options.mailInvalid", "params": { … } }`.
+Con `"mode": "hello"` l’origine viene ignorata e il tunnel serve la pagina Hello World. Ogni sessione in `/api/state` ha un campo `inspect`: `{ "enabled": true, "count": 12, "total": 40, "version": 85 }`, oppure `{ "enabled": false, "reason": "hello" | "http2" | "off" }`. Gli endpoint delle richieste rispondono `409` con la chiave `inspect.disabled` quando l’ispettore è spento. Le risposte d’errore hanno la forma `{ "error": "…", "key": "options.mailInvalid", "params": { … } }`.
 
 ## Build locale
 
@@ -316,12 +342,13 @@ server.js            server HTTP e API (Bun, solo moduli node:*)
 src/assets.js        lettura dei file del progetto (dal disco o incorporati nel binario)
 src/runtime.js       avvio/arresto di cloudflared e lettura dello stream
 src/traffic.js       lettura periodica delle metriche di cloudflared
+src/inspector.js     ispettore delle richieste: proxy locale, richieste registrate, replay
 src/load-dashboard.js carica le librerie condivise nel server
 scripts/build.js     build degli eseguibili autonomi
 scripts/release-notes.js bozza delle note di release dai commit
 site/                landing page (GitHub Pages) in inglese, site/it/ in italiano
 .github/workflows/   release automatica sui tag v* e pubblicazione del sito
-public/js/           librerie condivise (parse, sessions, window, i18n…) e interfaccia
+public/js/           librerie condivise (parse, sessions, window, i18n…) e interfaccia (requests.js: la scheda Richieste)
 public/css/app.css   tema "Paper" chiaro/scuro
 test/                test con bun test
 ```

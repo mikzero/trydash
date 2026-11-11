@@ -165,35 +165,61 @@
         ]),
       ]),
       h('div', { id: 'tunnel-warnings', className: 'tunnel-warnings', role: 'status' }),
-      h('div', { className: 'log-toolbar' }, [
-        h('div', { id: 'level-chips', className: 'chips', role: 'group', 'aria-label': 'Livelli' }),
-        h('span', { id: 'log-count', className: 'log-count' }),
-        h('label', { className: 'search' }, [
-          h('span', { className: 'search-ico', 'aria-hidden': 'true', text: '⌕' }),
-          h('input', {
-            id: 'log-search',
-            type: 'search',
-            placeholder: 'Cerca nei log',
-            'aria-label': 'Cerca nei log',
-            autocomplete: 'off',
-            spellcheck: 'false',
-          }),
-          h('kbd', { className: 'search-kbd', text: '/' }),
+      h('div', { className: 'tabs', role: 'tablist', 'aria-label': 'Vista' }, [
+        h('button', { type: 'button', id: 'tab-log', className: 'tab is-on', role: 'tab', 'aria-selected': 'true', 'aria-controls': 'pane-log', dataset: { action: 'tab', tab: 'log' } }, [
+          h('span', { text: 'Log' }),
+        ]),
+        h('button', { type: 'button', id: 'tab-requests', className: 'tab', role: 'tab', 'aria-selected': 'false', 'aria-controls': 'pane-requests', dataset: { action: 'tab', tab: 'requests' } }, [
+          h('span', { text: 'Richieste' }),
+          h('span', { id: 'tab-requests-count', className: 'tab-count', hidden: true }),
         ]),
       ]),
-      h('div', { className: 'log-body' }, [
-        h('div', { className: 'log-pane' }, [
-          h('div', { id: 'log-scroller', className: 'log-scroller', tabindex: '0', 'aria-label': 'Righe di log' }, [
-            h('div', { id: 'log-spacer', className: 'log-spacer' }, [
-              h('ol', { id: 'log-rows', className: 'log-rows mono', role: 'listbox', 'aria-label': 'Log' }),
-            ]),
-            h('p', { id: 'log-empty', className: 'log-empty', hidden: true }),
+      h('div', { id: 'pane-log', className: 'tab-pane', role: 'tabpanel', 'aria-labelledby': 'tab-log' }, [
+        h('div', { className: 'log-toolbar' }, [
+          h('div', { id: 'level-chips', className: 'chips', role: 'group', 'aria-label': 'Livelli' }),
+          h('span', { id: 'log-count', className: 'log-count' }),
+          h('label', { className: 'search' }, [
+            h('span', { className: 'search-ico', 'aria-hidden': 'true', text: '⌕' }),
+            h('input', {
+              id: 'log-search',
+              type: 'search',
+              placeholder: 'Cerca nei log',
+              'aria-label': 'Cerca nei log',
+              autocomplete: 'off',
+              spellcheck: 'false',
+            }),
+            h('kbd', { className: 'search-kbd', text: '/' }),
           ]),
-          h('button', { type: 'button', id: 'new-rows', className: 'new-rows', hidden: true, dataset: { action: 'tail' } }),
         ]),
-        h('aside', { id: 'log-detail', className: 'detail', hidden: true, 'aria-label': 'Dettaglio riga' }),
+        h('div', { className: 'log-body' }, [
+          h('div', { className: 'log-pane' }, [
+            h('div', { id: 'log-scroller', className: 'log-scroller', tabindex: '0', 'aria-label': 'Righe di log' }, [
+              h('div', { id: 'log-spacer', className: 'log-spacer' }, [
+                h('ol', { id: 'log-rows', className: 'log-rows mono', role: 'listbox', 'aria-label': 'Log' }),
+              ]),
+              h('p', { id: 'log-empty', className: 'log-empty', hidden: true }),
+            ]),
+            h('button', { type: 'button', id: 'new-rows', className: 'new-rows', hidden: true, dataset: { action: 'tail' } }),
+          ]),
+          h('aside', { id: 'log-detail', className: 'detail', hidden: true, 'aria-label': 'Dettaglio riga' }),
+        ]),
       ]),
+      api.buildRequestsPane ? api.buildRequestsPane() : null,
     ]);
+  }
+
+  // Shows one of the two panes; the hidden one keeps its state.
+  function showTab(tab) {
+    ['log', 'requests'].forEach(function (name) {
+      var on = name === tab;
+      var button = el('tab-' + name);
+      var pane = el('pane-' + name);
+      if (button) {
+        button.className = 'tab' + (on ? ' is-on' : '');
+        button.setAttribute('aria-selected', on ? 'true' : 'false');
+      }
+      if (pane) pane.hidden = !on;
+    });
   }
 
   function buildDetail(entry) {
@@ -685,6 +711,7 @@
   api.highlightParts = highlightParts;
   api.relativeTime = relativeTime;
   api.buildMain = buildMain;
+  api.showTab = showTab;
   api.buildDetail = buildDetail;
   api.followAfterScroll = followAfterScroll;
   api.createLogView = createLogView;

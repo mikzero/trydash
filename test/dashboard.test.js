@@ -238,7 +238,9 @@ test('HTTP create uses the quick-tunnel spawn, detail, stop, and the log window'
     assert.equal(seen[0].bin, 'cloudflared');
     assert.equal(seen[0].args[0], 'tunnel');
     assert.equal(seen[0].args[1], '--url');
-    assert.equal(seen[0].args[2], 'http://127.0.0.1:8080');
+    // cloudflared reaches the origin through the inspector's local proxy.
+    assert.match(seen[0].args[2], /^http:\/\/127\.0\.0\.1:\d+$/);
+    assert.notEqual(seen[0].args[2], 'http://127.0.0.1:8080');
 
     let url = null;
     for (let i = 0; i < 50; i += 1) {
@@ -477,14 +479,16 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
 test('tunnel options and command', () => {
   const o = dash.normalizeTunnelOptions({ allowedMail: 'Mario@Cliente.it; *@azienda.it;\nmario@cliente.it;' });
   assert.deepEqual(plain(o.allowedMail), ['mario@cliente.it', '*@azienda.it']);
-  assert.deepEqual(plain(dash.normalizeTunnelOptions()), { mode: 'origin', allowedMail: [], hostHeader: '', noTlsVerify: false, http2Origin: false });
+  assert.deepEqual(plain(dash.normalizeTunnelOptions()), { mode: 'origin', allowedMail: [], hostHeader: '', noTlsVerify: false, http2Origin: false, inspect: true });
+  assert.equal(dash.normalizeTunnelOptions({ inspect: false }).inspect, false);
+  assert.equal(dash.normalizeTunnelOptions({ http2Origin: true }).inspect, false);
   assert.throws(() => dash.normalizeTunnelOptions({ allowedMail: 'mario@' }),
     (e) => e.code === 'BAD_OPTIONS' && e.key === 'options.mailInvalid' && e.params.value === 'mario@');
   assert.throws(() => dash.normalizeTunnelOptions({ allowedMail: Array.from({ length: 21 }, (_, i) => `u${i}@x.it`) }),
     (e) => e.key === 'options.mailTooMany' && e.params.max === 20);
   assert.throws(() => dash.normalizeTunnelOptions({ hostHeader: 'a b' }), (e) => e.key === 'options.hostHeaderInvalid');
   assert.deepEqual(plain(dash.normalizeTunnelOptions({ mode: 'hello', hostHeader: 'x.local', noTlsVerify: true, allowedMail: 'a@b.it' })),
-    { mode: 'hello', allowedMail: ['a@b.it'], hostHeader: '', noTlsVerify: false, http2Origin: false });
+    { mode: 'hello', allowedMail: ['a@b.it'], hostHeader: '', noTlsVerify: false, http2Origin: false, inspect: false });
 
   const c = dash.buildQuickTunnelCommand('3000', { allowedMail: '*@azienda.it', hostHeader: 'app.local', noTlsVerify: true, http2Origin: true });
   assert.deepEqual(plain(c.args), ['tunnel', '--url', 'http://127.0.0.1:3000', '--allowed-mail', '*@azienda.it', '--http-host-header', 'app.local',
@@ -496,6 +500,13 @@ test('tunnel options and command', () => {
   assert.equal(hw.args[1], '--hello-world');
   assert.equal(hw.equivalent, 'cloudflared tunnel --hello-world');
   assert.equal(dash.buildQuickTunnelCommand('3000').equivalent, 'cloudflared tunnel --url http://127.0.0.1:3000');
+
+  // The inspector's proxy replaces the origin in the spawned command only.
+  const proxied = dash.buildQuickTunnelCommand('3000', { noTlsVerify: true }, 'http://127.0.0.1:41000');
+  assert.deepEqual(plain(proxied.args.slice(0, 4)), ['tunnel', '--url', 'http://127.0.0.1:41000', '--no-tls-verify']);
+  assert.equal(proxied.equivalent, 'cloudflared tunnel --url http://127.0.0.1:3000 --no-tls-verify');
+  assert.equal(proxied.target, 'http://127.0.0.1:41000');
+  assert.equal(dash.buildQuickTunnelCommand('', { mode: 'hello' }, 'http://127.0.0.1:41000').args[1], '--hello-world');
 });
 
 test('metrics address, origin errors and traffic in the store', () => {
@@ -692,6 +703,13 @@ test('the copied command is shell-safe for any origin', () => {
   const quote = dash.buildQuickTunnelCommand("http://127.0.0.1:3000/a*'b");
   assert.ok(quote.equivalent.endsWith(`'http://127.0.0.1:3000/a*'\\''b'`), quote.equivalent);
   assert.equal(dash.buildQuickTunnelCommand('3000').equivalent, 'cloudflared tunnel --url http://127.0.0.1:3000');
+
+  // The inspector's proxy replaces the origin in the spawned command only.
+  const proxied = dash.buildQuickTunnelCommand('3000', { noTlsVerify: true }, 'http://127.0.0.1:41000');
+  assert.deepEqual(plain(proxied.args.slice(0, 4)), ['tunnel', '--url', 'http://127.0.0.1:41000', '--no-tls-verify']);
+  assert.equal(proxied.equivalent, 'cloudflared tunnel --url http://127.0.0.1:3000 --no-tls-verify');
+  assert.equal(proxied.target, 'http://127.0.0.1:41000');
+  assert.equal(dash.buildQuickTunnelCommand('', { mode: 'hello' }, 'http://127.0.0.1:41000').args[1], '--hello-world');
 });
 
 test('metrics address is only taken from a loopback line', () => {

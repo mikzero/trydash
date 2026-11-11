@@ -117,6 +117,9 @@
     armed: null,
     searchTimer: 0,
     timer: 0,
+    tab: 'log',
+    requests: null,
+    reqSearchTimer: 0,
   };
 
   function currentSession() {
@@ -184,6 +187,14 @@
     }
     state.wasEmpty = isEmpty;
     if (state.view) state.view.update(session);
+    if (state.requests) state.requests.update(session);
+  }
+
+  function setTab(tab) {
+    state.tab = tab === 'requests' ? 'requests' : 'log';
+    api.showTab(state.tab);
+    if (state.requests) state.requests.setActive(state.tab === 'requests');
+    if (state.tab === 'log' && state.view) state.view.render();
   }
 
   async function copyText(text, done) {
@@ -257,6 +268,9 @@
     if (phaseChanged) {
       api.renderPhase(state.app, data.probe);
       state.view = nextPhase === 'workspace' ? api.createLogView() : null;
+      state.requests = nextPhase === 'workspace' ? api.createRequestView() : null;
+      if (state.requests) api.showTab(state.tab);
+      if (state.requests) state.requests.setActive(state.tab === 'requests');
     }
     if (nextPhase === 'install') {
       var status = document.getElementById('probe-status');
@@ -328,6 +342,8 @@
       var node = form.querySelector('#' + id);
       if (node) node.checked = false;
     });
+    var inspect = form.querySelector('#inspect');
+    if (inspect) inspect.checked = true;
     ['mail-details', 'origin-details'].forEach(function (id) {
       var node = form.querySelector('#' + id);
       if (node) node.open = false;
@@ -478,6 +494,12 @@
     var target = event.target;
     if (!target) return;
     if (target.closest && target.closest('#create-form')) api.refreshCreateForm(document.getElementById('create-form'));
+    if (target.id === 'req-search' && state.requests) {
+      clearTimeout(state.reqSearchTimer);
+      state.reqSearchTimer = setTimeout(function () {
+        state.requests.setQuery(target.value);
+      }, 150);
+    }
     if (target.id === 'log-search' && state.view) {
       clearTimeout(state.searchTimer);
       state.searchTimer = setTimeout(function () {
@@ -491,7 +513,7 @@
   }
 
   function onClick(event) {
-    var node = event.target.closest ? event.target.closest('[data-action], [data-index], [data-session]') : null;
+    var node = event.target.closest ? event.target.closest('[data-action], [data-index], [data-session], [data-req]') : null;
     if (!node) return;
     var action = node.dataset.action;
     if (action === 'hello') {
@@ -552,6 +574,11 @@
       if (!(currentSession() && currentSession().url)) event.preventDefault();
       return;
     }
+    if (action === 'tab') {
+      setTab(node.dataset.tab);
+      return;
+    }
+    if (state.requests && requestAction(action, node)) return;
     if (!state.view) return;
     if (action === 'chip') {
       state.view.toggleLevel(node.dataset.group || '');
@@ -585,10 +612,56 @@
     }
   }
 
+  // Clicks inside the Requests tab; true when handled.
+  function requestAction(action, node) {
+    var view = state.requests;
+    if (action === 'req-filter') {
+      view.setFilter(node.dataset.filter);
+      return true;
+    }
+    if (action === 'clear-requests') {
+      view.clear().then(function () { notify('Richieste svuotate'); }, fail);
+      return true;
+    }
+    if (action === 'close-req') {
+      view.closeDetail();
+      return true;
+    }
+    if (action === 'copy-curl') {
+      var curl = view.curl();
+      if (curl) copyText(curl, 'Comando curl copiato');
+      return true;
+    }
+    if (action === 'replay') {
+      node.disabled = true;
+      view.replay().then(function (row) {
+        if (row) notify('Richiesta rimandata · ' + (row.status == null ? (row.error || 'nessuna risposta') : row.status), row && api.isProblemRequest(row) ? 'error' : 'info');
+      }, function (err) {
+        node.disabled = false;
+        fail(err);
+      });
+      return true;
+    }
+    if (!action && node.dataset.req) {
+      view.select(Number(node.dataset.req));
+      return true;
+    }
+    return false;
+  }
+
   function onKey(event) {
     var target = event.target || {};
     var typing = target.matches && target.matches('input, textarea, select');
     if (event.key === 'Escape') {
+      if (target.id === 'req-search' && target.value) {
+        target.value = '';
+        if (state.requests) state.requests.setQuery('');
+        return;
+      }
+      if (state.tab === 'requests' && state.requests && state.requests.closeDetail()) {
+        event.preventDefault();
+        return;
+      }
       if (target.id === 'origin') {
         setNewOpen(false);
         return;
@@ -603,6 +676,22 @@
       return;
     }
     if (typing || !state.view) return;
+    if (state.tab === 'requests' && state.requests) {
+      if (event.key === '/') {
+        var reqSearch = document.getElementById('req-search');
+        if (reqSearch) {
+          event.preventDefault();
+          reqSearch.focus();
+        }
+      } else if (event.key === 'ArrowDown' || event.key === 'j') {
+        event.preventDefault();
+        state.requests.move(1);
+      } else if (event.key === 'ArrowUp' || event.key === 'k') {
+        event.preventDefault();
+        state.requests.move(-1);
+      }
+      return;
+    }
     if (event.key === '/') {
       var search = document.getElementById('log-search');
       if (search) {
@@ -678,6 +767,7 @@
     start();
   }
 
+  api.request = api_;
   api.needsConfirm = needsConfirm;
   api.armedLabel = armedLabel;
   api.confirmStep = confirmStep;

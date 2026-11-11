@@ -423,7 +423,11 @@ test('create form options, preview and recent mail', () => {
   form.querySelector('#host-header').value = 'app.local';
   form.querySelector('#no-tls-verify').checked = true;
   form.querySelector('#http2-origin').checked = false;
-  assert.deepEqual({ ...T.readCreateOptions(form) }, { allowedMail: 'a@b.it, *@x.it', hostHeader: 'app.local', noTlsVerify: true, http2Origin: false });
+  assert.equal(form.querySelector('#inspect').checked, true);
+  assert.deepEqual({ ...T.readCreateOptions(form) }, { allowedMail: 'a@b.it, *@x.it', hostHeader: 'app.local', noTlsVerify: true, http2Origin: false, inspect: true });
+  form.querySelector('#inspect').checked = false;
+  assert.equal(T.readCreateOptions(form).inspect, false);
+  form.querySelector('#inspect').checked = true;
   T.refreshCreateForm(form);
   assert.equal(form.querySelector('#mail-summary').textContent, 'Accesso via email · 2');
   assert.equal(form.querySelector('#origin-summary').textContent, 'Opzioni origine · TLS non verificato');
@@ -435,6 +439,113 @@ test('create form options, preview and recent mail', () => {
   T.refreshCreateForm(form);
   assert.equal(form.querySelector('#mail-summary').textContent, 'Accesso via email');
   assert.equal(form.querySelector('#origin-summary').textContent, 'Opzioni origine');
+  form.querySelector('#http2-origin').checked = true;
+  T.refreshCreateForm(form);
+  assert.equal(form.querySelector('#origin-summary').textContent, 'Opzioni origine · 1 · senza ispettore');
+  assert.equal(form.querySelector('#inspect').disabled, true);
+});
+
+test('requests tab: helpers, curl, detail and the view against a fake API', async () => {
+  const { T, host, sandbox } = domSandbox();
+  assert.equal(T.formatBytes(512), '512 B');
+  assert.equal(T.formatBytes(1536), '1,5 kB');
+  assert.equal(T.formatDuration(38), '38 ms');
+  assert.equal(T.formatDuration(1500), '1,5 s');
+  assert.equal(T.formatDuration(null), '…');
+  assert.equal(T.statusGroup({ status: 201, state: 'done' }), '2xx');
+  assert.equal(T.statusGroup({ status: 503, state: 'done' }), '5xx');
+  assert.equal(T.statusGroup({ status: null, state: 'pending' }), 'pending');
+  assert.equal(T.statusGroup({ status: null, state: 'aborted' }), 'error');
+  assert.equal(T.isProblemRequest({ status: 404, state: 'done' }), true);
+  assert.equal(T.isProblemRequest({ status: 200, state: 'done' }), false);
+  const hook = { method: 'POST', path: '/webhooks/stripe?x=1', status: 500, state: 'done' };
+  assert.equal(T.requestMatches(hook, { q: 'stripe' }), true);
+  assert.equal(T.requestMatches(hook, { q: '500' }), true);
+  assert.equal(T.requestMatches(hook, { q: 'get' }), false);
+  assert.equal(T.requestMatches({ ...hook, status: 200 }, { onlyProblems: true }), false);
+
+  const detail = {
+    seq: 3, method: 'POST', path: '/webhooks/stripe', status: 500, statusText: 'Internal Server Error', state: 'done',
+    durationMs: 38, startedAt: '2026-11-10T10:00:30.000Z', remote: '203.0.113.7', replayOf: null, websocket: false, replayable: true,
+    requestHeaders: [['Host', 'aqua.trycloudflare.com'], ['Content-Type', 'application/json'], ['Stripe-Signature', "t=1,v1=it's"], ['Cf-Ray', 'abc'], ['Content-Length', '12']],
+    responseHeaders: [['Content-Type', 'application/json']],
+    requestBody: { size: 12, truncated: false, contentType: 'application/json', text: '{"id":"evt"}', binary: false, decoded: null },
+    responseBody: { size: 4, truncated: false, contentType: 'application/json', text: '{"a":1}', binary: false, decoded: null },
+  };
+  assert.equal(T.curlFor(detail, 'http://127.0.0.1:3000/app'), [
+    'curl -X POST',
+    "  -H 'Content-Type: application/json'",
+    "  -H 'Stripe-Signature: t=1,v1=it'\\''s'",
+    "  --data-raw '{\"id\":\"evt\"}'",
+    '  http://127.0.0.1:3000/webhooks/stripe',
+  ].join(' \\\n'));
+  const binary = { ...detail, method: 'GET', requestBody: { size: 9, truncated: true, text: 'x', binary: false } };
+  assert.match(T.curlFor(binary, 'http://127.0.0.1:3000'), /^# body non incluso: troppo grande\ncurl \\\n {2}-H 'Content-Type/);
+  assert.equal(T.prettyBody(detail.responseBody), '{\n  "a": 1\n}');
+
+  const nodes = T.buildRequestDetail(detail);
+  const box = element('div');
+  box.append(...nodes);
+  const text = textOf(box);
+  assert.match(text, /POST \/webhooks\/stripe/);
+  assert.match(text, /Copia come curl/);
+  assert.match(text, /Header · 5/);
+  assert.match(text, /"id": "evt"/);
+  const replayButton = walkAll(box).find((n) => n.dataset && n.dataset.action === 'replay');
+  assert.equal(replayButton.attrs.disabled, undefined);
+  const stuck = element('div');
+  stuck.append(...T.buildRequestDetail({ ...detail, replayable: false }));
+  assert.equal(walkAll(stuck).find((n) => n.dataset && n.dataset.action === 'replay').attrs.disabled, '');
+
+  // The view: tab count, rows, filter, selection and the disabled message.
+  T.renderPhase(host, { present: true, version: 'test', platform: 'linux' });
+  assert.ok(host.querySelector('#tab-requests'));
+  assert.equal(host.querySelector('#pane-requests').hidden, true);
+  T.showTab('requests');
+  assert.equal(host.querySelector('#pane-requests').hidden, false);
+  assert.equal(host.querySelector('#pane-log').hidden, true);
+  assert.equal(host.querySelector('#tab-requests').attrs['aria-selected'], 'true');
+
+  const rows = [
+    { seq: 2, method: 'GET', path: '/api/orders', status: 404, state: 'done', durationMs: 7, responseSize: 20, startedAt: '2026-11-10T10:00:45.000Z', replayOf: null, websocket: false },
+    { seq: 1, method: 'POST', path: '/webhooks/stripe', status: 200, state: 'done', durationMs: 21, responseSize: 16, startedAt: '2026-11-10T10:00:30.000Z', replayOf: null, websocket: false },
+  ];
+  const calls = [];
+  sandbox.fetch = (url) => {
+    calls.push(url);
+    if (/\/requests\/1$/.test(url)) return Promise.resolve({ ok: true, json: () => Promise.resolve({ request: { ...detail, seq: 1, status: 200 } }) });
+    return Promise.resolve({ ok: true, json: () => Promise.resolve({ version: 4, total: 2, requests: rows }) });
+  };
+  const view = T.createRequestView();
+  const summary = { id: 's1', origin: 'http://127.0.0.1:3000', inspect: { enabled: true, count: 2, total: 2, version: 4 } };
+  view.update(summary);
+  assert.equal(host.querySelector('#tab-requests-count').textContent, '2');
+  assert.equal(calls.length, 0);
+  view.setActive(true);
+  await new Promise((r) => setTimeout(r, 0));
+  assert.deepEqual(calls, ['/api/sessions/s1/requests']);
+  assert.equal(host.querySelector('#req-rows').children.length, 2);
+  assert.match(textOf(host.querySelector('#req-chips')), /Errori · 1/);
+  view.update(summary);
+  assert.equal(calls.length, 1);
+  view.setFilter('problems');
+  assert.equal(host.querySelector('#req-rows').children.length, 1);
+  view.setFilter('all');
+  view.setQuery('stripe');
+  assert.equal(host.querySelector('#req-rows').children.length, 1);
+  assert.equal(host.querySelector('#req-count').textContent, '1 di 2');
+  view.setQuery('');
+  await view.select(1);
+  assert.equal(calls.at(-1), '/api/sessions/s1/requests/1');
+  assert.equal(host.querySelector('#req-detail').hidden, false);
+  assert.match(view.curl(), /^curl -X POST/);
+  assert.equal(view.closeDetail(), true);
+  assert.equal(host.querySelector('#req-detail').hidden, true);
+
+  view.update({ id: 's2', mode: 'hello', inspect: { enabled: false, reason: 'hello' } });
+  assert.equal(host.querySelector('#req-rows').children.length, 0);
+  assert.match(host.querySelector('#req-empty').textContent, /Hello World non passa dall’ispettore/);
+  assert.equal(host.querySelector('#tab-requests-count').hidden, true);
 });
 
 test('traffic strip, badges, banners and two-click restart', () => {

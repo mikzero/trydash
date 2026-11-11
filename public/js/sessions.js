@@ -119,12 +119,25 @@
         synthetic(session, code === 0 ? 'info' : 'error', 'cloudflared terminato (codice ' + label + ')');
         return session;
       },
+      // Points cloudflared at the inspector's proxy; kept across restarts.
+      setTarget: function (id, target) {
+        var session = requireSession(id);
+        session.invocation = api.buildQuickTunnelCommand(session.origin, session.options, target);
+        return session;
+      },
+      // The inspector's proxy answers 502 itself, so cloudflared never logs these.
+      recordOriginError: function (id, message) {
+        var session = requireSession(id);
+        session.lastOriginError = { at: now(), message: message };
+        synthetic(session, 'error', message);
+        return session;
+      },
       restart: function (id) {
         var session = requireSession(id);
         if (session.active) {
           throw api.appError('CONFLICT', 'session.alreadyActive');
         }
-        session.invocation = api.buildQuickTunnelCommand(session.origin, session.options);
+        session.invocation = api.buildQuickTunnelCommand(session.origin, session.options, session.invocation.target);
         session.metricsUrl = null;
         session.traffic = null;
         session.lastOriginError = null;

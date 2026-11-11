@@ -97,6 +97,10 @@
             h('input', { id: 'http2-origin', name: 'http2Origin', type: 'checkbox' }),
             h('span', { text: 'Origine HTTP/2' }),
           ]),
+          h('label', { className: 'check', title: 'Mostra ogni richiesta che arriva dal tunnel, con header e body, e permette di rimandarla' }, [
+            h('input', { id: 'inspect', name: 'inspect', type: 'checkbox', checked: true }),
+            h('span', { id: 'inspect-label', text: 'Ispeziona richieste' }),
+          ]),
         ]),
       ]),
       h('p', { className: 'quick-note', text: 'Solo per prove · niente SSE · nessuna garanzia di uptime' }),
@@ -116,11 +120,13 @@
     var host = field(form, 'host-header');
     var tls = field(form, 'no-tls-verify');
     var h2 = field(form, 'http2-origin');
+    var inspect = field(form, 'inspect');
     return {
       allowedMail: mail ? String(mail.value || '') : '',
       hostHeader: host ? String(host.value || '') : '',
       noTlsVerify: !!(tls && tls.checked),
       http2Origin: !!(h2 && h2.checked),
+      inspect: !inspect || !!inspect.checked,
     };
   }
 
@@ -151,7 +157,13 @@
     if (mailSummary) mailSummary.textContent = 'Accesso via email' + (mails ? ' · ' + mails : '');
     var active = (options.hostHeader.trim() ? 1 : 0) + (options.noTlsVerify ? 1 : 0) + (options.http2Origin ? 1 : 0);
     var label = options.noTlsVerify ? ' · TLS non verificato' : (active ? ' · ' + active : '');
+    if (!options.inspect || options.http2Origin) label += ' · senza ispettore';
     if (originSummary) originSummary.textContent = 'Opzioni origine' + label;
+    // The inspector's proxy speaks HTTP/1.1 only.
+    var inspect = field(form, 'inspect');
+    var inspectLabel = field(form, 'inspect-label');
+    if (inspect) inspect.disabled = !!options.http2Origin;
+    if (inspectLabel) inspectLabel.textContent = options.http2Origin ? 'Ispeziona richieste (non con HTTP/2)' : 'Ispeziona richieste';
   }
 
   function hasOptions(options) {

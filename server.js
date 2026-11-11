@@ -4,8 +4,9 @@ import path from 'node:path';
 import { execFile, spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadDashboard } from './src/load-dashboard.js';
-import { openQuickTunnel, spawnForSession, stopProcess } from './src/runtime.js';
+import { spawnForSession, stopProcess } from './src/runtime.js';
 import { createTrafficSampler } from './src/traffic.js';
+import { createInspector } from './src/inspector.js';
 import { readAsset } from './src/assets.js';
 
 
@@ -83,7 +84,16 @@ function sendJson(res, code, body) {
   res.end(payload);
 }
 
-function summary(session) {
+// Why a tunnel has no inspector: Hello World, HTTP/2 origin, or turned off at creation.
+function inspectState(session, inspector) {
+  const info = inspector ? inspector.info(session.id) : null;
+  if (info) return { enabled: true, count: info.count, total: info.total, version: info.version };
+  const options = session.options || {};
+  const reason = session.mode === 'hello' ? 'hello' : options.http2Origin ? 'http2' : 'off';
+  return { enabled: false, reason };
+}
+
+function summary(session, inspector) {
   return {
     id: session.id,
     origin: session.origin,
@@ -101,6 +111,7 @@ function summary(session) {
     counts: session.counts,
     traffic: session.traffic,
     lastOriginError: session.lastOriginError,
+    inspect: inspectState(session, inspector),
   };
 }
 
@@ -120,11 +131,22 @@ export function seedFixture(store, file) {
   return session;
 }
 
+// Example requests for DASHBOARD_SEED, so the Requests tab has something to show.
+export async function seedInspector(inspector, session) {
+  await inspector.open(session);
+  const samples = JSON.parse(readAsset('test/fixtures/requests.json').toString('utf8'));
+  const base = Date.now() - 90_000;
+  for (const sample of samples) {
+    inspector.inject(session.id, { ...sample, startedAt: new Date(base + sample.offsetS * 1000).toISOString() });
+  }
+}
+
 export function createApp(options = {}) {
   const dash = options.dashboard || loadDashboard();
   const store = options.store || dash.createSessionStore();
   const spawnImpl = options.spawn || spawn;
   const processes = new Map();
+  const inspector = options.inspector || createInspector({ store });
   const sampler = createTrafficSampler({
     store,
     fetchImpl: options.fetch || fetch,
@@ -227,7 +249,7 @@ export function createApp(options = {}) {
           sendJson(res, 200, probe);
           return;
         }
-        sendJson(res, 200, { probe, sessions: store.list().map(summary) });
+        sendJson(res, 200, { probe, sessions: store.list().map((session) => summary(session, inspector)) });
         return;
       }
 
@@ -275,17 +297,54 @@ export function createApp(options = {}) {
           sendError(res, req, 400, 'request.badJson');
           return;
         }
-        let opened;
+        let session;
         try {
-          opened = openQuickTunnel(store, payload.origin, spawnImpl, payload.options, isCurrent);
+          session = store.create(payload.origin, payload.options);
         } catch (error) {
           const code = error.code === 'BAD_ORIGIN' || error.code === 'BAD_OPTIONS' ? 400 : 500;
           sendError(res, req, code, error);
           return;
         }
-        attach(opened.session.id, opened.proc, opened.done);
-        sendJson(res, 201, { session: summary(opened.session) });
+        let spawned;
+        try {
+          if (session.options.inspect) store.setTarget(session.id, await inspector.open(session));
+          spawned = spawnForSession(store, session, spawnImpl, isCurrent);
+        } catch (error) {
+          await inspector.close(session.id);
+          store.remove(session.id);
+          sendError(res, req, 500, error);
+          return;
+        }
+        attach(session.id, spawned.proc, spawned.done);
+        sendJson(res, 201, { session: summary(session, inspector) });
         return;
+      }
+
+      const requestsMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/requests(?:\/(\d+)(\/replay)?)?$/);
+      if (requestsMatch) {
+        const id = decodeURIComponent(requestsMatch[1]);
+        const seq = requestsMatch[2] == null ? null : Number(requestsMatch[2]);
+        const replay = !!requestsMatch[3];
+        if (!store.get(id)) return sendError(res, req, 404, 'session.notFound');
+        if (!inspector.has(id)) return sendError(res, req, 409, 'inspect.disabled');
+        if (req.method === 'GET' && seq == null) {
+          const since = url.searchParams.get('version');
+          const version = inspector.info(id).version;
+          if (since != null && Number(since) === version) return sendJson(res, 200, { version, unchanged: true });
+          return sendJson(res, 200, inspector.list(id));
+        }
+        if (req.method === 'DELETE' && seq == null) {
+          inspector.clear(id);
+          return sendJson(res, 200, { ok: true });
+        }
+        try {
+          if (req.method === 'GET' && !replay) return sendJson(res, 200, { request: inspector.get(id, seq) });
+          if (req.method === 'POST' && replay) return sendJson(res, 201, { request: await inspector.replay(id, seq) });
+        } catch (error) {
+          const status = error.code === 'NOT_FOUND' ? 404 : error.code === 'CONFLICT' ? 409 : 500;
+          return sendError(res, req, status, error);
+        }
+        return sendError(res, req, 405, 'request.methodNotAllowed');
       }
 
       const restartMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/restart$/);
@@ -307,7 +366,7 @@ export function createApp(options = {}) {
           return sendError(res, req, 500, error);
         }
         attach(id, spawned.proc, spawned.done);
-        sendJson(res, 200, { session: summary(session) });
+        sendJson(res, 200, { session: summary(session, inspector) });
         return;
       }
 
@@ -318,7 +377,7 @@ export function createApp(options = {}) {
         stopProcess(processes.get(id));
         processes.delete(id);
         const session = store.stop(id);
-        sendJson(res, 200, { ok: true, session: summary(session) });
+        sendJson(res, 200, { ok: true, session: summary(session, inspector) });
         return;
       }
 
@@ -329,6 +388,7 @@ export function createApp(options = {}) {
         stopProcess(processes.get(id));
         processes.delete(id);
         store.remove(id);
+        await inspector.close(id);
         sendJson(res, 200, { ok: true });
         return;
       }
@@ -352,6 +412,7 @@ export function createApp(options = {}) {
   return {
     server,
     store,
+    inspector,
     dashboard: dash,
     url: '',
     async listen(port = 0, host = '127.0.0.1') {
@@ -372,6 +433,7 @@ export function createApp(options = {}) {
       sampler.stop();
       for (const proc of processes.values()) stopProcess(proc);
       processes.clear();
+      await inspector.closeAll();
       if (!server.listening) return;
       await new Promise((resolve) => server.close(resolve));
     },
@@ -397,7 +459,7 @@ export async function main() {
     return null;
   }
   const app = createApp();
-  if (process.env.DASHBOARD_SEED === '1') seedFixture(app.store);
+  if (process.env.DASHBOARD_SEED === '1') await seedInspector(app.inspector, seedFixture(app.store));
   const port = Number(process.env.PORT || 8787);
   const url = await app.listen(port, '127.0.0.1');
   const probe = process.env.DASHBOARD_PROBE || 'auto';

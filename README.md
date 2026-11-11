@@ -28,6 +28,7 @@
 
 - **many tunnels at once**, each with its status (starting, live, stopped, exited), URL and error count;
 - **one click** to create, stop, restart or remove a tunnel. To create one, just type the port: `3000` becomes `http://127.0.0.1:3000`;
+- **every request in view**: headers and bodies of what reaches your service through the tunnel, with one-click replay. Handy for webhooks;
 - **readable logs**: colored levels, filters, highlighted search, infinite scrolling and a “follow the tail” mode;
 - **stopped tunnels stay readable**: you can go back to their logs and restart them. The URL changes on every start, which is a limit of quick tunnels;
 - **light and dark** themes, a **mobile** layout, keyboard shortcuts.
@@ -35,6 +36,22 @@
 The interface is in Italian. Error messages are in English or Italian, following your browser (see [Error language](#error-language)). Below, Italian labels are followed by their translation.
 
 ## Features
+
+### Request inspector
+
+Every tunnel to a local origin goes through a small proxy that trydash runs on `127.0.0.1`. `cloudflared` connects to it instead of your server, and it forwards each request unchanged: same method, path, headers and body, WebSocket upgrades included. On the way it keeps a copy, which the **Richieste** (“Requests”) tab next to the logs shows:
+
+- the list of the latest 200 requests, with time, method, status, path, duration and response size, newest first;
+- **Errori** (“Errors”) for `4xx`, `5xx` and failed requests only, and a filter by path, method or status;
+- for each request, the headers and the body of both the request and the response. JSON is indented, and `gzip`, `br` and `deflate` bodies are decompressed for display;
+- **Rimanda** (“Replay”), which sends the same request to your origin again, for example a payment webhook after you fix the handler. The new request appears at the top with ↻ and a link to the original;
+- **Copia come curl** (“Copy as curl”), the same request as a `curl` command against your local origin. The headers Cloudflare adds (`Cf-*`) are left out.
+
+trydash keeps the first 256 KB of each request body and the first 64 KB of each response body. A request with a larger body is shown cut and can’t be replayed. Everything stays in memory: **Svuota** (“Clear”) empties the list, and removing the tunnel deletes it.
+
+When your server doesn’t answer, the proxy replies `502`, writes the error in the logs and shows the “server not responding” banner.
+
+The inspector is on by default. To turn it off, clear **Ispeziona richieste** (“Inspect requests”) under **Opzioni origine**. It’s also off for Hello World tunnels and with an HTTP/2 origin, because the proxy speaks HTTP/1.1 only. The equivalent `cloudflared` command shown in the header stays the one you would run without trydash.
 
 ### Email access
 
@@ -59,7 +76,8 @@ Under **Opzioni origine** (“Origin options”):
 
 - **Host header**, that is `--http-host-header`, for servers that only answer to a specific host name;
 - **Non verificare TLS** (“Don’t verify TLS”), that is `--no-tls-verify`, for an https origin with a self-signed certificate;
-- **Origine HTTP/2** (“HTTP/2 origin”), that is `--http2-origin`.
+- **Origine HTTP/2** (“HTTP/2 origin”), that is `--http2-origin`. It turns the request inspector off;
+- **Ispeziona richieste** (“Inspect requests”), on by default: see [Request inspector](#request-inspector).
 
 Email and options stay the same when you restart the tunnel. The preview under the field shows the equivalent `cloudflared` command. You can copy it as is: entries with `*` are already quoted.
 
@@ -138,7 +156,7 @@ Open the printed address, usually <http://127.0.0.1:8787>, type your service’s
 | Variable | Default | What it does |
 |---|---|---|
 | `PORT` | `8787` | Port of the dashboard, which only listens on `127.0.0.1`. |
-| `DASHBOARD_SEED` | — | With `1`, loads a sample session from the logs in `test/fixtures/`. Handy to try the interface without opening tunnels. |
+| `DASHBOARD_SEED` | — | With `1`, loads a sample session from the logs and requests in `test/fixtures/`. Handy to try the interface without opening tunnels. |
 | `DASHBOARD_PROBE` | `auto` | `present` or `missing` pretend that `cloudflared` is there or not, without running it. |
 | `DASHBOARD_PROBE_VERSION` | — | Version text shown when `DASHBOARD_PROBE=present`. |
 
@@ -154,8 +172,10 @@ DASHBOARD_SEED=1 DASHBOARD_PROBE=present bun server.js
 |---|---|
 | `j` / `↓` | next line |
 | `k` / `↑` | previous line |
-| `/` | search the logs |
+| `/` | search the logs, or filter the requests |
 | `Esc` | clear the search, close the details or the menu |
+
+In the **Richieste** tab, `j`/`k` move between requests.
 
 ## Good to know about quick tunnels
 
@@ -172,7 +192,8 @@ Quick tunnels are meant for **testing and development**. From the [Cloudflare do
 - HTTP/3 stays off. trydash listens with `node:http` on TCP. Bun serves HTTP/3 only from `Bun.serve` when `http3` is true and a TLS certificate is set, and those responses advertise `Alt-Svc`. `fetch()` and `Bun.serve()` leave HTTP/3 off unless the caller asks for it. Release builds embed Bun 1.4.4. That release counts decoded header size as RFC 9114 §4.2.2 specifies, for `Bun.serve({ http3: true })` and for `fetch` with `protocol: "http3"`. The server limit is `--max-http-header-size`, 16 KB by default, and a request over it gets status `431`. This is the fix for the QPACK amplification bug in earlier Bun releases ([FoxIO, October 2026](https://foxio.io/blog/header-accordions-qpack-amplification-attacks-against-http-3-servers)). The same release updates the Brotli decoder to 1.2.1, which includes the fix for CVE-2026-111497. The published trydash 1.0.0 binaries embed Bun 1.4.2, so they include neither fix. Do not pass `http3: true` on a 1.0.0 binary.
 - Other pages open in your browser can’t control it. Requests with a `Host` other than `127.0.0.1`/`localhost` are refused, which blocks DNS rebinding. The same goes for changing requests (`POST`, `DELETE`) with an `Origin` from another site. Local scripts without an `Origin`, like `curl`, keep working.
 - **A tunnel makes the service you expose public**: anyone with the URL can reach it. To limit it to specific people, use email access. Either way, don’t expose services with real data or admin panels without protection.
-- trydash doesn’t ask for or store credentials, tokens or accounts. Logs stay in memory and disappear when you close the server.
+- trydash doesn’t ask for or store credentials, tokens or accounts. Logs and inspected requests stay in memory and disappear when you close the server. Inspected requests can contain cookies and tokens sent to your service: they never leave your machine, and **Svuota** clears them.
+- The inspector’s proxy listens on `127.0.0.1` only, on a random port, and forwards only to the origin of its tunnel.
 - Origins with credentials in the URL (`http://user:pass@…`) are refused.
 
 ## API
@@ -189,6 +210,10 @@ The frontend uses a small JSON API, also handy for scripts:
 | `DELETE` | `/api/sessions/:id` | stop and remove the session |
 | `GET` | `/api/sessions/:id/logs?offset=&limit=&levels=error,warn&q=text` | a page of logs, filtered (at most 200 lines) |
 | `GET` | `/api/sessions/:id/entries/:index` | a single log line |
+| `GET` | `/api/sessions/:id/requests?version=` | the inspected requests, newest first; with the current `version` the answer is just `{ "unchanged": true }` |
+| `GET` | `/api/sessions/:id/requests/:seq` | one request with headers and bodies |
+| `POST` | `/api/sessions/:id/requests/:seq/replay` | send the request to the origin again; returns the new one |
+| `DELETE` | `/api/sessions/:id/requests` | clear the list |
 
 `options` is optional:
 
@@ -198,11 +223,12 @@ The frontend uses a small JSON API, also handy for scripts:
   "allowedMail": "mario@client.com, *@company.com",
   "hostHeader": "app.local",
   "noTlsVerify": false,
-  "http2Origin": false
+  "http2Origin": false,
+  "inspect": true
 }
 ```
 
-With `"mode": "hello"` the origin is ignored and the tunnel serves the Hello World page. Error responses look like `{ "error": "…", "key": "options.mailInvalid", "params": { … } }`.
+With `"mode": "hello"` the origin is ignored and the tunnel serves the Hello World page. Every session in `/api/state` has an `inspect` field: `{ "enabled": true, "count": 12, "total": 40, "version": 85 }`, or `{ "enabled": false, "reason": "hello" | "http2" | "off" }`. The request endpoints answer `409` with the key `inspect.disabled` when the inspector is off. Error responses look like `{ "error": "…", "key": "options.mailInvalid", "params": { … } }`.
 
 ## Local build
 
@@ -318,12 +344,13 @@ server.js            HTTP server and API (Bun, node:* modules only)
 src/assets.js        reads project files (from disk or embedded in the binary)
 src/runtime.js       starts/stops cloudflared and reads its stream
 src/traffic.js       polls the cloudflared metrics
+src/inspector.js     request inspector: local proxy, recorded requests, replay
 src/load-dashboard.js loads the shared libraries in the server
 scripts/build.js     builds the standalone executables
 scripts/release-notes.js drafts release notes from the commits
 site/                landing page (GitHub Pages) in English, site/it/ in Italian
 .github/workflows/   automatic release on v* tags and website publishing
-public/js/           shared libraries (parse, sessions, window, i18n…) and the interface
+public/js/           shared libraries (parse, sessions, window, i18n…) and the interface (requests.js: the Requests tab)
 public/css/app.css   light/dark "Paper" theme
 test/                tests with bun test
 ```
