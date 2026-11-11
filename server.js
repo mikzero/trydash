@@ -10,6 +10,7 @@ import { createTrafficSampler } from './src/traffic.js';
 import { createInspector } from './src/inspector.js';
 import { resolveFolder } from './src/static.js';
 import { parseArgs, helpText, envValue, openBrowser, announceUrl } from './src/cli.js';
+import { createConfigFile, defaultConfigPath, tunnelKey } from './src/config.js';
 import { readAsset } from './src/assets.js';
 
 
@@ -270,6 +271,63 @@ export function createApp(options = {}) {
     return Object.assign(error, { status, extra });
   }
 
+  // Saved tunnels (createConfigFile): written when one is created or removed.
+  const persist = options.persist || null;
+
+  function saveTunnels() {
+    if (persist) persist.save(store.list().map((session) => ({ origin: session.origin, options: session.options })));
+  }
+
+  // What a tunnel is once normalized: the same shape as a saved one.
+  function describeTunnel(origin, rawOptions) {
+    const wanted = rawOptions && typeof rawOptions === 'object' ? rawOptions : {};
+    // A folder must exist now; the stored path is absolute, with `~` and symlinks resolved.
+    const resolved = wanted.mode === 'folder' ? { ...wanted, folder: resolveFolder(wanted.folder) } : wanted;
+    const invocation = dash.buildQuickTunnelCommand(origin, resolved);
+    return { origin: invocation.origin, options: invocation.options };
+  }
+
+  // Saved tunnels come back stopped: nothing turns public without a click.
+  function restoreTunnels(list) {
+    const restored = [];
+    for (const item of list || []) {
+      if (store.list().length >= MAX_SESSIONS) break;
+      let session;
+      try {
+        const wanted = describeTunnel(item.origin, item.options);
+        session = store.create(wanted.origin, wanted.options);
+      } catch (error) {
+        console.error(`trydash: saved tunnel skipped (${error.message})`);
+        continue;
+      }
+      store.stop(session.id);
+      store.appendChunk(session.id, JSON.stringify({ level: 'info', message: 'restored from the saved tunnels: Restart starts it' }));
+      restored.push(session);
+    }
+    return restored;
+  }
+
+  // Restarts a stopped or exited tunnel; a restored one gets its inspector here.
+  async function restartTunnel(id) {
+    if (!store.get(id)) throw withStatus(dash.appError('NOT_FOUND', 'session.notFound'), 404);
+    let session;
+    try {
+      session = store.restart(id);
+    } catch (error) {
+      throw withStatus(error, error.code === 'CONFLICT' ? 409 : 500);
+    }
+    let spawned;
+    try {
+      if (session.options.inspect && !inspector.has(id)) store.setTarget(id, await inspector.open(session));
+      spawned = spawnForSession(store, session, spawnImpl, isCurrent);
+    } catch (error) {
+      store.markExited(id, null);
+      throw withStatus(error, 500);
+    }
+    attach(id, spawned.proc, spawned.done);
+    return session;
+  }
+
   // Creates and starts a tunnel: from POST /api/sessions and from the command line.
   // Errors carry the HTTP status they map to.
   async function openTunnel(origin, rawOptions) {
@@ -282,10 +340,8 @@ export function createApp(options = {}) {
     }
     let session;
     try {
-      const wanted = rawOptions && typeof rawOptions === 'object' ? rawOptions : {};
-      // A folder must exist now; the stored path is absolute, with `~` and symlinks resolved.
-      const options = wanted.mode === 'folder' ? { ...wanted, folder: resolveFolder(wanted.folder) } : wanted;
-      session = store.create(origin, options);
+      const wanted = describeTunnel(origin, rawOptions);
+      session = store.create(wanted.origin, wanted.options);
     } catch (error) {
       throw withStatus(error, error.code === 'BAD_ORIGIN' || error.code === 'BAD_OPTIONS' ? 400 : 500);
     }
@@ -299,6 +355,7 @@ export function createApp(options = {}) {
       throw withStatus(error, 500);
     }
     attach(session.id, spawned.proc, spawned.done);
+    saveTunnels();
     return session;
   }
 
@@ -458,24 +515,12 @@ export function createApp(options = {}) {
 
       const restartMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/restart$/);
       if (req.method === 'POST' && restartMatch) {
-        const id = decodeURIComponent(restartMatch[1]);
-        if (!store.get(id)) return sendError(res, req, 404, 'session.notFound');
-        let session;
         try {
-          session = store.restart(id);
+          const session = await restartTunnel(decodeURIComponent(restartMatch[1]));
+          sendJson(res, 200, { session: summary(session, inspector) });
         } catch (error) {
-          if (error.code === 'CONFLICT') return sendError(res, req, 409, error);
-          throw error;
+          sendError(res, req, error.status || 500, error);
         }
-        let spawned;
-        try {
-          spawned = spawnForSession(store, session, spawnImpl, isCurrent);
-        } catch (error) {
-          store.markExited(id, null);
-          return sendError(res, req, 500, error);
-        }
-        attach(id, spawned.proc, spawned.done);
-        sendJson(res, 200, { session: summary(session, inspector) });
         return;
       }
 
@@ -498,6 +543,7 @@ export function createApp(options = {}) {
         processes.delete(id);
         store.remove(id);
         await inspector.close(id);
+        saveTunnels();
         sendJson(res, 200, { ok: true });
         return;
       }
@@ -524,6 +570,9 @@ export function createApp(options = {}) {
     store,
     inspector,
     openTunnel,
+    restartTunnel,
+    restoreTunnels,
+    describeTunnel,
     dashboard: dash,
     url: '',
     async listen(port = 0, host = '127.0.0.1') {
@@ -598,13 +647,19 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
     return null;
   }
   const token = env.TRYDASH_TOKEN || newToken();
-  const app = createApp({ token });
-  if (envValue(env, 'TRYDASH_SEED') === '1') await seedInspector(app.inspector, seedFixture(app.store));
+  const seed = envValue(env, 'TRYDASH_SEED') === '1';
+  // The sample session of TRYDASH_SEED must not end up in the saved tunnels.
+  const saving = args.save !== false && env.TRYDASH_CONFIG !== 'off' && !seed;
+  const persist = saving ? createConfigFile(env.TRYDASH_CONFIG || defaultConfigPath({ env })) : null;
+  const app = createApp({ token, persist });
+  if (seed) await seedInspector(app.inspector, seedFixture(app.store));
+  const restored = persist ? app.restoreTunnels(persist.load()) : [];
   const port = args.port != null ? args.port : Number(envValue(env, 'TRYDASH_PORT') || 8787);
   const url = await app.listen(port, '127.0.0.1');
   const link = `${url}/?token=${token}`;
   console.log(`trydash ${appVersion()}  ${link}`);
   console.log(`probe ${envValue(env, 'TRYDASH_PROBE') || 'auto'}`);
+  if (restored.length) console.log(`${restored.length} saved tunnel(s) restored, stopped: ${persist.file}`);
   const shutdown = () => {
     app.close().then(() => process.exit(0));
   };
@@ -612,7 +667,12 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
   process.on('SIGTERM', shutdown);
   if (args.target) {
     try {
-      const session = await app.openTunnel(args.target.origin, args.target.options);
+      // The same tunnel saved from an earlier run is restarted instead of doubled.
+      const key = tunnelKey(app.describeTunnel(args.target.origin, args.target.options));
+      const same = restored.find((item) => tunnelKey(item) === key);
+      const session = same
+        ? await app.restartTunnel(same.id)
+        : await app.openTunnel(args.target.origin, args.target.options);
       announceUrl(app.store, session.id);
     } catch (error) {
       console.error(`trydash: ${error.message}`);

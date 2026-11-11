@@ -15,6 +15,7 @@ Starts the dashboard and, with an argument, opens a quick tunnel right away:
 Options:
   -p, --port <n>           dashboard port (default 8787, or TRYDASH_PORT)
       --open, --no-open    open the dashboard in the browser (default: when run in a terminal)
+      --no-save            don't save or restore tunnels (default: saved, restored stopped)
       --hello              a Hello World tunnel
       --mail <list>        only these emails may open the tunnel (*@company.com for a domain)
       --host-header <h>    Host header for the origin
@@ -25,7 +26,8 @@ Options:
   -v, --version            print the version
   -h, --help               this help
 
-Environment: TRYDASH_PORT, TRYDASH_TOKEN, TRYDASH_OPEN=0, TRYDASH_CONFIG.`;
+Environment: TRYDASH_PORT, TRYDASH_TOKEN, TRYDASH_OPEN=0,
+  TRYDASH_CONFIG (file of the saved tunnels, or "off").`;
 
 export function helpText() {
   return HELP;
@@ -67,7 +69,7 @@ function usage(message) {
 
 export function parseArgs(argv) {
   const dash = loadDashboard();
-  const out = { port: null, open: null, help: false, version: false, target: null };
+  const out = { port: null, open: null, save: null, help: false, version: false, target: null };
   const options = {};
   let positional = null;
   for (let i = 0; i < argv.length; i += 1) {
@@ -90,6 +92,7 @@ export function parseArgs(argv) {
       }
       case '--open': out.open = true; break;
       case '--no-open': out.open = false; break;
+      case '--no-save': out.save = false; break;
       case '--hello': options.mode = 'hello'; break;
       case '--mail': options.allowedMail = value(); break;
       case '--host-header': options.hostHeader = value(); break;

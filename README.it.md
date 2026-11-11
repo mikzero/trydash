@@ -36,6 +36,12 @@
 
 ## Funzioni
 
+### Tunnel salvati
+
+trydash ricorda i tuoi tunnel tra un avvio e l’altro: origine o cartella e opzioni, mai log, richieste, URL o token. Al prossimo avvio tornano **fermi**, così niente torna pubblico finché non premi **Riavvia**. Ognuno riceve un URL nuovo, come sempre con i quick tunnel. Rimuovere un tunnel lo toglie anche dall’elenco.
+
+L’elenco sta in `~/.config/trydash/tunnels.json` (`$XDG_CONFIG_HOME` se impostata, `%APPDATA%\trydash` su Windows), leggibile solo da te, perché può contenere le email autorizzate. `TRYDASH_CONFIG` sceglie un altro file, `TRYDASH_CONFIG=off` o `--no-save` spengono il salvataggio. `trydash 3000` riavvia il tunnel salvato verso la porta 3000 invece di aggiungerne un secondo. Un file rovinato viene rinominato `tunnels.json.broken` e non sovrascritto.
+
 ### Scadenza
 
 **Ferma dopo** nel modulo ferma il tunnel da solo dopo 30 minuti, 1, 2 o 8 ore, o un giorno, così un’anteprima per un cliente non resta online per dimenticanza. L’intestazione mostra il tempo rimasto (“⏱ si ferma tra 1 h 12 min”). Allo scadere il tunnel si ferma come con **Ferma**, i log scrivono “tunnel expired after 120 min” e la sidebar mostra “scaduto”. **Riavvia** fa ripartire il conto. Dalla riga di comando: `--expires 2h`; dall’API: `"expiresIn": 120`, in minuti, fino a una settimana.
@@ -186,6 +192,7 @@ trydash https://localhost:8443 --no-tls-verify
 | `--mail <elenco>` | accesso via email, come nel modulo |
 | `--host-header <h>`, `--no-tls-verify`, `--http2-origin` | le opzioni dell’origine |
 | `--no-inspect` | non registra le richieste |
+| `--no-save` | non salva né ripristina i tunnel |
 | `--expires <tempo>` | ferma il tunnel dopo `30m`, `2h`, `1d`… |
 | `-v`, `--version` · `-h`, `--help` | versione · aiuto |
 
@@ -196,6 +203,7 @@ trydash https://localhost:8443 --no-tls-verify
 | `TRYDASH_PORT` | `8787` | Porta della dashboard, che ascolta solo su `127.0.0.1`. `--port` ha la precedenza. |
 | `TRYDASH_TOKEN` | casuale | Token di accesso della dashboard e dell’API. Di default trydash ne sceglie uno nuovo a ogni avvio e lo stampa nell’indirizzo. |
 | `TRYDASH_OPEN` | — | Con `0` il browser non si apre mai. |
+| `TRYDASH_CONFIG` | `~/.config/trydash/tunnels.json` | File dei [tunnel salvati](#tunnel-salvati); `off` spegne il salvataggio. |
 | `TRYDASH_SEED` | — | Con `1` carica una sessione d’esempio dai log e dalle richieste in `test/fixtures/`. Utile per provare l’interfaccia senza aprire tunnel. |
 | `TRYDASH_PROBE` | `auto` | `present` o `missing` simulano la presenza o l’assenza di `cloudflared`, senza eseguirlo. |
 | `TRYDASH_PROBE_VERSION` | — | Testo della versione mostrato quando `TRYDASH_PROBE=present`. |

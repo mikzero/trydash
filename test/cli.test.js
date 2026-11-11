@@ -9,7 +9,8 @@ import { parseArgs, envValue, parseDuration, browserCommand, openBrowser, announ
 import { dashboardRoot } from '../src/load-dashboard.js';
 
 test('arguments: a port, a URL or a folder opens a tunnel; options follow cloudflared', () => {
-  assert.deepEqual(parseArgs([]), { port: null, open: null, help: false, version: false, target: null });
+  assert.deepEqual(parseArgs([]), { port: null, open: null, save: null, help: false, version: false, target: null });
+  assert.equal(parseArgs(['--no-save']).save, false);
   assert.deepEqual(parseArgs(['3000']).target, { origin: '3000', options: {} });
   assert.deepEqual(parseArgs(['./dist', '--mail', '*@x.it']).target, { origin: '', options: { allowedMail: '*@x.it', mode: 'folder', folder: './dist' } });
   assert.deepEqual(parseArgs(['--hello']).target, { origin: '', options: { mode: 'hello' } });
@@ -79,7 +80,9 @@ test('`trydash 3000` starts the dashboard and prints the tunnel URL', { skip: pr
   const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'trydash-fake-cf-'));
   fs.writeFileSync(path.join(bin, 'cloudflared'), '#!/bin/sh\necho \'{"level":"info","message":"|  https://cli-test-fox.trycloudflare.com |"}\'\nexec sleep 30\n', { mode: 0o755 });
   const bun = process.execPath.includes('bun') ? process.execPath : 'bun';
-  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, TRYDASH_PROBE: 'present', TRYDASH_TOKEN: 'cli-token' };
+  // The saved tunnels go to a temporary file, never to the real ~/.config.
+  const config = path.join(bin, 'tunnels.json');
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, TRYDASH_PROBE: 'present', TRYDASH_TOKEN: 'cli-token', TRYDASH_CONFIG: config };
   const proc = spawn(bun, ['server.js', '3000', '--port', '0', '--no-open'], { cwd: dashboardRoot, env });
   let out = '';
   try {
@@ -96,6 +99,9 @@ test('`trydash 3000` starts the dashboard and prints the tunnel URL', { skip: pr
     const state = await (await fetch(`${dashboard}/api/state`, { headers: { Authorization: 'Bearer cli-token' } })).json();
     assert.equal(state.sessions.length, 1);
     assert.equal(state.sessions[0].origin, 'http://127.0.0.1:3000');
+    const saved = JSON.parse(fs.readFileSync(config, 'utf8'));
+    assert.equal(saved.tunnels.length, 1);
+    assert.equal(saved.tunnels[0].origin, 'http://127.0.0.1:3000');
   } finally {
     proc.kill('SIGTERM');
     fs.rmSync(bin, { recursive: true, force: true });
