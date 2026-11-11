@@ -36,6 +36,10 @@
 
 ## Funzioni
 
+### Scadenza
+
+**Ferma dopo** nel modulo ferma il tunnel da solo dopo 30 minuti, 1, 2 o 8 ore, o un giorno, così un’anteprima per un cliente non resta online per dimenticanza. L’intestazione mostra il tempo rimasto (“⏱ si ferma tra 1 h 12 min”). Allo scadere il tunnel si ferma come con **Ferma**, i log scrivono “tunnel expired after 120 min” e la sidebar mostra “scaduto”. **Riavvia** fa ripartire il conto. Dalla riga di comando: `--expires 2h`; dall’API: `"expiresIn": 120`, in minuti, fino a una settimana.
+
 ### Cartella statica
 
 Scrivi il percorso di una cartella al posto della porta, per esempio `~/sito/dist`, `./build` o `C:\sito`, e premi **Crea**. trydash serve la cartella da solo, con un piccolo web server locale dedicato a quel tunnel, e `cloudflared` la pubblica. È il modo più rapido per condividere una build statica, un prototipo o qualche file.
@@ -267,7 +271,8 @@ Il frontend usa una piccola API JSON, utile anche per script. Ogni chiamata rich
   "hostHeader": "app.local",
   "noTlsVerify": false,
   "http2Origin": false,
-  "inspect": true
+  "inspect": true,
+  "expiresIn": 120
 }
 ```
 

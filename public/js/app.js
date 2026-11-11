@@ -244,6 +244,7 @@
       var prev = state.prevById[session.id];
       if (prev && prev.status !== session.status) {
         if (session.status === 'running' && session.url) notify(api.t('ui.toast.newUrl', { url: session.url }));
+        if (session.status === 'stopped' && session.expired) notify(api.t('ui.toast.expired'));
         if (session.status === 'exited') {
           notify(api.t('ui.toast.exited', { code: session.exitCode == null ? '?' : session.exitCode }), 'error');
         }
@@ -371,6 +372,8 @@
     });
     var inspect = form.querySelector('#inspect');
     if (inspect) inspect.checked = true;
+    var expires = form.querySelector('#expires');
+    if (expires) expires.value = '';
     ['mail-details', 'origin-details'].forEach(function (id) {
       var node = form.querySelector('#' + id);
       if (node) node.open = false;
@@ -393,12 +396,14 @@
     if (state.creating) return;
     var form = document.getElementById('create-form');
     var session = currentSession();
+    var formOptions = api.readCreateOptions(form);
     var allowedMail = fromBanner && session && session.options
       ? session.options.allowedMail
-      : api.readCreateOptions(form).allowedMail;
+      : formOptions.allowedMail;
+    var expiresIn = fromBanner && session && session.options ? session.options.expiresIn : formOptions.expiresIn;
     state.creating = true;
     try {
-      var data = await api_('POST', '/api/sessions', { options: { mode: 'hello', allowedMail: allowedMail } });
+      var data = await api_('POST', '/api/sessions', { options: { mode: 'hello', allowedMail: allowedMail, expiresIn: expiresIn } });
       api.rememberMail(data.session.options ? data.session.options.allowedMail : []);
       if (form && !fromBanner) api.paintRecentMail(form);
       await selectCreated(data.session, api.t('ui.toast.helloCreated'));

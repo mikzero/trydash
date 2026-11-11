@@ -153,6 +153,8 @@ function summary(session, inspector) {
     counts: session.counts,
     traffic: session.traffic,
     lastOriginError: session.lastOriginError,
+    expiresAt: session.expiresAt,
+    expired: session.expired,
     inspect: inspectState(session, inspector),
   };
 }
@@ -196,6 +198,16 @@ export function createApp(options = {}) {
     intervalMs: options.trafficIntervalMs || 2000,
   });
   let probeCache = null;
+  let expiryTimer = null;
+
+  // Stops the tunnels whose expiry has come, like the Stop button.
+  function expireDue(nowMs = Date.now()) {
+    for (const session of store.dueToExpire(nowMs)) {
+      stopProcess(processes.get(session.id)).catch(() => {});
+      processes.delete(session.id);
+      store.expire(session.id);
+    }
+  }
   let probeInflight = null;
   // With a token, every /api call needs it: as the cookie set by `/?token=…`,
   // or as `Authorization: Bearer …` for scripts. Without one (tests, embedding), no check.
@@ -524,14 +536,18 @@ export function createApp(options = {}) {
         });
       });
       sampler.start();
+      expiryTimer = setInterval(() => expireDue(), options.expiryIntervalMs || 1000);
+      expiryTimer.unref?.();
       const address = server.address();
       // Cookies ignore the port: two dashboards on one machine keep separate ones.
       cookieName = `trydash_${address.port}`;
       this.url = `http://${host}:${address.port}`;
       return this.url;
     },
+    expireDue,
     async close() {
       sampler.stop();
+      clearInterval(expiryTimer);
       // Real children get their SIGTERM, then SIGKILL; the dashboard waits for them, within a limit.
       const exits = Array.from(processes.values()).map((proc) => {
         const done = stopProcess(proc);

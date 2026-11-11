@@ -38,6 +38,10 @@ The interface is in English and Italian: it follows your browser, and the **EN**
 
 ## Features
 
+### Expiry
+
+**Stop after** in the form stops the tunnel by itself after 30 minutes, 1, 2 or 8 hours, or a day, so a preview for a client doesn’t stay online by mistake. The header shows the time left (“⏱ stops in 1 h 12 min”). When it’s up, the tunnel stops like with **Stop**, the logs say “tunnel expired after 120 min”, and the sidebar shows “expired”. **Restart** starts the clock again. From the command line: `--expires 2h`; from the API: `"expiresIn": 120`, in minutes, up to a week.
+
 ### Static folder
 
 Type the path of a folder instead of a port, for example `~/site/dist`, `./build` or `C:\site`, and press **Create**. trydash serves the folder itself, on a local web server for that tunnel only, and `cloudflared` publishes it. It’s the quickest way to share a static build, a prototype or a few files.
@@ -269,7 +273,8 @@ The frontend uses a small JSON API, also handy for scripts. Every call needs the
   "hostHeader": "app.local",
   "noTlsVerify": false,
   "http2Origin": false,
-  "inspect": true
+  "inspect": true,
+  "expiresIn": 120
 }
 ```
 

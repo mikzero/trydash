@@ -22,6 +22,7 @@
   function statusText(session) {
     if (session.status === 'starting') return api.t('ui.side.waiting');
     if (session.status === 'running') return session.url ? session.url.replace(/^https?:\/\//, '') : api.t('ui.side.running');
+    if (session.status === 'stopped' && session.expired) return api.t('ui.side.expired', { lines: lines(session.entryCount) });
     if (session.status === 'stopped') return api.t('ui.side.stopped', { lines: lines(session.entryCount) });
     if (session.status === 'exited') {
       return api.t('ui.side.exited', { code: session.exitCode == null ? '?' : session.exitCode });
@@ -44,6 +45,16 @@
       return '';
     }
   }
+
+  // The expiry menu: minutes, or empty for never.
+  var EXPIRY_CHOICES = [
+    { value: '', label: 'ui.expires.never' },
+    { value: '30', label: 'ui.expires.m30' },
+    { value: '60', label: 'ui.expires.h1' },
+    { value: '120', label: 'ui.expires.h2' },
+    { value: '480', label: 'ui.expires.h8' },
+    { value: '1440', label: 'ui.expires.d1' },
+  ];
 
   function buildCreateForm() {
     var form = createFormMarkup();
@@ -69,6 +80,12 @@
         h('button', { type: 'submit', className: 'btn inv', text: api.t('ui.form.create'), dataset: { action: 'create' } }),
       ]),
       h('p', { id: 'origin-preview', className: 'origin-preview mono', 'aria-live': 'polite' }),
+      h('label', { className: 'expires-row' }, [
+        h('span', { text: api.t('ui.form.expires') }),
+        h('select', { id: 'expires', name: 'expiresIn', className: 'input' }, EXPIRY_CHOICES.map(function (choice) {
+          return h('option', { value: choice.value, text: api.t(choice.label) });
+        })),
+      ]),
       h('details', { id: 'mail-details', className: 'create-more' }, [
         h('summary', { id: 'mail-summary', text: api.t('ui.form.mail') }),
         h('textarea', {
@@ -121,7 +138,9 @@
     var tls = field(form, 'no-tls-verify');
     var h2 = field(form, 'http2-origin');
     var inspect = field(form, 'inspect');
+    var expires = field(form, 'expires');
     return {
+      expiresIn: expires && expires.value ? Number(expires.value) : null,
       allowedMail: mail ? String(mail.value || '') : '',
       hostHeader: host ? String(host.value || '') : '',
       noTlsVerify: !!(tls && tls.checked),

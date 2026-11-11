@@ -41,6 +41,11 @@
     return push(session, { level: level, message: message, timestamp: now(), url: null, raw: message });
   }
 
+  function expiry(session) {
+    var minutes = session.options && session.options.expiresIn;
+    return minutes ? new Date(Date.parse(session.startedAt) + minutes * 60000).toISOString() : null;
+  }
+
   function createSessionStore() {
     var seq = 1;
     var sessions = new Map();
@@ -76,7 +81,10 @@
           droppedEntries: 0,
           url: null,
           selected: null,
+          expiresAt: null,
+          expired: false,
         };
+        session.expiresAt = expiry(session);
         seq += 1;
         sessions.set(session.id, session);
         return session;
@@ -123,6 +131,22 @@
         session.stoppedAt = now();
         return session;
       },
+      // Active tunnels whose time is up; the caller stops their process and calls expire().
+      dueToExpire: function (nowMs) {
+        return Array.from(sessions.values()).filter(function (session) {
+          return session.active && session.expiresAt && Date.parse(session.expiresAt) <= nowMs;
+        });
+      },
+      expire: function (id) {
+        var session = requireSession(id);
+        if (!session.active) return session;
+        session.status = 'stopped';
+        session.active = false;
+        session.stoppedAt = now();
+        session.expired = true;
+        synthetic(session, 'info', 'tunnel expired after ' + session.options.expiresIn + ' min');
+        return session;
+      },
       markExited: function (id, code) {
         var session = requireSession(id);
         if (!session.active) return session;
@@ -162,6 +186,8 @@
         session.exitCode = null;
         session.stoppedAt = null;
         session.startedAt = now();
+        session.expiresAt = expiry(session);
+        session.expired = false;
         session.restarts += 1;
         synthetic(session, 'info', '— restart #' + session.restarts + ' —');
         return session;

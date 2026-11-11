@@ -247,7 +247,17 @@
     return document.getElementById(id);
   }
 
-  function paintBadges(summary) {
+  // "1 h 12 min", "3 min", "<1 min": coarse on purpose, the header repaints every second.
+  function formatRemaining(ms) {
+    if (!(ms > 60000)) return api.t('ui.remain.lessMinute');
+    var minutes = Math.floor(ms / 60000);
+    if (minutes < 60) return api.t('ui.remain.minutes', { m: minutes });
+    var hours = Math.floor(minutes / 60);
+    if (hours < 24) return api.t(minutes % 60 ? 'ui.remain.hoursMinutes' : 'ui.remain.hours', { h: hours, m: minutes % 60 });
+    return api.t('ui.remain.days', { d: Math.floor(hours / 24), h: hours % 24 });
+  }
+
+  function paintBadges(summary, nowMs) {
     var box = el('tunnel-badges');
     if (!box) return;
     var h = api.h;
@@ -260,7 +270,12 @@
     if (options.noTlsVerify) {
       badges.push(h('span', { className: 'badge-tls', text: api.t('ui.badge.tls') }));
     }
-    var sig = JSON.stringify([mails, !!options.noTlsVerify]);
+    var remaining = null;
+    if (summary.active && summary.expiresAt) {
+      remaining = formatRemaining(Date.parse(summary.expiresAt) - (nowMs == null ? Date.now() : nowMs));
+      badges.push(h('span', { className: 'badge-expires', title: summary.expiresAt, text: api.t('ui.badge.expires', { time: remaining }) }));
+    }
+    var sig = JSON.stringify([mails, !!options.noTlsVerify, remaining]);
     if (box.dataset.sig === sig) return;
     box.dataset.sig = sig;
     box.replaceChildren.apply(box, badges);
@@ -316,7 +331,7 @@
 
   function paintTunnelExtras(summary, nowMs) {
     if (!summary) return;
-    paintBadges(summary);
+    paintBadges(summary, nowMs);
     paintTraffic(summary);
     paintWarnings(summary, nowMs == null ? Date.now() : nowMs);
   }
@@ -717,6 +732,7 @@
   }
 
   api.formatCount = formatCount;
+  api.formatRemaining = formatRemaining;
   api.sparkPoints = sparkPoints;
   api.paintTunnelExtras = paintTunnelExtras;
   api.chipGroups = chipGroups;

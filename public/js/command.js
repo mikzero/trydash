@@ -80,6 +80,16 @@
     return folder;
   }
 
+  // Minutes after which the tunnel stops by itself: at most a week, none by default.
+  var MAX_EXPIRES = 7 * 24 * 60;
+
+  function expiresIn(value) {
+    if (value == null || value === '' || value === 0 || value === '0') return null;
+    var minutes = Number(value);
+    if (!Number.isInteger(minutes) || minutes < 1 || minutes > MAX_EXPIRES) badOptions('options.expiresInvalid', { max: MAX_EXPIRES });
+    return minutes;
+  }
+
   function normalizeTunnelOptions(raw) {
     var input = raw || {};
     var hello = input.mode === 'hello';
@@ -98,6 +108,7 @@
       // The inspector's proxy speaks HTTP/1.1 only, so an HTTP/2 origin skips it.
       // A folder is always served by trydash, so its requests are always recorded.
       inspect: folder || (!hello && !http2Origin && input.inspect !== false),
+      expiresIn: expiresIn(input.expiresIn),
     };
     if (folder) options.folder = folderPath(input.folder);
     return options;
@@ -157,6 +168,7 @@
   api.normalizeOrigin = normalizeOrigin;
   api.normalizeTunnelOptions = normalizeTunnelOptions;
   api.isMailEntry = isMailEntry;
+  api.MAX_EXPIRES = MAX_EXPIRES;
   api.buildQuickTunnelCommand = buildQuickTunnelCommand;
   api.shellWord = shellWord;
   api.windowsWord = windowsWord;

@@ -426,7 +426,7 @@ test('create form options, preview and recent mail', () => {
   form.querySelector('#no-tls-verify').checked = true;
   form.querySelector('#http2-origin').checked = false;
   assert.equal(form.querySelector('#inspect').checked, true);
-  assert.deepEqual({ ...T.readCreateOptions(form) }, { allowedMail: 'a@b.it, *@x.it', hostHeader: 'app.local', noTlsVerify: true, http2Origin: false, inspect: true });
+  assert.deepEqual({ ...T.readCreateOptions(form) }, { expiresIn: null, allowedMail: 'a@b.it, *@x.it', hostHeader: 'app.local', noTlsVerify: true, http2Origin: false, inspect: true });
   form.querySelector('#inspect').checked = false;
   assert.equal(T.readCreateOptions(form).inspect, false);
   form.querySelector('#inspect').checked = true;
@@ -721,4 +721,26 @@ test('the interface speaks English, and the EN/IT choice is remembered', () => {
   sandbox.localStorage = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('denied'); } };
   assert.equal(T.langPref.choose('en-US'), 'en');
   assert.doesNotThrow(() => T.langPref.set('en'));
+});
+
+test('expiry: the menu, the countdown badge and the expired label', () => {
+  const { T, host } = domSandbox();
+  T.renderPhase(host, { present: true, version: 'test', platform: 'linux' });
+  const select = host.querySelector('#expires');
+  assert.deepEqual(select.children.map((o) => o.attrs.value), ['', '30', '60', '120', '480', '1440']);
+  assert.equal(select.children[0].textContent, 'mai');
+  select.value = '120';
+  assert.equal(T.readCreateOptions(host.querySelector('#create-form')).expiresIn, 120);
+  assert.equal(T.formatRemaining(30000), '<1 min');
+  assert.equal(T.formatRemaining(12 * 60000 + 5000), '12 min');
+  assert.equal(T.formatRemaining(72 * 60000), '1 h 12 min');
+  assert.equal(T.formatRemaining(120 * 60000), '2 h');
+  assert.equal(T.formatRemaining(26 * 3600000), '1 g 2 h');
+  const now = Date.parse('2026-11-11T10:00:00Z');
+  const s = { id: 's1', mode: 'origin', origin: 'http://127.0.0.1:3000', active: true, options: { allowedMail: [] }, traffic: null, lastOriginError: null, expiresAt: '2026-11-11T11:12:00Z' };
+  T.paintTunnelExtras(s, now);
+  assert.match(textOf(host.querySelector('#tunnel-badges')), /⏱ si ferma tra 1 h 12 min/);
+  T.paintTunnelExtras({ ...s, active: false }, now);
+  assert.doesNotMatch(textOf(host.querySelector('#tunnel-badges')), /⏱/);
+  assert.equal(T.statusText({ status: 'stopped', expired: true, entryCount: 4 }), 'scaduto · 4 righe');
 });
