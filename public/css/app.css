@@ -490,7 +490,9 @@ h2 { margin: 0; font-size: 13px; font-weight: 600; }
 
 .side-foot { margin-top: auto; border-top: 1px solid var(--line); }
 
-.donate { display: block; padding: 8px 16px 0; color: var(--accent); font-size: 12px; font-weight: 600; text-decoration: none; }
+.donate { display: flex; align-items: center; gap: 6px; padding: 8px 16px 0; color: var(--accent); font-size: 12px; font-weight: 600; text-decoration: none; }
+
+.donate-cup { display: block; flex: none; }
 
 .donate:hover { text-decoration: underline; }
 

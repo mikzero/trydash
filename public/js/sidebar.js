@@ -304,7 +304,10 @@
       h('p', { id: 'tunnel-list-empty', className: 'tunnel-list-empty', text: api.t('ui.side.empty') }),
       h('ul', { id: 'tunnel-list', className: 'tunnel-list', 'aria-label': api.t('ui.tunnels') }),
       h('div', { className: 'side-foot' }, [
-        h('a', { className: 'donate', href: 'https://ko-fi.com/mikzero', target: '_blank', rel: 'noopener noreferrer', title: api.t('ui.side.donateTitle'), text: api.t('ui.side.donate') }),
+        h('a', { className: 'donate', href: 'https://ko-fi.com/P8V12A631E', target: '_blank', rel: 'noopener noreferrer', title: api.t('ui.side.donateTitle') }, [
+          h('img', { src: 'kofi-symbol.svg', alt: '', width: '16', height: '13', className: 'donate-cup' }),
+          h('span', { text: api.t('ui.side.donate') }),
+        ]),
         h('p', { id: 'cf-version', className: 'cf-version mono', title: version, text: version }),
       ]),
     ]);

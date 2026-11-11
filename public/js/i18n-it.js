@@ -250,7 +250,7 @@
     'ui.qr.button': 'Codice QR dell’URL',
     'ui.qr.close': 'Chiudi',
     'ui.qr.scan': 'Inquadra con il telefono',
-    'ui.side.donate': '☕ Sostieni trydash',
+    'ui.side.donate': 'Sostieni trydash',
     'ui.side.donateTitle': 'Offri un caffè su Ko-fi a chi sviluppa trydash',
   };
 })(globalThis);

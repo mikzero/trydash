@@ -178,8 +178,13 @@ test('detect: no suggestion on phones and tablets', () => {
 test('the Ko-fi link is on both pages and on GitHub', () => {
   for (const page of Object.values(PAGES)) {
     const html = read(page);
-    assert.equal((html.match(/href="https:\/\/ko-fi\.com\/mikzero" target="_blank" rel="noopener"/g) || []).length, 2, page);
-    assert.match(html, /<symbol id="i-coffee"/);
+    assert.equal((html.match(/href="https:\/\/ko-fi\.com\/P8V12A631E" target="_blank" rel="noopener"/g) || []).length, 2, page);
+    // Ko-fi's own button and cup, served by the site: no script or image from Ko-fi's servers.
+    assert.match(html, /images\/kofi-support-light\.png/);
+    assert.match(html, /images\/kofi-support-dark\.png/);
+    assert.match(html, /images\/kofi-symbol\.svg/);
+    assert.doesNotMatch(html, /storage\.ko-fi\.com|kofiwidget/);
   }
-  assert.match(fs.readFileSync(path.join(projectRoot, '.github/FUNDING.yml'), 'utf8'), /^ko_fi: mikzero$/m);
+  assert.match(fs.readFileSync(path.join(projectRoot, '.github/FUNDING.yml'), 'utf8'), /^ko_fi: P8V12A631E$/m);
+  assert.match(fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8'), /\[!\[ko-fi\]\(https:\/\/ko-fi\.com\/img\/githubbutton_sm\.svg\)\]\(https:\/\/ko-fi\.com\/P8V12A631E\)/);
 });

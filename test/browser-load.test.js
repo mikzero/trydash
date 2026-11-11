@@ -881,8 +881,9 @@ test('the sidebar links to Ko-fi without a referrer', () => {
   const { T, host } = domSandbox();
   T.renderPhase(host, { present: true, version: 'test', platform: 'linux' });
   const link = walkAll(host).find((n) => n.className === 'donate');
-  assert.equal(link.attrs.href, 'https://ko-fi.com/mikzero');
+  assert.equal(link.attrs.href, 'https://ko-fi.com/P8V12A631E');
   assert.equal(link.attrs.target, '_blank');
   assert.equal(link.attrs.rel, 'noopener noreferrer');
-  assert.equal(link.textContent, '☕ Sostieni trydash');
+  assert.match(textOf(link), /Sostieni trydash/);
+  assert.equal(walkAll(link).find((n) => n.tag === 'img').attrs.src, 'kofi-symbol.svg');
 });
