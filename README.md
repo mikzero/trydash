@@ -42,40 +42,6 @@ The interface is in English and Italian: it follows your browser, and the **EN**
   </picture>
 </p>
 
-### QR code
-
-**▦ QR** in the header shows the tunnel URL as a QR code: point your phone’s camera at it to try the site on mobile, or let a client scan it. The code is drawn by trydash itself (`public/js/qr.js`, no dependencies, checked against a reference encoder in the tests) and stays dark on light in the dark theme too, so every scanner reads it. It closes with `Esc` and when the URL changes.
-
-### Notifications
-
-The 🔕 button in the sidebar turns on browser notifications (the browser asks first). While the dashboard tab is in the background, trydash tells you when a tunnel has its URL, when your server stops answering (once per outage) and when `cloudflared` exits or a tunnel expires. A click on the notification brings you to that tunnel. 🔔 turns them off. The choice stays in your browser.
-
-### Listening ports
-
-Under the field, “listening:” suggests the development servers running on your computer, like `:5173 · Vite` or `:3000 · Next.js`: a click fills the field. trydash only tries the usual development ports (3000, 4200, 5173, 8000, 8080…) with a plain TCP connection, so nothing shows up in their logs. A server listening only on IPv6 (`::1`) is suggested as `http://[::1]:5173`. A port already in a live tunnel is shown faded. The API has it as `GET /api/ports`.
-
-### Saved tunnels
-
-trydash remembers your tunnels between runs: origin or folder and options, never logs, requests, URLs or tokens. At the next start they come back **stopped**, so nothing turns public again until you press **Restart**. Each one gets a new URL, as quick tunnels always do. Removing a tunnel removes it from the list too.
-
-The list lives in `~/.config/trydash/tunnels.json` (`$XDG_CONFIG_HOME` if set, `%APPDATA%\trydash` on Windows), readable only by you, because it can contain the allowed emails. `TRYDASH_CONFIG` picks another file, `TRYDASH_CONFIG=off` or `--no-save` turns saving off. `trydash 3000` restarts the saved tunnel to port 3000 instead of adding a second one. A broken file is renamed to `tunnels.json.broken` and not overwritten.
-
-### Expiry
-
-**Stop after** in the form stops the tunnel by itself after 30 minutes, 1, 2 or 8 hours, or a day, so a preview for a client doesn’t stay online by mistake. The header shows the time left (“⏱ stops in 1 h 12 min”). When it’s up, the tunnel stops like with **Stop**, the logs say “tunnel expired after 120 min”, and the sidebar shows “expired”. **Restart** starts the clock again. From the command line: `--expires 2h`; from the API: `"expiresIn": 120`, in minutes, up to a week.
-
-### Static folder
-
-Type the path of a folder instead of a port, for example `~/site/dist`, `./build` or `C:\site`, and press **Create**. trydash serves the folder itself, on a local web server for that tunnel only, and `cloudflared` publishes it. It’s the quickest way to share a static build, a prototype or a few files.
-
-- `/` and every subfolder answer with their `index.html`. A folder without one shows the list of its files;
-- the right `Content-Type` for pages, styles, scripts, images, fonts, video and audio, with `ETag` and `Range` requests, so videos can be seeked;
-- **hidden files are never served**: a path with a part that starts with `.` (`.env`, `.git/`…) answers `404` and doesn’t appear in lists;
-- nothing outside the folder is reachable, symbolic links included;
-- only `GET` and `HEAD`: other methods get `405`.
-
-`~` is your home folder, and a relative path starts from the folder trydash runs in. The folder must exist when you create the tunnel, and it can’t be the root of the disk or your whole home folder. Its requests always appear in the **Requests** tab, and the sidebar shows 📁 and the folder name. The origin options don’t apply to a folder.
-
 ### Request inspector
 
 Every tunnel to a local origin goes through a small proxy that trydash runs on `127.0.0.1`. `cloudflared` connects to it instead of your server, and it forwards each request unchanged: same method, path, headers and body, WebSocket upgrades included. On the way it keeps a copy, which the **Requests** tab next to the logs shows:
@@ -92,6 +58,40 @@ trydash keeps the first 256 KB of each request body and the first 64 KB of each 
 When your server doesn’t answer, the proxy replies `502`, writes the error in the logs and shows the “server not responding” banner.
 
 The inspector is on by default. To turn it off, clear **Inspect requests** under **Origin options**. It’s also off for Hello World tunnels and with an HTTP/2 origin, because the proxy speaks HTTP/1.1 only. The equivalent `cloudflared` command shown in the header stays the one you would run without trydash.
+
+### Static folder
+
+Type the path of a folder instead of a port, for example `~/site/dist`, `./build` or `C:\site`, and press **Create**. trydash serves the folder itself, on a local web server for that tunnel only, and `cloudflared` publishes it. It’s the quickest way to share a static build, a prototype or a few files.
+
+- `/` and every subfolder answer with their `index.html`. A folder without one shows the list of its files;
+- the right `Content-Type` for pages, styles, scripts, images, fonts, video and audio, with `ETag` and `Range` requests, so videos can be seeked;
+- **hidden files are never served**: a path with a part that starts with `.` (`.env`, `.git/`…) answers `404` and doesn’t appear in lists;
+- nothing outside the folder is reachable, symbolic links included;
+- only `GET` and `HEAD`: other methods get `405`.
+
+`~` is your home folder, and a relative path starts from the folder trydash runs in. The folder must exist when you create the tunnel, and it can’t be the root of the disk or your whole home folder. Its requests always appear in the **Requests** tab, and the sidebar shows 📁 and the folder name. The origin options don’t apply to a folder.
+
+### Expiry
+
+**Stop after** in the form stops the tunnel by itself after 30 minutes, 1, 2 or 8 hours, or a day, so a preview for a client doesn’t stay online by mistake. The header shows the time left (“⏱ stops in 1 h 12 min”). When it’s up, the tunnel stops like with **Stop**, the logs say “tunnel expired after 120 min”, and the sidebar shows “expired”. **Restart** starts the clock again. From the command line: `--expires 2h`; from the API: `"expiresIn": 120`, in minutes, up to a week.
+
+### Saved tunnels
+
+trydash remembers your tunnels between runs: origin or folder and options, never logs, requests, URLs or tokens. At the next start they come back **stopped**, so nothing turns public again until you press **Restart**. Each one gets a new URL, as quick tunnels always do. Removing a tunnel removes it from the list too.
+
+The list lives in `~/.config/trydash/tunnels.json` (`$XDG_CONFIG_HOME` if set, `%APPDATA%\trydash` on Windows), readable only by you, because it can contain the allowed emails. `TRYDASH_CONFIG` picks another file, `TRYDASH_CONFIG=off` or `--no-save` turns saving off. `trydash 3000` restarts the saved tunnel to port 3000 instead of adding a second one. A broken file is renamed to `tunnels.json.broken` and not overwritten.
+
+### Listening ports
+
+Under the field, “listening:” suggests the development servers running on your computer, like `:5173 · Vite` or `:3000 · Next.js`: a click fills the field. trydash only tries the usual development ports (3000, 4200, 5173, 8000, 8080…) with a plain TCP connection, so nothing shows up in their logs. A server listening only on IPv6 (`::1`) is suggested as `http://[::1]:5173`. A port already in a live tunnel is shown faded. The API has it as `GET /api/ports`.
+
+### QR code
+
+**▦ QR** in the header shows the tunnel URL as a QR code: point your phone’s camera at it to try the site on mobile, or let a client scan it. The code is drawn by trydash itself (`public/js/qr.js`, no dependencies, checked against a reference encoder in the tests) and stays dark on light in the dark theme too, so every scanner reads it. It closes with `Esc` and when the URL changes.
+
+### Notifications
+
+The 🔕 button in the sidebar turns on browser notifications (the browser asks first). While the dashboard tab is in the background, trydash tells you when a tunnel has its URL, when your server stops answering (once per outage) and when `cloudflared` exits or a tunnel expires. A click on the notification brings you to that tunnel. 🔔 turns them off. The choice stays in your browser.
 
 ### Email access
 
@@ -421,6 +421,9 @@ The download links are direct links to the release files, written in the HTML, a
 server.js            HTTP server and API (Bun, node:* modules only)
 src/assets.js        reads project files (from disk or embedded in the binary)
 src/runtime.js       starts/stops cloudflared and reads its stream
+src/cli.js           command line, TRYDASH_* variables, opening the browser
+src/config.js        saved tunnels (~/.config/trydash/tunnels.json)
+src/ports.js         development servers listening on this computer
 src/traffic.js       polls the cloudflared metrics
 src/inspector.js     request inspector: local proxy, recorded requests, replay
 src/static.js        files of a folder tunnel
@@ -429,7 +432,8 @@ scripts/build.js     builds the standalone executables
 scripts/release-notes.js drafts release notes from the commits
 site/                landing page (GitHub Pages) in English, site/it/ in Italian
 .github/workflows/   automatic release on v* tags and website publishing
-public/js/           shared libraries (parse, sessions, window, i18n…) and the interface (requests.js: the Requests tab)
+public/js/           shared libraries (parse, sessions, window, i18n…) and the interface:
+                     requests.js the Requests tab, qr.js the QR codes, notify.js the notifications
 public/css/app.css   light/dark "Paper" theme
 test/                tests with bun test
 ```

@@ -40,40 +40,6 @@
   </picture>
 </p>
 
-### QR code
-
-**▦ QR** nell’intestazione mostra l’URL del tunnel come QR code: inquadralo con la fotocamera del telefono per provare il sito su mobile, o fallo inquadrare a un cliente. Il codice lo disegna trydash stesso (`public/js/qr.js`, senza dipendenze, verificato nei test contro un encoder di riferimento) e resta scuro su chiaro anche nel tema scuro, così ogni lettore lo legge. Si chiude con `Esc` e quando l’URL cambia.
-
-### Notifiche
-
-Il pulsante 🔕 nella sidebar attiva le notifiche del browser (prima il browser chiede il permesso). Mentre la scheda della dashboard è in secondo piano, trydash ti avvisa quando un tunnel ha il suo URL, quando il tuo server smette di rispondere (una volta per interruzione) e quando `cloudflared` termina o un tunnel scade. Un clic sulla notifica ti porta a quel tunnel. 🔔 le spegne. La scelta resta nel tuo browser.
-
-### Porte in ascolto
-
-Sotto il campo, “in ascolto:” propone i server di sviluppo avviati sul tuo computer, come `:5173 · Vite` o `:3000 · Next.js`: un clic riempie il campo. trydash prova solo le porte di sviluppo più comuni (3000, 4200, 5173, 8000, 8080…) con una semplice connessione TCP, così nei loro log non compare niente. Un server in ascolto solo su IPv6 (`::1`) viene proposto come `http://[::1]:5173`. Una porta già in un tunnel attivo appare sbiadita. Nell’API è `GET /api/ports`.
-
-### Tunnel salvati
-
-trydash ricorda i tuoi tunnel tra un avvio e l’altro: origine o cartella e opzioni, mai log, richieste, URL o token. Al prossimo avvio tornano **fermi**, così niente torna pubblico finché non premi **Riavvia**. Ognuno riceve un URL nuovo, come sempre con i quick tunnel. Rimuovere un tunnel lo toglie anche dall’elenco.
-
-L’elenco sta in `~/.config/trydash/tunnels.json` (`$XDG_CONFIG_HOME` se impostata, `%APPDATA%\trydash` su Windows), leggibile solo da te, perché può contenere le email autorizzate. `TRYDASH_CONFIG` sceglie un altro file, `TRYDASH_CONFIG=off` o `--no-save` spengono il salvataggio. `trydash 3000` riavvia il tunnel salvato verso la porta 3000 invece di aggiungerne un secondo. Un file rovinato viene rinominato `tunnels.json.broken` e non sovrascritto.
-
-### Scadenza
-
-**Ferma dopo** nel modulo ferma il tunnel da solo dopo 30 minuti, 1, 2 o 8 ore, o un giorno, così un’anteprima per un cliente non resta online per dimenticanza. L’intestazione mostra il tempo rimasto (“⏱ si ferma tra 1 h 12 min”). Allo scadere il tunnel si ferma come con **Ferma**, i log scrivono “tunnel expired after 120 min” e la sidebar mostra “scaduto”. **Riavvia** fa ripartire il conto. Dalla riga di comando: `--expires 2h`; dall’API: `"expiresIn": 120`, in minuti, fino a una settimana.
-
-### Cartella statica
-
-Scrivi il percorso di una cartella al posto della porta, per esempio `~/sito/dist`, `./build` o `C:\sito`, e premi **Crea**. trydash serve la cartella da solo, con un piccolo web server locale dedicato a quel tunnel, e `cloudflared` la pubblica. È il modo più rapido per condividere una build statica, un prototipo o qualche file.
-
-- `/` e ogni sottocartella rispondono con il loro `index.html`. Una cartella che non ce l’ha mostra l’elenco dei file;
-- il `Content-Type` giusto per pagine, stili, script, immagini, font, video e audio, con `ETag` e richieste `Range`, così nei video si può saltare avanti;
-- **i file nascosti non vengono mai serviti**: un percorso con una parte che inizia con `.` (`.env`, `.git/`…) risponde `404` e non compare negli elenchi;
-- niente fuori dalla cartella è raggiungibile, nemmeno con i link simbolici;
-- solo `GET` e `HEAD`: gli altri metodi ricevono `405`.
-
-`~` è la tua cartella home, e un percorso relativo parte dalla cartella da cui avvii trydash. La cartella deve esistere quando crei il tunnel, e non può essere la radice del disco o tutta la tua home. Le sue richieste compaiono sempre nella scheda **Richieste**, e nella sidebar si vedono 📁 e il nome della cartella. Le opzioni dell’origine non valgono per una cartella.
-
 ### Ispettore delle richieste
 
 Ogni tunnel verso un’origine locale passa da un piccolo proxy che trydash avvia su `127.0.0.1`. `cloudflared` si collega al proxy invece che al tuo server, e il proxy inoltra ogni richiesta così com’è: stesso metodo, percorso, header e body, compresi gli upgrade WebSocket. Intanto ne tiene una copia, che compare nella scheda **Richieste** accanto ai log:
@@ -90,6 +56,40 @@ trydash tiene i primi 256 KB del body di ogni richiesta e i primi 64 KB di ogni 
 Se il tuo server non risponde, il proxy risponde `502`, scrive l’errore nei log e mostra il banner “non risponde”.
 
 L’ispettore è attivo di default. Per spegnerlo togli la spunta da **Ispeziona richieste** in **Opzioni origine**. È spento anche per i tunnel Hello World e con un’origine HTTP/2, perché il proxy parla solo HTTP/1.1. Il comando `cloudflared` equivalente mostrato nell’intestazione resta quello che useresti senza trydash.
+
+### Cartella statica
+
+Scrivi il percorso di una cartella al posto della porta, per esempio `~/sito/dist`, `./build` o `C:\sito`, e premi **Crea**. trydash serve la cartella da solo, con un piccolo web server locale dedicato a quel tunnel, e `cloudflared` la pubblica. È il modo più rapido per condividere una build statica, un prototipo o qualche file.
+
+- `/` e ogni sottocartella rispondono con il loro `index.html`. Una cartella che non ce l’ha mostra l’elenco dei file;
+- il `Content-Type` giusto per pagine, stili, script, immagini, font, video e audio, con `ETag` e richieste `Range`, così nei video si può saltare avanti;
+- **i file nascosti non vengono mai serviti**: un percorso con una parte che inizia con `.` (`.env`, `.git/`…) risponde `404` e non compare negli elenchi;
+- niente fuori dalla cartella è raggiungibile, nemmeno con i link simbolici;
+- solo `GET` e `HEAD`: gli altri metodi ricevono `405`.
+
+`~` è la tua cartella home, e un percorso relativo parte dalla cartella da cui avvii trydash. La cartella deve esistere quando crei il tunnel, e non può essere la radice del disco o tutta la tua home. Le sue richieste compaiono sempre nella scheda **Richieste**, e nella sidebar si vedono 📁 e il nome della cartella. Le opzioni dell’origine non valgono per una cartella.
+
+### Scadenza
+
+**Ferma dopo** nel modulo ferma il tunnel da solo dopo 30 minuti, 1, 2 o 8 ore, o un giorno, così un’anteprima per un cliente non resta online per dimenticanza. L’intestazione mostra il tempo rimasto (“⏱ si ferma tra 1 h 12 min”). Allo scadere il tunnel si ferma come con **Ferma**, i log scrivono “tunnel expired after 120 min” e la sidebar mostra “scaduto”. **Riavvia** fa ripartire il conto. Dalla riga di comando: `--expires 2h`; dall’API: `"expiresIn": 120`, in minuti, fino a una settimana.
+
+### Tunnel salvati
+
+trydash ricorda i tuoi tunnel tra un avvio e l’altro: origine o cartella e opzioni, mai log, richieste, URL o token. Al prossimo avvio tornano **fermi**, così niente torna pubblico finché non premi **Riavvia**. Ognuno riceve un URL nuovo, come sempre con i quick tunnel. Rimuovere un tunnel lo toglie anche dall’elenco.
+
+L’elenco sta in `~/.config/trydash/tunnels.json` (`$XDG_CONFIG_HOME` se impostata, `%APPDATA%\trydash` su Windows), leggibile solo da te, perché può contenere le email autorizzate. `TRYDASH_CONFIG` sceglie un altro file, `TRYDASH_CONFIG=off` o `--no-save` spengono il salvataggio. `trydash 3000` riavvia il tunnel salvato verso la porta 3000 invece di aggiungerne un secondo. Un file rovinato viene rinominato `tunnels.json.broken` e non sovrascritto.
+
+### Porte in ascolto
+
+Sotto il campo, “in ascolto:” propone i server di sviluppo avviati sul tuo computer, come `:5173 · Vite` o `:3000 · Next.js`: un clic riempie il campo. trydash prova solo le porte di sviluppo più comuni (3000, 4200, 5173, 8000, 8080…) con una semplice connessione TCP, così nei loro log non compare niente. Un server in ascolto solo su IPv6 (`::1`) viene proposto come `http://[::1]:5173`. Una porta già in un tunnel attivo appare sbiadita. Nell’API è `GET /api/ports`.
+
+### QR code
+
+**▦ QR** nell’intestazione mostra l’URL del tunnel come QR code: inquadralo con la fotocamera del telefono per provare il sito su mobile, o fallo inquadrare a un cliente. Il codice lo disegna trydash stesso (`public/js/qr.js`, senza dipendenze, verificato nei test contro un encoder di riferimento) e resta scuro su chiaro anche nel tema scuro, così ogni lettore lo legge. Si chiude con `Esc` e quando l’URL cambia.
+
+### Notifiche
+
+Il pulsante 🔕 nella sidebar attiva le notifiche del browser (prima il browser chiede il permesso). Mentre la scheda della dashboard è in secondo piano, trydash ti avvisa quando un tunnel ha il suo URL, quando il tuo server smette di rispondere (una volta per interruzione) e quando `cloudflared` termina o un tunnel scade. Un clic sulla notifica ti porta a quel tunnel. 🔔 le spegne. La scelta resta nel tuo browser.
 
 ### Accesso via email
 
@@ -419,6 +419,9 @@ I link di download sono link diretti ai file della release, scritti in `site/ind
 server.js            server HTTP e API (Bun, solo moduli node:*)
 src/assets.js        lettura dei file del progetto (dal disco o incorporati nel binario)
 src/runtime.js       avvio/arresto di cloudflared e lettura dello stream
+src/cli.js           riga di comando, variabili TRYDASH_*, apertura del browser
+src/config.js        tunnel salvati (~/.config/trydash/tunnels.json)
+src/ports.js         server di sviluppo in ascolto su questo computer
 src/traffic.js       lettura periodica delle metriche di cloudflared
 src/inspector.js     ispettore delle richieste: proxy locale, richieste registrate, replay
 src/static.js        file di un tunnel cartella
@@ -427,7 +430,8 @@ scripts/build.js     build degli eseguibili autonomi
 scripts/release-notes.js bozza delle note di release dai commit
 site/                landing page (GitHub Pages) in inglese, site/it/ in italiano
 .github/workflows/   release automatica sui tag v* e pubblicazione del sito
-public/js/           librerie condivise (parse, sessions, window, i18n…) e interfaccia (requests.js: la scheda Richieste)
+public/js/           librerie condivise (parse, sessions, window, i18n…) e interfaccia:
+                     requests.js la scheda Richieste, qr.js i QR code, notify.js le notifiche
 public/css/app.css   tema "Paper" chiaro/scuro
 test/                test con bun test
 ```
