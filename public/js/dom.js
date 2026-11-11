@@ -15,6 +15,7 @@
       else if (key === 'style') Object.assign(node.style, value);
       else {
         if (key === 'id') node.id = String(value);
+        if (key === 'checked') node.checked = true;
         node.setAttribute(key, value === true ? '' : String(value));
       }
     });

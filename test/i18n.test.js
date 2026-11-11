@@ -13,7 +13,12 @@ test('catalogs match and t fills params', () => {
   const holes = (s) => (s.match(/\{\w+\}/g) || []).sort();
   for (const k of Object.keys(it)) assert.deepEqual(holes(en[k]), holes(it[k]), k);
   assert.equal(dash.t('options.mailTooMany', { max: 20 }, 'en'), 'At most 20 email addresses');
-  assert.equal(dash.t('options.mailTooMany', { max: 20 }, 'fr'), 'Al massimo 20 indirizzi email');
+  assert.equal(dash.t('options.mailTooMany', { max: 20 }, 'fr'), 'At most 20 email addresses');
+  assert.equal(dash.t('options.mailTooMany', { max: 20 }, 'it'), 'Al massimo 20 indirizzi email');
+  assert.equal(dash.tn('ui.lines', 1, {}, 'it'), '1 riga');
+  assert.equal(dash.tn('ui.lines', 3, {}, 'en'), '3 lines');
+  assert.equal(dash.locale('it'), 'it-IT');
+  assert.equal(dash.locale('fr'), 'en-US');
   assert.equal(dash.t('nope.missing', {}, 'en'), 'nope.missing');
 });
 
@@ -21,15 +26,17 @@ test('pickLang reads navigator.language and Accept-Language', () => {
   assert.equal(dash.pickLang('it-IT'), 'it');
   assert.equal(dash.pickLang('en-US'), 'en');
   assert.equal(dash.pickLang('fr-FR,en;q=0.8'), 'en');
-  assert.equal(dash.pickLang(''), 'it');
-  assert.equal(dash.pickLang(undefined), 'it');
-  assert.equal(dash.pickLang(';;q=,'), 'it');
+  // English is the fallback, as on the site.
+  assert.equal(dash.pickLang(''), 'en');
+  assert.equal(dash.pickLang(undefined), 'en');
+  assert.equal(dash.pickLang(';;q=,'), 'en');
+  assert.equal(dash.pickLang('de-DE'), 'en');
 });
 
 test('appError and errorBody', () => {
   const e = dash.appError('BAD_OPTIONS', 'options.mailInvalid', { value: 'mario@' });
   assert.equal(e.code, 'BAD_OPTIONS');
-  assert.equal(e.message, 'Indirizzo email non valido: mario@');
+  assert.equal(e.message, 'Invalid email address: mario@');
   assert.deepEqual(JSON.parse(JSON.stringify(dash.errorBody(e, 'en'))), { error: 'Invalid email address: mario@', key: 'options.mailInvalid', params: { value: 'mario@' } });
   assert.equal(dash.errorBody(new Error('boom'), 'it').error, 'Errore del server: boom');
 });
@@ -51,8 +58,10 @@ test('server errors follow Accept-Language', async () => {
     const enBody = await en.json();
     assert.equal(enBody.error, 'Session not found');
     assert.equal(enBody.key, 'session.notFound');
-    const it = await (await fetch(`${app.url}/api/sessions/s99/stop`, { method: 'POST' })).json();
+    const it = await (await fetch(`${app.url}/api/sessions/s99/stop`, { method: 'POST', headers: { 'Accept-Language': 'it-IT' } })).json();
     assert.equal(it.error, 'Sessione non trovata');
+    const none = await (await fetch(`${app.url}/api/sessions/s99/stop`, { method: 'POST' })).json();
+    assert.equal(none.error, 'Session not found');
   } finally {
     await app.close();
   }

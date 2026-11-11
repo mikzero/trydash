@@ -181,7 +181,7 @@ test('a multi-thousand-line window is capped and the offset resolves that entry'
 });
 
 test('bad origins are rejected before a tunnel command exists', () => {
-  assert.throws(() => dash.buildQuickTunnelCommand(''), /origine/i);
+  assert.throws(() => dash.buildQuickTunnelCommand(''), /origin/i);
   assert.throws(() => dash.buildQuickTunnelCommand('ftp://127.0.0.1/file'), /http/i);
   const command = dash.buildQuickTunnelCommand('http://localhost:3000/');
   assert.equal(command.origin, 'http://localhost:3000');
@@ -238,7 +238,9 @@ test('HTTP create uses the quick-tunnel spawn, detail, stop, and the log window'
     assert.equal(seen[0].bin, 'cloudflared');
     assert.equal(seen[0].args[0], 'tunnel');
     assert.equal(seen[0].args[1], '--url');
-    assert.equal(seen[0].args[2], 'http://127.0.0.1:8080');
+    // cloudflared reaches the origin through the inspector's local proxy.
+    assert.match(seen[0].args[2], /^http:\/\/127\.0\.0\.1:\d+$/);
+    assert.notEqual(seen[0].args[2], 'http://127.0.0.1:8080');
 
     let url = null;
     for (let i = 0; i < 50; i += 1) {
@@ -338,7 +340,7 @@ test('session lifecycle: starting, running, stopped, exited, restart', () => {
   assert.equal(s.restarts, 1);
   assert.equal(s.stoppedAt, null);
   assert.equal(s.entries.length, before + 1);
-  assert.equal(s.entries.at(-1).message, '— riavvio #1 —');
+  assert.equal(s.entries.at(-1).message, '— restart #1 —');
   assert.equal(s.entries.at(-1).index, before);
   assert.throws(() => store.restart(s.id), (e) => e.code === 'CONFLICT');
 
@@ -346,7 +348,7 @@ test('session lifecycle: starting, running, stopped, exited, restart', () => {
   assert.equal(s.status, 'exited');
   assert.equal(s.exitCode, 2);
   assert.equal(s.active, false);
-  assert.equal(s.entries.at(-1).message, 'cloudflared terminato (codice 2)');
+  assert.equal(s.entries.at(-1).message, 'cloudflared exited (code 2)');
   assert.equal(s.entries.at(-1).level, 'error');
 
   const ok = store.create('4000');
@@ -397,7 +399,8 @@ test('HTTP restart, filtered logs, cached probe, stale exit', async () => {
 
     const busy = await post(`/api/sessions/${id}/restart`);
     assert.equal(busy.status, 409);
-    assert.equal(busy.body.error, 'Il tunnel è già attivo');
+    // Without Accept-Language the API answers in English.
+    assert.equal(busy.body.error, 'The tunnel is already running');
 
     assert.equal((await post(`/api/sessions/${id}/stop`)).status, 200);
     const both = await Promise.all([post(`/api/sessions/${id}/restart`), post(`/api/sessions/${id}/restart`)]);
@@ -477,14 +480,16 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
 test('tunnel options and command', () => {
   const o = dash.normalizeTunnelOptions({ allowedMail: 'Mario@Cliente.it; *@azienda.it;\nmario@cliente.it;' });
   assert.deepEqual(plain(o.allowedMail), ['mario@cliente.it', '*@azienda.it']);
-  assert.deepEqual(plain(dash.normalizeTunnelOptions()), { mode: 'origin', allowedMail: [], hostHeader: '', noTlsVerify: false, http2Origin: false });
+  assert.deepEqual(plain(dash.normalizeTunnelOptions()), { mode: 'origin', allowedMail: [], hostHeader: '', noTlsVerify: false, http2Origin: false, inspect: true, expiresIn: null });
+  assert.equal(dash.normalizeTunnelOptions({ inspect: false }).inspect, false);
+  assert.equal(dash.normalizeTunnelOptions({ http2Origin: true }).inspect, false);
   assert.throws(() => dash.normalizeTunnelOptions({ allowedMail: 'mario@' }),
     (e) => e.code === 'BAD_OPTIONS' && e.key === 'options.mailInvalid' && e.params.value === 'mario@');
   assert.throws(() => dash.normalizeTunnelOptions({ allowedMail: Array.from({ length: 21 }, (_, i) => `u${i}@x.it`) }),
     (e) => e.key === 'options.mailTooMany' && e.params.max === 20);
   assert.throws(() => dash.normalizeTunnelOptions({ hostHeader: 'a b' }), (e) => e.key === 'options.hostHeaderInvalid');
   assert.deepEqual(plain(dash.normalizeTunnelOptions({ mode: 'hello', hostHeader: 'x.local', noTlsVerify: true, allowedMail: 'a@b.it' })),
-    { mode: 'hello', allowedMail: ['a@b.it'], hostHeader: '', noTlsVerify: false, http2Origin: false });
+    { mode: 'hello', allowedMail: ['a@b.it'], hostHeader: '', noTlsVerify: false, http2Origin: false, inspect: false, expiresIn: null });
 
   const c = dash.buildQuickTunnelCommand('3000', { allowedMail: '*@azienda.it', hostHeader: 'app.local', noTlsVerify: true, http2Origin: true });
   assert.deepEqual(plain(c.args), ['tunnel', '--url', 'http://127.0.0.1:3000', '--allowed-mail', '*@azienda.it', '--http-host-header', 'app.local',
@@ -496,6 +501,13 @@ test('tunnel options and command', () => {
   assert.equal(hw.args[1], '--hello-world');
   assert.equal(hw.equivalent, 'cloudflared tunnel --hello-world');
   assert.equal(dash.buildQuickTunnelCommand('3000').equivalent, 'cloudflared tunnel --url http://127.0.0.1:3000');
+
+  // The inspector's proxy replaces the origin in the spawned command only.
+  const proxied = dash.buildQuickTunnelCommand('3000', { noTlsVerify: true }, 'http://127.0.0.1:41000');
+  assert.deepEqual(plain(proxied.args.slice(0, 4)), ['tunnel', '--url', 'http://127.0.0.1:41000', '--no-tls-verify']);
+  assert.equal(proxied.equivalent, 'cloudflared tunnel --url http://127.0.0.1:3000 --no-tls-verify');
+  assert.equal(proxied.target, 'http://127.0.0.1:41000');
+  assert.equal(dash.buildQuickTunnelCommand('', { mode: 'hello' }, 'http://127.0.0.1:41000').args[1], '--hello-world');
 });
 
 test('metrics address, origin errors and traffic in the store', () => {
@@ -692,6 +704,13 @@ test('the copied command is shell-safe for any origin', () => {
   const quote = dash.buildQuickTunnelCommand("http://127.0.0.1:3000/a*'b");
   assert.ok(quote.equivalent.endsWith(`'http://127.0.0.1:3000/a*'\\''b'`), quote.equivalent);
   assert.equal(dash.buildQuickTunnelCommand('3000').equivalent, 'cloudflared tunnel --url http://127.0.0.1:3000');
+
+  // The inspector's proxy replaces the origin in the spawned command only.
+  const proxied = dash.buildQuickTunnelCommand('3000', { noTlsVerify: true }, 'http://127.0.0.1:41000');
+  assert.deepEqual(plain(proxied.args.slice(0, 4)), ['tunnel', '--url', 'http://127.0.0.1:41000', '--no-tls-verify']);
+  assert.equal(proxied.equivalent, 'cloudflared tunnel --url http://127.0.0.1:3000 --no-tls-verify');
+  assert.equal(proxied.target, 'http://127.0.0.1:41000');
+  assert.equal(dash.buildQuickTunnelCommand('', { mode: 'hello' }, 'http://127.0.0.1:41000').args[1], '--hello-world');
 });
 
 test('metrics address is only taken from a loopback line', () => {
@@ -756,5 +775,42 @@ test('listen rejects when the port is taken', async () => {
   } finally {
     await second.close();
     await first.close();
+  }
+});
+
+test('a tunnel with an expiry stops by itself, and the clock restarts with it', async () => {
+  const procs = [];
+  const app = createApp({
+    probe: async () => ({ present: true, version: 'test' }),
+    spawn() { const p = fixtureProcess(''); procs.push(p); return p; },
+  });
+  await app.listen(0, '127.0.0.1');
+  const post = (path, body) => fetch(`${app.url}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  try {
+    const bad = await post('/api/sessions', { origin: '3000', options: { expiresIn: 0.5 } });
+    assert.equal((await bad.json()).key, 'options.expiresInvalid');
+    assert.equal((await post('/api/sessions', { origin: '3000', options: { expiresIn: 99999 } })).status, 400);
+
+    const { session } = await (await post('/api/sessions', { origin: '3000', options: { expiresIn: 30 } })).json();
+    assert.equal(session.options.expiresIn, 30);
+    assert.equal(Date.parse(session.expiresAt) - Date.parse(session.startedAt), 30 * 60000);
+    const forever = await (await post('/api/sessions', { origin: '3001' })).json();
+    assert.equal(forever.session.expiresAt, null);
+
+    app.expireDue(Date.parse(session.expiresAt) - 1000);
+    assert.equal(app.store.get(session.id).active, true);
+    app.expireDue(Date.parse(session.expiresAt) + 1);
+    const expired = app.store.get(session.id);
+    assert.equal(expired.status, 'stopped');
+    assert.equal(expired.expired, true);
+    assert.equal(expired.entries.at(-1).message, 'tunnel expired after 30 min');
+    assert.equal(procs[0].killed, true);
+    assert.equal(app.store.get(forever.session.id).active, true);
+
+    const again = await (await post(`/api/sessions/${session.id}/restart`)).json();
+    assert.equal(again.session.expired, false);
+    assert.equal(Date.parse(again.session.expiresAt) - Date.parse(again.session.startedAt), 30 * 60000);
+  } finally {
+    await app.close();
   }
 });

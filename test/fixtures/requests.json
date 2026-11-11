@@ -1,0 +1,190 @@
+[
+  {
+    "method": "GET",
+    "path": "/",
+    "status": 200,
+    "statusText": "OK",
+    "durationMs": 12,
+    "offsetS": 0,
+    "requestHeaders": [
+      [
+        "Host",
+        "aqua-wolf-1234.trycloudflare.com"
+      ],
+      [
+        "Cf-Connecting-Ip",
+        "203.0.113.7"
+      ],
+      [
+        "X-Forwarded-Proto",
+        "https"
+      ],
+      [
+        "User-Agent",
+        "Mozilla/5.0"
+      ],
+      [
+        "Accept",
+        "text/html"
+      ]
+    ],
+    "responseHeaders": [
+      [
+        "Content-Type",
+        "text/html; charset=utf-8"
+      ]
+    ],
+    "responseBody": "<!doctype html>\n<title>Demo</title>\n<h1>Ciao</h1>\n"
+  },
+  {
+    "method": "GET",
+    "path": "/assets/app.js",
+    "status": 200,
+    "statusText": "OK",
+    "durationMs": 4,
+    "offsetS": 1,
+    "requestHeaders": [
+      [
+        "Host",
+        "aqua-wolf-1234.trycloudflare.com"
+      ],
+      [
+        "Cf-Connecting-Ip",
+        "203.0.113.7"
+      ],
+      [
+        "X-Forwarded-Proto",
+        "https"
+      ],
+      [
+        "Accept",
+        "*/*"
+      ]
+    ],
+    "responseHeaders": [
+      [
+        "Content-Type",
+        "text/javascript"
+      ]
+    ],
+    "responseBody": "console.log(\"ready\");\n"
+  },
+  {
+    "method": "POST",
+    "path": "/webhooks/stripe",
+    "status": 500,
+    "statusText": "Internal Server Error",
+    "durationMs": 38,
+    "offsetS": 30,
+    "requestHeaders": [
+      [
+        "Host",
+        "aqua-wolf-1234.trycloudflare.com"
+      ],
+      [
+        "Cf-Connecting-Ip",
+        "203.0.113.7"
+      ],
+      [
+        "X-Forwarded-Proto",
+        "https"
+      ],
+      [
+        "User-Agent",
+        "Stripe/1.0"
+      ],
+      [
+        "Content-Type",
+        "application/json"
+      ],
+      [
+        "Stripe-Signature",
+        "t=1762770000,v1=5257a869e7ec"
+      ]
+    ],
+    "requestBody": "{\"id\": \"evt_1Q\", \"type\": \"checkout.session.completed\", \"data\": {\"object\": {\"id\": \"cs_test_a1\", \"amount_total\": 4900, \"currency\": \"eur\"}}}",
+    "responseHeaders": [
+      [
+        "Content-Type",
+        "application/json"
+      ]
+    ],
+    "responseBody": "{\"error\": \"customer not found\"}"
+  },
+  {
+    "method": "GET",
+    "path": "/api/orders?limit=20",
+    "status": 404,
+    "statusText": "Not Found",
+    "durationMs": 7,
+    "offsetS": 45,
+    "requestHeaders": [
+      [
+        "Host",
+        "aqua-wolf-1234.trycloudflare.com"
+      ],
+      [
+        "Cf-Connecting-Ip",
+        "203.0.113.7"
+      ],
+      [
+        "X-Forwarded-Proto",
+        "https"
+      ],
+      [
+        "Accept",
+        "application/json"
+      ]
+    ],
+    "responseHeaders": [
+      [
+        "Content-Type",
+        "application/json"
+      ]
+    ],
+    "responseBody": "{\"error\": \"not found\"}"
+  },
+  {
+    "method": "POST",
+    "path": "/webhooks/stripe",
+    "status": 200,
+    "statusText": "OK",
+    "durationMs": 21,
+    "offsetS": 80,
+    "replayOf": 3,
+    "requestHeaders": [
+      [
+        "Host",
+        "aqua-wolf-1234.trycloudflare.com"
+      ],
+      [
+        "Cf-Connecting-Ip",
+        "203.0.113.7"
+      ],
+      [
+        "X-Forwarded-Proto",
+        "https"
+      ],
+      [
+        "User-Agent",
+        "Stripe/1.0"
+      ],
+      [
+        "Content-Type",
+        "application/json"
+      ],
+      [
+        "Stripe-Signature",
+        "t=1762770000,v1=5257a869e7ec"
+      ]
+    ],
+    "requestBody": "{\"id\": \"evt_1Q\", \"type\": \"checkout.session.completed\", \"data\": {\"object\": {\"id\": \"cs_test_a1\", \"amount_total\": 4900, \"currency\": \"eur\"}}}",
+    "responseHeaders": [
+      [
+        "Content-Type",
+        "application/json"
+      ]
+    ],
+    "responseBody": "{\"received\": true}"
+  }
+]

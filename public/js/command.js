@@ -66,18 +66,52 @@
     return seen;
   }
 
+  // A path, not an origin: `/srv/site`, `~/site`, `./dist`, `C:\\site`, `\\\\server\\share`.
+  var FOLDER_RE = /^(\/|~(?:[\\/]|$)|\.{1,2}(?:[\\/]|$)|[A-Za-z]:[\\/]|\\\\)/;
+
+  function looksLikeFolder(value) {
+    return FOLDER_RE.test(String(value == null ? '' : value).trim());
+  }
+
+  function folderPath(value) {
+    var folder = String(value == null ? '' : value).trim();
+    if (!folder) badOptions('folder.empty');
+    if (folder.indexOf('\0') >= 0 || folder.length > 4096) badOptions('folder.invalid');
+    return folder;
+  }
+
+  // Minutes after which the tunnel stops by itself: at most a week, none by default.
+  var MAX_EXPIRES = 7 * 24 * 60;
+
+  function expiresIn(value) {
+    if (value == null || value === '' || value === 0 || value === '0') return null;
+    var minutes = Number(value);
+    if (!Number.isInteger(minutes) || minutes < 1 || minutes > MAX_EXPIRES) badOptions('options.expiresInvalid', { max: MAX_EXPIRES });
+    return minutes;
+  }
+
   function normalizeTunnelOptions(raw) {
     var input = raw || {};
     var hello = input.mode === 'hello';
-    var hostHeader = hello ? '' : String(input.hostHeader == null ? '' : input.hostHeader).trim();
+    var folder = !hello && input.mode === 'folder';
+    // Hello World and a folder have no origin, so the origin options do not apply.
+    var noOrigin = hello || folder;
+    var hostHeader = noOrigin ? '' : String(input.hostHeader == null ? '' : input.hostHeader).trim();
     if (hostHeader && !HOST_HEADER_RE.test(hostHeader)) badOptions('options.hostHeaderInvalid', { value: hostHeader });
-    return {
-      mode: hello ? 'hello' : 'origin',
+    var http2Origin = !noOrigin && input.http2Origin === true;
+    var options = {
+      mode: hello ? 'hello' : folder ? 'folder' : 'origin',
       allowedMail: mailList(input.allowedMail),
       hostHeader: hostHeader,
-      noTlsVerify: !hello && input.noTlsVerify === true,
-      http2Origin: !hello && input.http2Origin === true,
+      noTlsVerify: !noOrigin && input.noTlsVerify === true,
+      http2Origin: http2Origin,
+      // The inspector's proxy speaks HTTP/1.1 only, so an HTTP/2 origin skips it.
+      // A folder is always served by trydash, so its requests are always recorded.
+      inspect: folder || (!hello && !http2Origin && input.inspect !== false),
+      expiresIn: expiresIn(input.expiresIn),
     };
+    if (folder) options.folder = folderPath(input.folder);
+    return options;
   }
 
   function isMailEntry(value) {
@@ -90,31 +124,58 @@
     return SHELL_SAFE_RE.test(value) ? value : "'" + value.replace(/'/g, "'\\''") + "'";
   }
 
+  // Windows has two shells with opposite rules: cmd.exe treats `'` as a letter (so
+  // `&` after it runs a command), PowerShell expands `$` and `` ` `` inside `"…"`.
+  // Double quotes are safe in both once `$`, `` ` `` and `"` are percent-encoded,
+  // which a URL reads the same way; the other values never contain them.
+  function windowsWord(value) {
+    if (SHELL_SAFE_RE.test(value)) return value;
+    return '"' + value.replace(/[$`"]/g, function (c) {
+      return '%' + c.charCodeAt(0).toString(16).toUpperCase();
+    }) + '"';
+  }
+
   // Quick tunnel: `cloudflared tunnel --url <origin>` or `--hello-world`.
   // `--metrics` feeds the traffic view; `--output json` only changes the log shape.
   // No named tunnel, login, or route.
-  function buildQuickTunnelCommand(originInput, rawOptions) {
+  // `target` is the inspector's local proxy: cloudflared connects there instead of the
+  // origin, while `equivalent` keeps the command a user would run without trydash.
+  function buildQuickTunnelCommand(originInput, rawOptions, target) {
     var options = normalizeTunnelOptions(rawOptions);
-    var origin = options.mode === 'hello' ? null : normalizeOrigin(originInput);
-    var source = origin == null ? ['--hello-world'] : ['--url', origin];
+    var origin = options.mode === 'origin' ? normalizeOrigin(originInput) : null;
+    var source = options.mode === 'hello' ? ['--hello-world']
+      : options.mode === 'folder' ? ['--url', target || 'http://127.0.0.1:0']
+        : ['--url', origin];
+    var spawned = options.mode === 'origin' && target ? ['--url', target] : source;
     var chosen = [];
     options.allowedMail.forEach(function (mail) { chosen.push('--allowed-mail', mail); });
     if (options.hostHeader) chosen.push('--http-host-header', options.hostHeader);
     if (options.noTlsVerify) chosen.push('--no-tls-verify');
     if (options.http2Origin) chosen.push('--http2-origin');
-    var args = ['tunnel'].concat(source, chosen, ['--metrics', '127.0.0.1:0', '--output', 'json', '--no-autoupdate']);
+    var args = ['tunnel'].concat(spawned, chosen, ['--metrics', '127.0.0.1:0', '--output', 'json', '--no-autoupdate']);
     return {
       bin: 'cloudflared',
       args: args,
       origin: origin,
+      target: options.mode !== 'hello' && target ? target : null,
       mode: options.mode,
       options: options,
       equivalent: ['cloudflared', 'tunnel'].concat(source, chosen).map(shellWord).join(' '),
+      equivalentWindows: ['cloudflared', 'tunnel'].concat(source, chosen).map(windowsWord).join(' '),
     };
   }
 
   api.normalizeOrigin = normalizeOrigin;
   api.normalizeTunnelOptions = normalizeTunnelOptions;
   api.isMailEntry = isMailEntry;
+  api.MAX_EXPIRES = MAX_EXPIRES;
   api.buildQuickTunnelCommand = buildQuickTunnelCommand;
+  api.shellWord = shellWord;
+  api.windowsWord = windowsWord;
+  // The command for the machine that runs cloudflared (api.platform comes from the probe).
+  api.commandFor = function (item) {
+    if (!item) return '';
+    return api.platform === 'win32' && item.equivalentWindows ? item.equivalentWindows : item.equivalent;
+  };
+  api.looksLikeFolder = looksLikeFolder;
 })(globalThis);

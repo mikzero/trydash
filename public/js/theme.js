@@ -4,7 +4,7 @@
   var api = root.TryDash || (root.TryDash = {});
   var KEY = 'trylogs.theme';
   var MODES = ['auto', 'light', 'dark'];
-  var LABELS = { auto: '◐ auto', light: '☀ chiaro', dark: '☾ scuro' };
+  var LABELS = { auto: 'ui.theme.auto', light: 'ui.theme.light', dark: 'ui.theme.dark' };
   var current = null;
 
   function read() {
@@ -45,8 +45,44 @@
   }
 
   function label(mode) {
-    return LABELS[mode] || LABELS.auto;
+    return api.t(LABELS[mode] || LABELS.auto);
   }
 
-  api.theme = { get: get, set: set, cycle: cycle, apply: apply, label: label };
+  // Just the symbol, for the narrow button; the label goes in its tooltip.
+  function icon(mode) {
+    return label(mode).split(' ')[0];
+  }
+
+  api.theme = { get: get, set: set, cycle: cycle, apply: apply, label: label, icon: icon };
+
+  // The interface language: the one picked with the EN/IT button, else the browser's.
+  var LANG_KEY = 'trydash.lang';
+
+  function storedLang() {
+    try {
+      var value = root.localStorage ? root.localStorage.getItem(LANG_KEY) : null;
+      return (api.SUPPORTED_LANGS || []).indexOf(value) >= 0 ? value : null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function chooseLang(browserLang) {
+    return storedLang() || api.pickLang(browserLang);
+  }
+
+  function setLang(lang) {
+    try {
+      if (root.localStorage) root.localStorage.setItem(LANG_KEY, lang);
+    } catch (err) {
+      /* storage unavailable: the choice lasts until the page reloads */
+    }
+    api.lang = lang;
+  }
+
+  function otherLang() {
+    return api.lang === 'it' ? 'en' : 'it';
+  }
+
+  api.langPref = { choose: chooseLang, set: setLang, other: otherLang };
 })(globalThis);

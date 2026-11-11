@@ -22,7 +22,7 @@
       list.push({
         id: 'origin-down',
         kind: 'error',
-        text: 'Il tuo server su ' + api.shortOrigin(summary.origin) + ' non risponde — è avviato?',
+        text: api.t('ui.warn.originDown', { origin: api.shortOrigin(summary.origin) }),
         actions: ['restart', 'hello'],
       });
     }
@@ -31,7 +31,7 @@
       list.push({
         id: 'near-limit',
         kind: 'warn',
-        text: 'Vicino al limite di ' + INFLIGHT_LIMIT + ' richieste: le altre riceveranno 429.',
+        text: api.t('ui.warn.nearLimit', { limit: INFLIGHT_LIMIT }),
         actions: [],
       });
     }

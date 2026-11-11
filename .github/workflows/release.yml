@@ -36,7 +36,7 @@ jobs:
           BIN="dist/trydash-$VERSION-linux-x64"
           test "$("$BIN" --version)" = "trydash $VERSION"
           cd "$RUNNER_TEMP"
-          PORT=0 DASHBOARD_PROBE=present "$GITHUB_WORKSPACE/$BIN" > trydash.log 2>&1 &
+          TRYDASH_PORT=0 TRYDASH_PROBE=present TRYDASH_TOKEN=smoke-test "$GITHUB_WORKSPACE/$BIN" > trydash.log 2>&1 &
           PID=$!
           for i in $(seq 1 50); do
             URL=$(grep -oE 'http://127\.0\.0\.1:[0-9]+' trydash.log | head -1) && [ -n "$URL" ] && break
@@ -44,7 +44,8 @@ jobs:
           done
           test -n "$URL"
           curl -fsS "$URL/" | grep -q '<title>trydash</title>'
-          curl -fsS "$URL/api/state" > /dev/null
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/state")" = 401
+          curl -fsS -H 'Authorization: Bearer smoke-test' "$URL/api/state" > /dev/null
           kill "$PID"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

@@ -22,7 +22,7 @@ export const TARGETS = [
   { target: 'bun-windows-x64', suffix: 'windows-x64.exe' },
 ];
 
-const EXTRA_ASSETS = ['test/fixtures/quick-tunnel.log'];
+const EXTRA_ASSETS = ['test/fixtures/quick-tunnel.log', 'test/fixtures/requests.json'];
 
 export function hostTarget() {
   const os = process.platform === 'win32' ? 'windows' : process.platform;

@@ -43,6 +43,12 @@
     <symbol id="i-traffic" viewBox="0 0 24 24"><path d="M3 12h4l2.5-6 5 12L17 12h4"/></symbol>
     <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
     <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17h.01"/></symbol>
+    <symbol id="i-inspect" viewBox="0 0 24 24"><path d="M4 6h9M4 10h6M4 14h5"/><circle cx="15.5" cy="14.5" r="4"/><path d="M18.5 17.5 21 20"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2.5h7.5A2.5 2.5 0 0 1 21 10v6.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M7 9l3 3-3 3M12 15h5"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+    <symbol id="i-qr" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2h-2zM18 14h2M14 18h2M18 18h2v2"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></symbol>
     <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
     <symbol id="i-github" viewBox="0 0 24 24"><path d="M9 19c-4 1.5-4-2-6-2.5M15 21v-3.5a3 3 0 0 0-.9-2.4c3-.3 6-1.4 6-6.5a5 5 0 0 0-1.4-3.5 4.6 4.6 0 0 0-.1-3.5s-1.1-.3-3.6 1.4a12.4 12.4 0 0 0-6.4 0C6.1 1.3 5 1.6 5 1.6a4.6 4.6 0 0 0-.1 3.5A5 5 0 0 0 3.5 8.6c0 5.1 3 6.2 6 6.5a3 3 0 0 0-.9 2.3V21"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M4 4h4.5L20 20h-4.5zM19.5 4l-6.3 7.2M10.8 12.8 4.5 20"/></symbol>
@@ -56,6 +62,7 @@
         <a href="#features">Funzioni</a>
         <a href="#download">Download</a>
         <a href="https://github.com/mikzero/trydash" target="_blank" rel="noopener">GitHub</a>
+        <a class="nav-kofi" href="https://ko-fi.com/P8V12A631E" target="_blank" rel="noopener" title="Sostieni trydash su Ko-fi"><img class="kofi-cup" src="../images/kofi-symbol.svg" width="18" height="15" alt="">Sostieni</a>
       </nav>
       <nav class="lang-switch" aria-label="Lingua">
         <a href="../" hreflang="en" lang="en" data-lang="en">EN</a>
@@ -70,7 +77,7 @@
         <p class="eyebrow"><span class="pulse" aria-hidden="true"></span><span id="eyebrow-text">Software libero · GPL-3.0</span></p>
         <h1>I tuoi quick tunnel di TryCloudflare,<br>in una dashboard sola.</h1>
         <p class="lead">
-          Esponi un servizio di sviluppo con un clic, tieni d’occhio tutti i tunnel e leggi i loro log in un posto solo.
+          Esponi un servizio di sviluppo o una cartella con un clic, guarda ogni richiesta che arriva e segui tutti i tunnel e i loro log in un posto solo.
           Un unico eseguibile per Linux, macOS e Windows: niente da installare oltre a <code>cloudflared</code>.
         </p>
         <div class="cta">
@@ -79,32 +86,42 @@
         </div>
         <p class="hint" id="primary-hint">Eseguibili per 5 sistemi, verificabili con <code>SHA256SUMS</code>.</p>
         <figure class="demo-wrap" id="demo">
-          <p class="sr-only">Animazione: si avvia trydash dal terminale, si scrive la porta 3000 e si preme Crea; il tunnel parte, riceve un URL pubblico da copiare e mostra log e traffico.</p>
+          <p class="sr-only">Animazione: trydash 2.0 si avvia con “./trydash 3000” e apre da solo il browser; il tunnel riceve un URL pubblico, che viene copiato e mostrato come QR code; arrivano le richieste di un webhook, una fallita viene aperta e rimandata; poi log e traffico; infine si pubblica una cartella scrivendone il percorso.</p>
           <div class="demo" aria-hidden="true">
             <div class="d-chrome">
               <span class="d-dots"><i></i><i></i><i></i></span>
-              <span class="d-addr">127.0.0.1:8787</span>
+              <span class="d-addr" data-el="addr">127.0.0.1:8787</span>
             </div>
             <div class="d-body">
               <aside class="d-side">
                 <div class="d-brand"><img src="../images/logo.svg" alt="" width="16" height="16">trydash</div>
                 <div class="d-form">
-                  <div class="d-input"><span class="d-typed" data-el="port"></span><span class="d-caret"></span><span class="d-ph" data-el="ph">Porta o URL</span></div>
+                  <div class="d-input"><span class="d-typed" data-el="port"></span><span class="d-caret"></span><span class="d-ph" data-el="ph">Porta, URL o cartella</span></div>
                   <div class="d-create" data-el="create">Crea</div>
                 </div>
                 <div class="d-session" data-el="session">
                   <span class="d-dot" data-el="dot"></span>
                   <span class="d-sname">:3000</span>
-                  <span class="d-sstate" data-el="sstate">in avvio</span>
+                  <span class="d-sstate" data-el="sstate">starting</span>
                   <span class="d-bar"><span data-el="bar"></span></span>
                 </div>
+                <div class="d-session d-folder" data-el="folder">
+                  <span class="d-dot"></span>
+                  <span class="d-sname">📁 dist</span>
+                  <span class="d-sstate" data-el="fstate">starting</span>
+                </div>
               </aside>
-              <div class="d-main">
-                <div class="d-empty" data-el="empty"><span>Scrivi una porta e premi <b>Crea</b></span></div>
+              <div class="d-main" data-el="main">
+                <div class="d-empty" data-el="empty"><span>Avvio del tunnel…</span></div>
                 <div class="d-head" data-el="head">
-                  <span class="d-chip" data-el="chip">IN AVVIO</span>
-                  <span class="d-url" data-el="url">in attesa dell’URL…</span>
+                  <span class="d-chip" data-el="chip">STARTING</span>
+                  <span class="d-url" data-el="url">waiting for the URL…</span>
+                  <span class="d-qrbtn" data-el="qrbtn">▦ QR</span>
                   <span class="d-copy" data-el="copy">Copia URL</span>
+                </div>
+                <div class="d-tabs" data-el="tabs">
+                  <span class="d-tab on" data-el="tlogs">Log</span>
+                  <span class="d-tab" data-el="treqs">Richieste <b data-el="rcount">0</b></span>
                 </div>
                 <div class="d-stats" data-el="stats">
                   <div><b data-el="inflight">0</b><small>in corso / 200</small></div>
@@ -113,20 +130,35 @@
                   <svg class="d-spark" viewBox="0 0 120 30" preserveAspectRatio="none"><path data-el="spark" pathLength="1" d="M0 26 L10 25 L20 22 L30 24 L40 18 L50 20 L60 12 L70 15 L80 9 L90 13 L100 6 L110 10 L120 4"/></svg>
                 </div>
                 <ol class="d-logs" data-el="logs"></ol>
+                <ol class="d-reqs" data-el="reqs"></ol>
+                <div class="d-detail" data-el="detail">
+                  <p class="d-dtitle"><span class="d-st s5">500</span> POST /webhooks/stripe</p>
+                  <p class="d-dlabel">Richiesta</p>
+                  <pre class="d-json">{
+  "type": "checkout.session.completed",
+  "amount_total": 4900
+}</pre>
+                  <span class="d-replay" data-el="replay">↻ Rimanda</span>
+                </div>
+                <div class="d-qr" data-el="qr">
+                  <svg viewBox="0 0 37 37" shape-rendering="crispEdges"><rect width="37" height="37" fill="#fff"/><path fill="#000" d="M4 4h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM7 4h1v1h-1zM8 4h1v1h-1zM9 4h1v1h-1zM10 4h1v1h-1zM14 4h1v1h-1zM16 4h1v1h-1zM19 4h1v1h-1zM21 4h1v1h-1zM22 4h1v1h-1zM23 4h1v1h-1zM26 4h1v1h-1zM27 4h1v1h-1zM28 4h1v1h-1zM29 4h1v1h-1zM30 4h1v1h-1zM31 4h1v1h-1zM32 4h1v1h-1zM4 5h1v1h-1zM10 5h1v1h-1zM13 5h1v1h-1zM14 5h1v1h-1zM16 5h1v1h-1zM17 5h1v1h-1zM19 5h1v1h-1zM21 5h1v1h-1zM22 5h1v1h-1zM24 5h1v1h-1zM26 5h1v1h-1zM32 5h1v1h-1zM4 6h1v1h-1zM6 6h1v1h-1zM7 6h1v1h-1zM8 6h1v1h-1zM10 6h1v1h-1zM14 6h1v1h-1zM15 6h1v1h-1zM20 6h1v1h-1zM21 6h1v1h-1zM26 6h1v1h-1zM28 6h1v1h-1zM29 6h1v1h-1zM30 6h1v1h-1zM32 6h1v1h-1zM4 7h1v1h-1zM6 7h1v1h-1zM7 7h1v1h-1zM8 7h1v1h-1zM10 7h1v1h-1zM14 7h1v1h-1zM16 7h1v1h-1zM18 7h1v1h-1zM19 7h1v1h-1zM22 7h1v1h-1zM23 7h1v1h-1zM26 7h1v1h-1zM28 7h1v1h-1zM29 7h1v1h-1zM30 7h1v1h-1zM32 7h1v1h-1zM4 8h1v1h-1zM6 8h1v1h-1zM7 8h1v1h-1zM8 8h1v1h-1zM10 8h1v1h-1zM13 8h1v1h-1zM15 8h1v1h-1zM16 8h1v1h-1zM17 8h1v1h-1zM18 8h1v1h-1zM19 8h1v1h-1zM20 8h1v1h-1zM26 8h1v1h-1zM28 8h1v1h-1zM29 8h1v1h-1zM30 8h1v1h-1zM32 8h1v1h-1zM4 9h1v1h-1zM10 9h1v1h-1zM12 9h1v1h-1zM13 9h1v1h-1zM14 9h1v1h-1zM15 9h1v1h-1zM17 9h1v1h-1zM19 9h1v1h-1zM23 9h1v1h-1zM24 9h1v1h-1zM26 9h1v1h-1zM32 9h1v1h-1zM4 10h1v1h-1zM5 10h1v1h-1zM6 10h1v1h-1zM7 10h1v1h-1zM8 10h1v1h-1zM9 10h1v1h-1zM10 10h1v1h-1zM12 10h1v1h-1zM14 10h1v1h-1zM16 10h1v1h-1zM18 10h1v1h-1zM20 10h1v1h-1zM22 10h1v1h-1zM24 10h1v1h-1zM26 10h1v1h-1zM27 10h1v1h-1zM28 10h1v1h-1zM29 10h1v1h-1zM30 10h1v1h-1zM31 10h1v1h-1zM32 10h1v1h-1zM14 11h1v1h-1zM18 11h1v1h-1zM19 11h1v1h-1zM21 11h1v1h-1zM24 11h1v1h-1zM4 12h1v1h-1zM7 12h1v1h-1zM9 12h1v1h-1zM10 12h1v1h-1zM12 12h1v1h-1zM13 12h1v1h-1zM15 12h1v1h-1zM17 12h1v1h-1zM19 12h1v1h-1zM20 12h1v1h-1zM22 12h1v1h-1zM23 12h1v1h-1zM25 12h1v1h-1zM27 12h1v1h-1zM4 13h1v1h-1zM5 13h1v1h-1zM11 13h1v1h-1zM13 13h1v1h-1zM16 13h1v1h-1zM20 13h1v1h-1zM24 13h1v1h-1zM26 13h1v1h-1zM29 13h1v1h-1zM32 13h1v1h-1zM6 14h1v1h-1zM7 14h1v1h-1zM10 14h1v1h-1zM15 14h1v1h-1zM16 14h1v1h-1zM21 14h1v1h-1zM23 14h1v1h-1zM25 14h1v1h-1zM27 14h1v1h-1zM28 14h1v1h-1zM29 14h1v1h-1zM30 14h1v1h-1zM31 14h1v1h-1zM4 15h1v1h-1zM5 15h1v1h-1zM7 15h1v1h-1zM9 15h1v1h-1zM11 15h1v1h-1zM13 15h1v1h-1zM15 15h1v1h-1zM17 15h1v1h-1zM18 15h1v1h-1zM20 15h1v1h-1zM23 15h1v1h-1zM25 15h1v1h-1zM27 15h1v1h-1zM30 15h1v1h-1zM31 15h1v1h-1zM5 16h1v1h-1zM6 16h1v1h-1zM7 16h1v1h-1zM8 16h1v1h-1zM10 16h1v1h-1zM11 16h1v1h-1zM12 16h1v1h-1zM13 16h1v1h-1zM16 16h1v1h-1zM17 16h1v1h-1zM20 16h1v1h-1zM21 16h1v1h-1zM23 16h1v1h-1zM24 16h1v1h-1zM26 16h1v1h-1zM29 16h1v1h-1zM31 16h1v1h-1zM32 16h1v1h-1zM4 17h1v1h-1zM13 17h1v1h-1zM21 17h1v1h-1zM22 17h1v1h-1zM23 17h1v1h-1zM25 17h1v1h-1zM4 18h1v1h-1zM10 18h1v1h-1zM13 18h1v1h-1zM14 18h1v1h-1zM17 18h1v1h-1zM20 18h1v1h-1zM21 18h1v1h-1zM25 18h1v1h-1zM28 18h1v1h-1zM29 18h1v1h-1zM30 18h1v1h-1zM31 18h1v1h-1zM32 18h1v1h-1zM7 19h1v1h-1zM11 19h1v1h-1zM12 19h1v1h-1zM13 19h1v1h-1zM15 19h1v1h-1zM16 19h1v1h-1zM17 19h1v1h-1zM18 19h1v1h-1zM19 19h1v1h-1zM20 19h1v1h-1zM21 19h1v1h-1zM27 19h1v1h-1zM28 19h1v1h-1zM29 19h1v1h-1zM31 19h1v1h-1zM5 20h1v1h-1zM6 20h1v1h-1zM10 20h1v1h-1zM21 20h1v1h-1zM23 20h1v1h-1zM25 20h1v1h-1zM31 20h1v1h-1zM9 21h1v1h-1zM12 21h1v1h-1zM14 21h1v1h-1zM18 21h1v1h-1zM20 21h1v1h-1zM22 21h1v1h-1zM26 21h1v1h-1zM27 21h1v1h-1zM29 21h1v1h-1zM32 21h1v1h-1zM4 22h1v1h-1zM6 22h1v1h-1zM7 22h1v1h-1zM8 22h1v1h-1zM9 22h1v1h-1zM10 22h1v1h-1zM12 22h1v1h-1zM15 22h1v1h-1zM16 22h1v1h-1zM17 22h1v1h-1zM21 22h1v1h-1zM22 22h1v1h-1zM26 22h1v1h-1zM27 22h1v1h-1zM28 22h1v1h-1zM31 22h1v1h-1zM32 22h1v1h-1zM6 23h1v1h-1zM11 23h1v1h-1zM13 23h1v1h-1zM15 23h1v1h-1zM18 23h1v1h-1zM19 23h1v1h-1zM21 23h1v1h-1zM24 23h1v1h-1zM25 23h1v1h-1zM31 23h1v1h-1zM32 23h1v1h-1zM4 24h1v1h-1zM8 24h1v1h-1zM10 24h1v1h-1zM15 24h1v1h-1zM17 24h1v1h-1zM18 24h1v1h-1zM24 24h1v1h-1zM25 24h1v1h-1zM26 24h1v1h-1zM27 24h1v1h-1zM28 24h1v1h-1zM30 24h1v1h-1zM12 25h1v1h-1zM14 25h1v1h-1zM15 25h1v1h-1zM16 25h1v1h-1zM20 25h1v1h-1zM22 25h1v1h-1zM23 25h1v1h-1zM24 25h1v1h-1zM28 25h1v1h-1zM30 25h1v1h-1zM31 25h1v1h-1zM32 25h1v1h-1zM4 26h1v1h-1zM5 26h1v1h-1zM6 26h1v1h-1zM7 26h1v1h-1zM8 26h1v1h-1zM9 26h1v1h-1zM10 26h1v1h-1zM17 26h1v1h-1zM20 26h1v1h-1zM22 26h1v1h-1zM24 26h1v1h-1zM26 26h1v1h-1zM28 26h1v1h-1zM31 26h1v1h-1zM4 27h1v1h-1zM10 27h1v1h-1zM12 27h1v1h-1zM15 27h1v1h-1zM17 27h1v1h-1zM20 27h1v1h-1zM22 27h1v1h-1zM24 27h1v1h-1zM28 27h1v1h-1zM29 27h1v1h-1zM30 27h1v1h-1zM31 27h1v1h-1zM32 27h1v1h-1zM4 28h1v1h-1zM6 28h1v1h-1zM7 28h1v1h-1zM8 28h1v1h-1zM10 28h1v1h-1zM13 28h1v1h-1zM15 28h1v1h-1zM16 28h1v1h-1zM18 28h1v1h-1zM19 28h1v1h-1zM20 28h1v1h-1zM21 28h1v1h-1zM24 28h1v1h-1zM25 28h1v1h-1zM26 28h1v1h-1zM27 28h1v1h-1zM28 28h1v1h-1zM4 29h1v1h-1zM6 29h1v1h-1zM7 29h1v1h-1zM8 29h1v1h-1zM10 29h1v1h-1zM12 29h1v1h-1zM14 29h1v1h-1zM16 29h1v1h-1zM21 29h1v1h-1zM24 29h1v1h-1zM26 29h1v1h-1zM28 29h1v1h-1zM29 29h1v1h-1zM30 29h1v1h-1zM31 29h1v1h-1zM4 30h1v1h-1zM6 30h1v1h-1zM7 30h1v1h-1zM8 30h1v1h-1zM10 30h1v1h-1zM17 30h1v1h-1zM18 30h1v1h-1zM20 30h1v1h-1zM22 30h1v1h-1zM23 30h1v1h-1zM28 30h1v1h-1zM29 30h1v1h-1zM30 30h1v1h-1zM32 30h1v1h-1zM4 31h1v1h-1zM10 31h1v1h-1zM14 31h1v1h-1zM17 31h1v1h-1zM18 31h1v1h-1zM19 31h1v1h-1zM20 31h1v1h-1zM21 31h1v1h-1zM22 31h1v1h-1zM24 31h1v1h-1zM25 31h1v1h-1zM26 31h1v1h-1zM31 31h1v1h-1zM4 32h1v1h-1zM5 32h1v1h-1zM6 32h1v1h-1zM7 32h1v1h-1zM8 32h1v1h-1zM9 32h1v1h-1zM10 32h1v1h-1zM12 32h1v1h-1zM14 32h1v1h-1zM16 32h1v1h-1zM19 32h1v1h-1zM21 32h1v1h-1zM24 32h1v1h-1zM25 32h1v1h-1zM28 32h1v1h-1zM31 32h1v1h-1z"/></svg>
+                  <small>Inquadra con il telefono</small>
+                </div>
               </div>
             </div>
             <div class="d-term" data-el="term">
               <div class="d-tline"><span class="d-prompt">$</span> <span data-el="cmd"></span><span class="d-caret light"></span></div>
-              <div class="d-tline d-tout" data-el="tout">trydash 1.0.0 · <u>http://127.0.0.1:8787</u></div>
+              <div class="d-tline d-tout" data-el="tout">trydash 2.0.0 · <u>http://127.0.0.1:8787/?token=k3fQ…</u></div>
             </div>
             <div class="d-toast" data-el="toast">✓ URL copiato</div>
             <svg class="d-cursor" data-el="cursor" viewBox="0 0 16 20"><path d="M1 1l13 10.5-6 .6 3.6 6.4-2.6 1.3-3.5-6.5L1 17z"/></svg>
           </div>
           <figcaption class="d-steps">
             <button type="button" data-step="0">Avvia trydash</button>
-            <button type="button" data-step="1">Scrivi la porta</button>
-            <button type="button" data-step="2">Condividi l’URL</button>
+            <button type="button" data-step="1">Condividi l’URL</button>
+            <button type="button" data-step="2">Guarda ogni richiesta</button>
             <button type="button" data-step="3">Segui log e traffico</button>
+            <button type="button" data-step="4">Pubblica una cartella</button>
           </figcaption>
         </figure>
       </div>
@@ -140,6 +172,44 @@
           con più terminali da tenere d’occhio, URL da ricopiare e log difficili da leggere.
           trydash avvia e gestisce i quick tunnel al posto tuo.
         </p>
+      </div>
+    </section>
+
+    <section id="new" class="features new" data-mascot-mood="party" data-mascot="Novità della 2.0: prova l’ispettore delle richieste!">
+      <div class="wrap">
+        <h2>Novità della 2.0</h2>
+        <div class="grid">
+          <article class="card reveal">
+            <span class="ico" aria-hidden="true"><svg><use href="#i-inspect"/></svg></span>
+            <h3>Ispettore delle richieste</h3>
+            <p>Ogni richiesta che passa dal tunnel, con header e body. Rimandala, modificala prima, o copiala come <code>curl</code>: fatto per i webhook.</p>
+          </article>
+          <article class="card reveal">
+            <span class="ico" aria-hidden="true"><svg><use href="#i-folder"/></svg></span>
+            <h3>Pubblica una cartella</h3>
+            <p>Scrivi <code>~/sito/dist</code> al posto della porta: trydash serve la cartella da solo, senza un server locale. I file nascosti restano fuori.</p>
+          </article>
+          <article class="card reveal">
+            <span class="ico" aria-hidden="true"><svg><use href="#i-terminal"/></svg></span>
+            <h3>Riga di comando</h3>
+            <p><code>trydash 3000</code> apre il tunnel e la dashboard nel browser, pronto per uno script di <code>package.json</code>.</p>
+          </article>
+          <article class="card reveal">
+            <span class="ico" aria-hidden="true"><svg><use href="#i-clock"/></svg></span>
+            <h3>Scadenza e tunnel salvati</h3>
+            <p>Un tunnel può fermarsi da solo dopo 30 minuti o un giorno. I tuoi tunnel tornano, fermi, la prossima volta che avvii trydash.</p>
+          </article>
+          <article class="card reveal">
+            <span class="ico" aria-hidden="true"><svg><use href="#i-qr"/></svg></span>
+            <h3>QR code e notifiche</h3>
+            <p>Inquadra l’URL con il telefono. Ricevi una notifica del browser quando un tunnel è pronto o il tuo server smette di rispondere.</p>
+          </article>
+          <article class="card reveal">
+            <span class="ico" aria-hidden="true"><svg><use href="#i-lock"/></svg></span>
+            <h3>Più sicuro di default</h3>
+            <p>Un token di accesso a ogni avvio, niente framing da altri siti, tunnel che si fermano davvero. L’interfaccia parla italiano e inglese.</p>
+          </article>
+        </div>
       </div>
     </section>
 
@@ -181,10 +251,10 @@
         <figure class="shot reveal">
           <picture>
             <source media="(prefers-color-scheme: dark)" srcset="../images/screenshot-dark.png">
-            <img src="../images/screenshot-light.png" width="1280" height="720" alt="trydash: elenco dei tunnel a sinistra, log del tunnel selezionato al centro, dettaglio di una riga a destra">
+            <img src="../images/screenshot-light.png" width="1280" height="720" alt="trydash: elenco dei tunnel a sinistra, richieste del tunnel selezionato al centro, header e body di una richiesta a destra">
           </picture>
         </figure>
-        <p class="also">E poi: prova con Hello World senza un server locale, tunnel fermati ancora consultabili, tema chiaro e scuro, layout per mobile, scorciatoie da tastiera.</p>
+        <p class="also">E poi: i server di sviluppo avviati sul tuo computer proposti nel modulo, prova con Hello World senza un server locale, tunnel fermati ancora consultabili, tema chiaro e scuro, layout per mobile, scorciatoie da tastiera. L’interfaccia segue il browser, in italiano o in inglese.</p>
       </div>
     </section>
 
@@ -201,20 +271,20 @@
             <table class="files">
               <thead><tr><th scope="col">Sistema</th><th scope="col">File</th></tr></thead>
               <tbody>
-                <tr><td>Linux x64</td><td><a data-suffix="linux-x64" href="https://github.com/mikzero/trydash/releases/download/v1.0.0/trydash-1.0.0-linux-x64"><code>trydash-<span class="v">1.0.0</span>-linux-x64</code></a></td></tr>
-                <tr><td>Linux ARM64</td><td><a data-suffix="linux-arm64" href="https://github.com/mikzero/trydash/releases/download/v1.0.0/trydash-1.0.0-linux-arm64"><code>trydash-<span class="v">1.0.0</span>-linux-arm64</code></a></td></tr>
-                <tr><td>macOS Apple Silicon</td><td><a data-suffix="darwin-arm64" href="https://github.com/mikzero/trydash/releases/download/v1.0.0/trydash-1.0.0-darwin-arm64"><code>trydash-<span class="v">1.0.0</span>-darwin-arm64</code></a></td></tr>
-                <tr><td>macOS Intel</td><td><a data-suffix="darwin-x64" href="https://github.com/mikzero/trydash/releases/download/v1.0.0/trydash-1.0.0-darwin-x64"><code>trydash-<span class="v">1.0.0</span>-darwin-x64</code></a></td></tr>
-                <tr><td>Windows x64</td><td><a data-suffix="windows-x64.exe" href="https://github.com/mikzero/trydash/releases/download/v1.0.0/trydash-1.0.0-windows-x64.exe"><code>trydash-<span class="v">1.0.0</span>-windows-x64.exe</code></a></td></tr>
+                <tr><td>Linux x64</td><td><a data-suffix="linux-x64" href="https://github.com/mikzero/trydash/releases/download/v2.0.0/trydash-2.0.0-linux-x64"><code>trydash-<span class="v">2.0.0</span>-linux-x64</code></a></td></tr>
+                <tr><td>Linux ARM64</td><td><a data-suffix="linux-arm64" href="https://github.com/mikzero/trydash/releases/download/v2.0.0/trydash-2.0.0-linux-arm64"><code>trydash-<span class="v">2.0.0</span>-linux-arm64</code></a></td></tr>
+                <tr><td>macOS Apple Silicon</td><td><a data-suffix="darwin-arm64" href="https://github.com/mikzero/trydash/releases/download/v2.0.0/trydash-2.0.0-darwin-arm64"><code>trydash-<span class="v">2.0.0</span>-darwin-arm64</code></a></td></tr>
+                <tr><td>macOS Intel</td><td><a data-suffix="darwin-x64" href="https://github.com/mikzero/trydash/releases/download/v2.0.0/trydash-2.0.0-darwin-x64"><code>trydash-<span class="v">2.0.0</span>-darwin-x64</code></a></td></tr>
+                <tr><td>Windows x64</td><td><a data-suffix="windows-x64.exe" href="https://github.com/mikzero/trydash/releases/download/v2.0.0/trydash-2.0.0-windows-x64.exe"><code>trydash-<span class="v">2.0.0</span>-windows-x64.exe</code></a></td></tr>
               </tbody>
             </table>
-            <p class="small">Controlla il file con <a data-file="SHA256SUMS" href="https://github.com/mikzero/trydash/releases/download/v1.0.0/SHA256SUMS"><code>SHA256SUMS</code></a>: <code>sha256sum -c SHA256SUMS --ignore-missing</code></p>
+            <p class="small">Controlla il file con <a data-file="SHA256SUMS" href="https://github.com/mikzero/trydash/releases/download/v2.0.0/SHA256SUMS"><code>SHA256SUMS</code></a>: <code>sha256sum -c SHA256SUMS --ignore-missing</code></p>
           </li>
           <li>
             <h3>Avvialo</h3>
 <pre><code>chmod +x trydash-*-linux-x64     # Linux e macOS
-./trydash-*-linux-x64</code></pre>
-            <p>Apri l’indirizzo stampato, di solito <code>http://127.0.0.1:8787</code>, scrivi la porta del tuo servizio e premi <strong>Crea</strong>. Su Windows basta avviare il file <code>.exe</code>.</p>
+./trydash-*-linux-x64            # oppure: ./trydash-*-linux-x64 3000</code></pre>
+            <p>La dashboard si apre nel browser, con il suo token di accesso. Scrivi la porta del tuo servizio, o una cartella, e premi <strong>Crea</strong>; con <code>3000</code> dopo il comando il tunnel parte subito. Senza browser, apri l’indirizzo stampato, come <code>http://127.0.0.1:8787/?token=…</code>. Su Windows basta avviare il file <code>.exe</code>.</p>
             <p class="small">I binari non sono firmati. Su macOS togli il blocco di Gatekeeper con <code>xattr -d com.apple.quarantine trydash-*</code>; su Windows, se compare SmartScreen, scegli “Ulteriori informazioni” e poi “Esegui comunque”.</p>
           </li>
         </ol>
@@ -222,7 +292,7 @@
       </div>
     </section>
 
-    <section class="notes" data-mascot="Non usare HTTP/3. I binari 1.0.0 non hanno ancora la correzione.">
+    <section class="notes" data-mascot="Apri il link con il token: la dashboard risponde solo a te.">
       <div class="wrap two">
         <div>
           <h2>Cose da sapere sui quick tunnel</h2>
@@ -236,19 +306,23 @@
         <div>
           <h2>Sicurezza</h2>
           <ul>
-            <li>la dashboard ascolta solo su <code>127.0.0.1</code>;</li>
-            <li>non usare HTTP/3: il server resta su HTTP/1.1. I binari 1.0.0 incorporano Bun 1.4.2, senza la correzione QPACK;</li>
-            <li>le altre pagine aperte nel browser non possono comandarla;</li>
-            <li>niente account, token o credenziali: i log restano in memoria;</li>
-            <li>un tunnel rende pubblico il servizio che esponi: proteggilo con l’accesso via email.</li>
+            <li>la dashboard ascolta solo su <code>127.0.0.1</code> e risponde solo con il token che stampa all’avvio;</li>
+            <li>gli altri siti non possono comandarla né mostrarla dentro le loro pagine;</li>
+            <li>il server resta su HTTP/1.1. I binari 2.0.0 incorporano Bun 1.4.4, con la correzione QPACK;</li>
+            <li>niente account: log e richieste ispezionate restano in memoria, i tunnel salvati tengono solo le impostazioni;</li>
+            <li>un tunnel rende pubblico il servizio che esponi: proteggilo con l’accesso via email o una scadenza.</li>
           </ul>
         </div>
       </div>
     </section>
   </main>
 
-  <footer class="foot" data-mascot="Ciao! Ci vediamo dall’altra parte del tunnel.">
+  <footer class="foot" data-mascot-mood="wave" data-mascot="Ciao! Ci vediamo dall’altra parte del tunnel.">
     <div class="wrap">
+      <div class="support">
+        <p>Ti piace trydash? È gratuito e lo faccio nel tempo libero: un caffè lo aiuta a crescere.</p>
+        <a class="kofi-button" href="https://ko-fi.com/P8V12A631E" target="_blank" rel="noopener" title="Sostieni trydash su Ko-fi"><picture><source media="(prefers-color-scheme: dark)" srcset="../images/kofi-support-light.png"><img src="../images/kofi-support-dark.png" width="245" height="50" alt="Support me on Ko-fi"></picture></a>
+      </div>
       <nav class="social" aria-label="Autore">
         <a href="https://x.com/mikvise" rel="me noopener" target="_blank"><svg aria-hidden="true"><use href="#i-x"/></svg>@mikvise</a>
         <a href="https://www.linkedin.com/in/mirkovisentin" rel="me noopener" target="_blank"><svg aria-hidden="true"><use href="#i-linkedin"/></svg>LinkedIn</a>
@@ -262,11 +336,13 @@
 
   <div class="mascot" id="mascot">
     <p class="bubble" id="bubble" aria-hidden="true"></p>
+    <span class="fx" id="fx" aria-hidden="true"></span>
     <button type="button" class="mascot-btn" id="mascot-btn" aria-label="Inari Bash: tocca per un suggerimento">
-      <picture>
+      <span class="fox-shadow" aria-hidden="true"></span>
+      <span class="fox-lean"><span class="fox"><picture>
         <source type="image/webp" srcset="../images/volpina-wave-footer-200-dark.webp 200w, ../images/volpina-wave-footer-800-dark.webp 800w" sizes="(max-width: 560px) 76px, 120px">
         <img class="volpina" src="../images/volpina-wave-footer-200-dark.png" srcset="../images/volpina-wave-footer-200-dark.png 200w, ../images/volpina-wave-footer-800-dark.png 800w" sizes="(max-width: 560px) 76px, 120px" width="120" height="120" alt="">
-      </picture>
+      </picture></span></span>
     </button>
   </div>
 

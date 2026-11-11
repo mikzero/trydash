@@ -16,7 +16,7 @@ function browserSandbox(location) {
     clearInterval,
     requestAnimationFrame(fn) { return setTimeout(fn, 0); },
     cancelAnimationFrame(id) { clearTimeout(id); },
-    navigator: { platform: 'Linux', clipboard: { writeText() { return Promise.resolve(); } } },
+    navigator: { platform: 'Linux', language: 'it-IT', clipboard: { writeText() { return Promise.resolve(); } } },
     location: location || { protocol: 'http:', href: 'http://127.0.0.1:8787/' },
     document: {
       readyState: 'complete',
@@ -30,6 +30,8 @@ function browserSandbox(location) {
   };
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
+  // The checks below read the Italian texts; the English ones have a test of their own.
+  sandbox.TryDash = { lang: 'it' };
   return sandbox;
 }
 
@@ -423,7 +425,11 @@ test('create form options, preview and recent mail', () => {
   form.querySelector('#host-header').value = 'app.local';
   form.querySelector('#no-tls-verify').checked = true;
   form.querySelector('#http2-origin').checked = false;
-  assert.deepEqual({ ...T.readCreateOptions(form) }, { allowedMail: 'a@b.it, *@x.it', hostHeader: 'app.local', noTlsVerify: true, http2Origin: false });
+  assert.equal(form.querySelector('#inspect').checked, true);
+  assert.deepEqual({ ...T.readCreateOptions(form) }, { expiresIn: null, allowedMail: 'a@b.it, *@x.it', hostHeader: 'app.local', noTlsVerify: true, http2Origin: false, inspect: true });
+  form.querySelector('#inspect').checked = false;
+  assert.equal(T.readCreateOptions(form).inspect, false);
+  form.querySelector('#inspect').checked = true;
   T.refreshCreateForm(form);
   assert.equal(form.querySelector('#mail-summary').textContent, 'Accesso via email · 2');
   assert.equal(form.querySelector('#origin-summary').textContent, 'Opzioni origine · TLS non verificato');
@@ -435,6 +441,128 @@ test('create form options, preview and recent mail', () => {
   T.refreshCreateForm(form);
   assert.equal(form.querySelector('#mail-summary').textContent, 'Accesso via email');
   assert.equal(form.querySelector('#origin-summary').textContent, 'Opzioni origine');
+  form.querySelector('#http2-origin').checked = true;
+  T.refreshCreateForm(form);
+  assert.equal(form.querySelector('#origin-summary').textContent, 'Opzioni origine · 1 · senza ispettore');
+  assert.equal(form.querySelector('#inspect').disabled, true);
+});
+
+test('a folder path is recognized in the form and labelled in the sidebar', () => {
+  const { T, host } = domSandbox();
+  T.renderPhase(host, { present: true, version: 'test', platform: 'linux' });
+  for (const value of ['/srv/site', '~/site', './dist', 'C:\\site']) assert.equal(T.looksLikeFolder(value), true, value);
+  for (const value of ['3000', 'localhost:5173', 'https://x.dev', 'site']) assert.equal(T.looksLikeFolder(value), false, value);
+  T.previewCommand('~/site/dist', {});
+  assert.equal(host.querySelector('#origin-preview').textContent, '→ cartella ~/site/dist · la serve trydash, senza file nascosti');
+  const folder = { mode: 'folder', origin: null, options: { folder: '/home/me/my-site' } };
+  assert.equal(T.originLabel(folder), '📁 my-site');
+  assert.equal(T.originTitle(folder), '/home/me/my-site');
+  assert.equal(T.folderName('C:\\work\\site\\'), 'site');
+  assert.equal(T.folderName('/'), '/');
+  assert.match(textOf(host), /percorso di una cartella/);
+});
+
+test('requests tab: helpers, curl, detail and the view against a fake API', async () => {
+  const { T, host, sandbox } = domSandbox();
+  assert.equal(T.formatBytes(512), '512 B');
+  assert.equal(T.formatBytes(1536), '1,5 kB');
+  assert.equal(T.formatDuration(38), '38 ms');
+  assert.equal(T.formatDuration(1500), '1,5 s');
+  assert.equal(T.formatDuration(null), '…');
+  assert.equal(T.statusGroup({ status: 201, state: 'done' }), '2xx');
+  assert.equal(T.statusGroup({ status: 503, state: 'done' }), '5xx');
+  assert.equal(T.statusGroup({ status: null, state: 'pending' }), 'pending');
+  assert.equal(T.statusGroup({ status: null, state: 'aborted' }), 'error');
+  assert.equal(T.isProblemRequest({ status: 404, state: 'done' }), true);
+  assert.equal(T.isProblemRequest({ status: 200, state: 'done' }), false);
+  const hook = { method: 'POST', path: '/webhooks/stripe?x=1', status: 500, state: 'done' };
+  assert.equal(T.requestMatches(hook, { q: 'stripe' }), true);
+  assert.equal(T.requestMatches(hook, { q: '500' }), true);
+  assert.equal(T.requestMatches(hook, { q: 'get' }), false);
+  assert.equal(T.requestMatches({ ...hook, status: 200 }, { onlyProblems: true }), false);
+
+  const detail = {
+    seq: 3, method: 'POST', path: '/webhooks/stripe', status: 500, statusText: 'Internal Server Error', state: 'done',
+    durationMs: 38, startedAt: '2026-11-10T10:00:30.000Z', remote: '203.0.113.7', replayOf: null, websocket: false, replayable: true,
+    requestHeaders: [['Host', 'aqua.trycloudflare.com'], ['Content-Type', 'application/json'], ['Stripe-Signature', "t=1,v1=it's"], ['Cf-Ray', 'abc'], ['Content-Length', '12']],
+    responseHeaders: [['Content-Type', 'application/json']],
+    requestBody: { size: 12, truncated: false, contentType: 'application/json', text: '{"id":"evt"}', binary: false, decoded: null },
+    responseBody: { size: 4, truncated: false, contentType: 'application/json', text: '{"a":1}', binary: false, decoded: null },
+  };
+  assert.equal(T.curlFor(detail, 'http://127.0.0.1:3000/app'), [
+    'curl -X POST',
+    "  -H 'Content-Type: application/json'",
+    "  -H 'Stripe-Signature: t=1,v1=it'\\''s'",
+    "  --data-raw '{\"id\":\"evt\"}'",
+    '  http://127.0.0.1:3000/webhooks/stripe',
+  ].join(' \\\n'));
+  const binary = { ...detail, method: 'GET', requestBody: { size: 9, truncated: true, text: 'x', binary: false } };
+  assert.match(T.curlFor(binary, 'http://127.0.0.1:3000'), /^# body non incluso: troppo grande\ncurl \\\n {2}-H 'Content-Type/);
+  assert.equal(T.prettyBody(detail.responseBody), '{\n  "a": 1\n}');
+
+  const nodes = T.buildRequestDetail(detail);
+  const box = element('div');
+  box.append(...nodes);
+  const text = textOf(box);
+  assert.match(text, /POST \/webhooks\/stripe/);
+  assert.match(text, /Copia come curl/);
+  assert.match(text, /Header · 5/);
+  assert.match(text, /"id": "evt"/);
+  const replayButton = walkAll(box).find((n) => n.dataset && n.dataset.action === 'replay');
+  assert.equal(replayButton.attrs.disabled, undefined);
+  const stuck = element('div');
+  stuck.append(...T.buildRequestDetail({ ...detail, replayable: false }));
+  assert.equal(walkAll(stuck).find((n) => n.dataset && n.dataset.action === 'replay').attrs.disabled, '');
+
+  // The view: tab count, rows, filter, selection and the disabled message.
+  T.renderPhase(host, { present: true, version: 'test', platform: 'linux' });
+  assert.ok(host.querySelector('#tab-requests'));
+  assert.equal(host.querySelector('#pane-requests').hidden, true);
+  T.showTab('requests');
+  assert.equal(host.querySelector('#pane-requests').hidden, false);
+  assert.equal(host.querySelector('#pane-log').hidden, true);
+  assert.equal(host.querySelector('#tab-requests').attrs['aria-selected'], 'true');
+
+  const rows = [
+    { seq: 2, method: 'GET', path: '/api/orders', status: 404, state: 'done', durationMs: 7, responseSize: 20, startedAt: '2026-11-10T10:00:45.000Z', replayOf: null, websocket: false },
+    { seq: 1, method: 'POST', path: '/webhooks/stripe', status: 200, state: 'done', durationMs: 21, responseSize: 16, startedAt: '2026-11-10T10:00:30.000Z', replayOf: null, websocket: false },
+  ];
+  const calls = [];
+  sandbox.fetch = (url) => {
+    calls.push(url);
+    if (/\/requests\/1$/.test(url)) return Promise.resolve({ ok: true, json: () => Promise.resolve({ request: { ...detail, seq: 1, status: 200 } }) });
+    return Promise.resolve({ ok: true, json: () => Promise.resolve({ version: 4, total: 2, requests: rows }) });
+  };
+  const view = T.createRequestView();
+  const summary = { id: 's1', origin: 'http://127.0.0.1:3000', inspect: { enabled: true, count: 2, total: 2, version: 4 } };
+  view.update(summary);
+  assert.equal(host.querySelector('#tab-requests-count').textContent, '2');
+  assert.equal(calls.length, 0);
+  view.setActive(true);
+  await new Promise((r) => setTimeout(r, 0));
+  assert.deepEqual(calls, ['/api/sessions/s1/requests']);
+  assert.equal(host.querySelector('#req-rows').children.length, 2);
+  assert.match(textOf(host.querySelector('#req-chips')), /Errori · 1/);
+  view.update(summary);
+  assert.equal(calls.length, 1);
+  view.setFilter('problems');
+  assert.equal(host.querySelector('#req-rows').children.length, 1);
+  view.setFilter('all');
+  view.setQuery('stripe');
+  assert.equal(host.querySelector('#req-rows').children.length, 1);
+  assert.equal(host.querySelector('#req-count').textContent, '1 di 2');
+  view.setQuery('');
+  await view.select(1);
+  assert.equal(calls.at(-1), '/api/sessions/s1/requests/1');
+  assert.equal(host.querySelector('#req-detail').hidden, false);
+  assert.match(view.curl(), /^curl -X POST/);
+  assert.equal(view.closeDetail(), true);
+  assert.equal(host.querySelector('#req-detail').hidden, true);
+
+  view.update({ id: 's2', mode: 'hello', inspect: { enabled: false, reason: 'hello' } });
+  assert.equal(host.querySelector('#req-rows').children.length, 0);
+  assert.match(host.querySelector('#req-empty').textContent, /Hello World non passa dall’ispettore/);
+  assert.equal(host.querySelector('#tab-requests-count').hidden, true);
 });
 
 test('traffic strip, badges, banners and two-click restart', () => {
@@ -478,8 +606,8 @@ test('traffic strip, badges, banners and two-click restart', () => {
   assert.equal(host.querySelector('#traffic-stale').hidden, true);
   assert.equal(host.querySelector('#traffic-spark').hidden, false);
   const badges = textOf(host.querySelector('#tunnel-badges'));
-  assert.match(badges, /Protetto · solo: a@b\.it, \*@x\.it — chi visita deve fare l'accesso/);
-  assert.match(badges, /Certificato dell'origine non verificato/);
+  assert.match(badges, /Protetto · solo: a@b\.it, \*@x\.it — chi visita deve fare l’accesso/);
+  assert.match(badges, /Certificato dell’origine non verificato/);
   const banners = host.querySelector('#tunnel-warnings').children;
   assert.equal(banners.length, 1);
   assert.match(banners[0].className, /\bk-warn\b/);
@@ -558,4 +686,204 @@ test('near-limit banner is not shown on stale traffic', () => {
   const s = { origin: 'http://127.0.0.1:3000', mode: 'origin', active: true, lastOriginError: null, traffic: { inflight: 180, ok: false } };
   assert.equal(T.warningsFor(s, Date.now()).length, 0);
   assert.equal(T.warningsFor({ ...s, traffic: { inflight: 180, ok: true } }, Date.now())[0].id, 'near-limit');
+});
+
+test('the interface speaks English, and the EN/IT choice is remembered', () => {
+  const { T, host, sandbox } = domSandbox();
+  T.lang = 'en';
+  T.renderPhase(host, { present: true, version: 'test', platform: 'linux' });
+  const text = textOf(host);
+  for (const phrase of ['＋ New tunnel', 'Email access', 'Origin options', 'Inspect requests', 'Try with Hello World', 'Testing only · no SSE · no uptime guarantee', 'Requests', 'Copy URL', 'Expose a local service']) {
+    assert.ok(text.includes(phrase), phrase);
+  }
+  for (const italian of ['Nuovo tunnel', 'Accesso via email', 'Richieste', 'Prova con Hello World', 'Esponi un servizio']) {
+    assert.equal(text.includes(italian), false, italian);
+  }
+  assert.equal(host.querySelector('#lang-toggle').textContent, 'EN');
+  assert.equal(T.relativeTime(new Date(Date.now() - 120000).toISOString()), '2 minutes ago');
+  assert.equal(T.relativeTime(new Date(Date.now() - 3600000).toISOString()), '1 hour ago');
+  assert.equal(T.formatCount(12840), '12,840');
+  assert.equal(T.formatBytes(1536), '1.5 kB');
+  assert.equal(T.statusText({ status: 'stopped', entryCount: 1 }), 'stopped · 1 line');
+  assert.equal(T.theme.label('dark'), '☾ dark');
+  assert.equal(T.warningsFor({ origin: 'http://127.0.0.1:3000', mode: 'origin', active: true, lastOriginError: { at: new Date().toISOString() }, traffic: null }, Date.now())[0].text,
+    'Your server on :3000 isn’t responding — is it running?');
+  assert.equal(T.viewForProbe({ present: false, platform: 'darwin' }).install.steps[1].title, 'Check');
+
+  const store = new Map();
+  sandbox.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)) };
+  assert.equal(T.langPref.choose('it-IT'), 'it');
+  assert.equal(T.langPref.choose('fr-FR'), 'en');
+  T.langPref.set('it');
+  assert.equal(store.get('trydash.lang'), 'it');
+  assert.equal(T.langPref.choose('en-US'), 'it');
+  assert.equal(T.langPref.other(), 'en');
+  sandbox.localStorage = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('denied'); } };
+  assert.equal(T.langPref.choose('en-US'), 'en');
+  assert.doesNotThrow(() => T.langPref.set('en'));
+});
+
+test('expiry: the menu, the countdown badge and the expired label', () => {
+  const { T, host } = domSandbox();
+  T.renderPhase(host, { present: true, version: 'test', platform: 'linux' });
+  const select = host.querySelector('#expires');
+  assert.deepEqual(select.children.map((o) => o.attrs.value), ['', '30', '60', '120', '480', '1440']);
+  assert.equal(select.children[0].textContent, 'mai');
+  select.value = '120';
+  assert.equal(T.readCreateOptions(host.querySelector('#create-form')).expiresIn, 120);
+  assert.equal(T.formatRemaining(30000), '<1 min');
+  assert.equal(T.formatRemaining(12 * 60000 + 5000), '12 min');
+  assert.equal(T.formatRemaining(72 * 60000), '1 h 12 min');
+  assert.equal(T.formatRemaining(120 * 60000), '2 h');
+  assert.equal(T.formatRemaining(26 * 3600000), '1 g 2 h');
+  const now = Date.parse('2026-11-11T10:00:00Z');
+  const s = { id: 's1', mode: 'origin', origin: 'http://127.0.0.1:3000', active: true, options: { allowedMail: [] }, traffic: null, lastOriginError: null, expiresAt: '2026-11-11T11:12:00Z' };
+  T.paintTunnelExtras(s, now);
+  assert.match(textOf(host.querySelector('#tunnel-badges')), /⏱ si ferma tra 1 h 12 min/);
+  T.paintTunnelExtras({ ...s, active: false }, now);
+  assert.doesNotMatch(textOf(host.querySelector('#tunnel-badges')), /⏱/);
+  assert.equal(T.statusText({ status: 'stopped', expired: true, entryCount: 4 }), 'scaduto · 4 righe');
+});
+
+test('the replay editor: header lines, fields and what it sends', async () => {
+  const { T, host, sandbox } = domSandbox();
+  assert.deepEqual(JSON.parse(JSON.stringify(T.parseHeaderLines('Content-Type: application/json\n\nbroken line\n: no name\nX-Sig:  a:b \r\n'))), [['Content-Type', 'application/json'], ['X-Sig', 'a:b']]);
+  const detail = {
+    seq: 7, method: 'POST', path: '/hook', websocket: false, replayable: true, state: 'done', status: 500,
+    requestHeaders: [['Host', 'x.trycloudflare.com'], ['Content-Type', 'application/json'], ['Content-Length', '7']],
+    requestBody: { size: 7, text: '{"a":1}', truncated: false, binary: false },
+  };
+  const box = element('div');
+  box.append(...T.buildReplayEditor(detail));
+  assert.equal(box.querySelector('#edit-method').attrs.value, 'POST');
+  assert.equal(box.querySelector('#edit-path').attrs.value, '/hook');
+  assert.equal(box.querySelector('#edit-headers').textContent, 'Host: x.trycloudflare.com\nContent-Type: application/json');
+  assert.equal(box.querySelector('#edit-body').textContent, '{"a":1}');
+  const binary = element('div');
+  binary.append(...T.buildReplayEditor({ ...detail, requestBody: { size: 4, binary: true } }));
+  assert.equal(binary.querySelector('#edit-body').attrs.disabled, '');
+  assert.match(textOf(binary), /binario/);
+
+  T.renderPhase(host, { present: true, version: 'test', platform: 'linux' });
+  const posts = [];
+  T.request = (method, url, body) => { posts.push({ method, url, body }); return Promise.resolve({ request: { seq: 8 } }); };
+  sandbox.fetch = (url) => Promise.resolve({ ok: true, json: () => Promise.resolve(/requests\/\d+$/.test(url) ? { request: detail } : { version: 1, total: 1, requests: [{ seq: 7, method: 'POST', path: '/hook', status: 500, state: 'done' }] }) });
+  const view = T.createRequestView();
+  view.update({ id: 's1', origin: 'http://127.0.0.1:3000', inspect: { enabled: true, count: 1, version: 1 } });
+  view.setActive(true);
+  await view.select(7);
+  assert.equal(view.startEdit(), true);
+  assert.ok(host.querySelector('#edit-body'));
+  host.querySelector('#edit-method').value = 'put';
+  host.querySelector('#edit-path').value = '/hook?again=1';
+  host.querySelector('#edit-headers').value = 'Content-Type: text/plain';
+  host.querySelector('#edit-body').value = 'hi';
+  await view.sendEdited();
+  assert.deepEqual(JSON.parse(JSON.stringify(posts[0])), { method: 'POST', url: '/api/sessions/s1/requests/7/replay', body: { method: 'PUT', path: '/hook?again=1', headers: [['Content-Type', 'text/plain']], body: 'hi' } });
+  assert.equal(view.editing(), false);
+  await new Promise((r) => setTimeout(r, 0));   // the new request's details load
+  assert.equal(view.startEdit(), true);
+  assert.equal(view.closeDetail(), true);
+  assert.equal(view.editing(), false);
+});
+
+test('port suggestions fill the origin field', () => {
+  const { T, host } = domSandbox();
+  T.renderPhase(host, { present: true, version: 'test', platform: 'linux' });
+  const form = host.querySelector('#create-form');
+  T.paintPortHints(form, []);
+  assert.equal(host.querySelector('#port-hints').hidden, true);
+  T.paintPortHints(form, [{ port: 5173, hint: 'Vite', origin: '5173', busy: false }, { port: 3000, hint: 'Next.js, React', origin: 'http://[::1]:3000', busy: true }]);
+  const hints = host.querySelector('#port-hints');
+  assert.equal(hints.hidden, false);
+  const chips = walkAll(hints).filter((n) => n.dataset && n.dataset.action === 'pick-port');
+  assert.deepEqual(chips.map((c) => [c.textContent, c.dataset.origin]), [[':5173 · Vite', '5173'], [':3000 · Next.js', 'http://[::1]:3000']]);
+  assert.match(chips[1].className, /is-busy/);
+  assert.equal(chips[1].attrs.title, 'già in un tunnel attivo');
+  assert.match(textOf(hints), /in ascolto:/);
+});
+
+test('notifications: opt-in, only in the background, one per outage', async () => {
+  const { T, sandbox } = domSandbox();
+  const shown = [];
+  class FakeNotification {
+    constructor(title, opts) { this.title = title; this.opts = opts; shown.push(this); }
+    close() { this.closed = true; }
+    static requestPermission() { return Promise.resolve(FakeNotification.answer); }
+  }
+  FakeNotification.permission = 'default';
+  FakeNotification.answer = 'denied';
+  const store = new Map();
+  sandbox.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)) };
+  const N = T.notifications;
+  assert.equal(N.supported(), false);
+  sandbox.Notification = FakeNotification;
+  assert.equal(N.supported(), true);
+  assert.equal(N.enabled(), false);
+  assert.equal(await N.toggle(), false);
+  assert.equal(store.get('trydash.notify'), 'off');
+  FakeNotification.answer = 'granted';
+  FakeNotification.requestPermission = () => { FakeNotification.permission = 'granted'; return Promise.resolve('granted'); };
+  assert.equal(await N.toggle(), true);
+  assert.equal(N.enabled(), true);
+  assert.equal(store.get('trydash.notify'), 'on');
+
+  sandbox.document.hidden = false;
+  sandbox.document.hasFocus = () => true;
+  assert.equal(N.show('t', 'b'), null);
+  sandbox.document.hidden = true;
+  const note = N.show('Tunnel pronto', 'https://a.trycloudflare.com', { tag: 's1:ready' });
+  assert.equal(note.opts.tag, 's1:ready');
+  let clicked = false;
+  const other = N.show('x', 'y', { onClick: () => { clicked = true; } });
+  other.onclick();
+  assert.equal(clicked, true);
+  assert.equal(other.closed, true);
+
+  const base = { id: 's1', mode: 'origin', origin: 'http://127.0.0.1:3000', active: true, status: 'starting', url: null, lastOriginError: null, options: {} };
+  const now = Date.parse('2026-11-11T10:00:00Z');
+  assert.deepEqual(N.noticesFor(null, base, now).length, 0);
+  const ready = N.noticesFor(base, { ...base, status: 'running', url: 'https://a.trycloudflare.com' }, now);
+  assert.deepEqual(JSON.parse(JSON.stringify(ready.map((n) => [n.kind, n.title, n.body]))), [['ready', 'Tunnel pronto', 'https://a.trycloudflare.com']]);
+  const running = { ...base, status: 'running', url: 'https://a.trycloudflare.com' };
+  const down = { ...running, lastOriginError: { at: '2026-11-11T09:59:50Z', message: 'x' } };
+  const firstDown = N.noticesFor(running, down, now);
+  assert.equal(firstDown[0].kind, 'origin-down');
+  assert.match(firstDown[0].body, /Il tuo server su :3000 non risponde/);
+  assert.equal(N.noticesFor(down, { ...down, lastOriginError: { at: '2026-11-11T09:59:55Z' } }, now).length, 0, 'same outage');
+  assert.equal(N.noticesFor(down, { ...down, lastOriginError: { at: '2026-11-11T10:01:30Z' } }, Date.parse('2026-11-11T10:01:31Z')).length, 1, 'a new outage');
+  assert.equal(N.noticesFor(running, { ...running, status: 'exited', active: false }, now)[0].kind, 'exited');
+  assert.equal(N.noticesFor(running, { ...running, status: 'stopped', active: false, expired: true }, now)[0].kind, 'expired');
+  assert.equal(N.noticesFor(running, { ...running, status: 'stopped', active: false }, now).length, 0);
+
+  assert.equal(await N.toggle(), false);
+  assert.equal(N.enabled(), false);
+});
+
+test('the QR popover opens for the URL and closes on demand', () => {
+  const { T, host } = domSandbox();
+  T.renderPhase(host, { present: true, version: 'test', platform: 'linux' });
+  assert.equal(T.closeQr(), false);
+  assert.equal(T.openQr(''), false);
+  assert.equal(T.openQr('https://aqua-wolf-1234.trycloudflare.com'), true);
+  const pop = host.querySelector('#qr-pop');
+  assert.equal(pop.hidden, false);
+  assert.equal(pop.dataset.url, 'https://aqua-wolf-1234.trycloudflare.com');
+  const svg = walkAll(pop).find((n) => n.tag === 'svg');
+  assert.equal(svg.attrs.viewBox, '0 0 37 37');   // version 3: 29 modules and a 4-module margin
+  assert.match(textOf(pop), /Inquadra con il telefono/);
+  assert.match(textOf(pop), /aqua-wolf-1234\.trycloudflare\.com/);
+  assert.equal(T.closeQr(), true);
+  assert.equal(pop.hidden, true);
+});
+
+test('the sidebar links to Ko-fi without a referrer', () => {
+  const { T, host } = domSandbox();
+  T.renderPhase(host, { present: true, version: 'test', platform: 'linux' });
+  const link = walkAll(host).find((n) => n.className === 'donate');
+  assert.equal(link.attrs.href, 'https://ko-fi.com/P8V12A631E');
+  assert.equal(link.attrs.target, '_blank');
+  assert.equal(link.attrs.rel, 'noopener noreferrer');
+  assert.match(textOf(link), /Sostieni trydash/);
+  assert.equal(walkAll(link).find((n) => n.tag === 'img').attrs.src, 'kofi-symbol.svg');
 });

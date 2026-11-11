@@ -13,10 +13,23 @@
     parent.replaceChildren(h('main', { className: 'gate', dataset: { phase: 'file' } }, [
       h('section', { className: 'gate-card' }, [
         h('p', { className: 'eyebrow', text: 'try.cloudflare.com' }),
-        h('h1', { text: 'Avvia il server locale' }),
-        h('p', { className: 'lead', text: 'Aprire questo file dal disco non collega i log. Dalla cartella del progetto esegui:' }),
+        h('h1', { text: api.t('ui.fileGate.title') }),
+        h('p', { className: 'lead', text: api.t('ui.fileGate.lead') }),
         h('pre', { className: 'cmd', text: 'bun server.js' }),
-        h('p', { className: 'lead', style: { marginTop: '14px' }, text: 'Poi apri l’indirizzo che stampa, di solito http://127.0.0.1:8787' }),
+        h('p', { className: 'lead', style: { marginTop: '14px' }, text: api.t('ui.fileGate.then') }),
+      ]),
+    ]));
+  }
+
+  // A dashboard started with a token answers 401 until the browser has it.
+  function renderAuthGate(parent) {
+    parent.replaceChildren(h('main', { className: 'gate', dataset: { phase: 'auth' } }, [
+      h('section', { className: 'gate-card' }, [
+        h('p', { className: 'eyebrow', text: 'try.cloudflare.com' }),
+        h('h1', { text: api.t('ui.auth.title') }),
+        h('p', { className: 'lead', text: api.t('ui.auth.lead') }),
+        h('pre', { className: 'cmd', text: 'http://127.0.0.1:8787/?token=…' }),
+        h('p', { className: 'lead', style: { marginTop: '14px' }, text: api.t('ui.auth.hint') }),
       ]),
     ]));
   }
@@ -25,7 +38,7 @@
     parent.replaceChildren(h('main', { className: 'gate', dataset: { phase: 'checking' } }, [
       h('section', { className: 'gate-card' }, [
         h('p', { className: 'eyebrow', text: 'try.cloudflare.com' }),
-        h('p', { className: 'lead', text: 'Controllo cloudflared…' }),
+        h('p', { className: 'lead', text: api.t('ui.checking') }),
       ]),
     ]));
   }
@@ -35,7 +48,7 @@
       return h('li', { className: 'step' }, [
         h('div', { className: 'step-head' }, [
           h('h2', { text: step.title }),
-          h('button', { type: 'button', className: 'btn', text: 'Copia', dataset: { action: 'copy' } }),
+          h('button', { type: 'button', className: 'btn', text: api.t('ui.copy'), dataset: { action: 'copy' } }),
         ]),
         h('pre', { className: 'cmd', text: step.command }),
       ]);
@@ -43,16 +56,16 @@
     return h('main', { className: 'install', dataset: { phase: 'install' } }, [
       h('section', { className: 'install-card' }, [
         h('p', { className: 'eyebrow', text: 'try.cloudflare.com' }),
-        h('h1', { text: 'Manca cloudflared' }),
+        h('h1', { text: api.t('ui.install.title') }),
         h('p', { className: 'lead', text: vm.install.summary }),
         h('p', { className: 'missing', text: vm.install.missing }),
         h('ol', { className: 'steps' }, steps),
         h('div', { className: 'install-actions' }, [
           vm.actions.indexOf('recheck') >= 0
-            ? h('button', { type: 'button', className: 'btn inv', text: 'Ricontrolla', dataset: { action: 'recheck' } })
+            ? h('button', { type: 'button', className: 'btn inv', text: api.t('ui.install.recheck'), dataset: { action: 'recheck' } })
             : null,
         ]),
-        h('p', { id: 'probe-status', className: 'status', text: 'cloudflared non è nel PATH.' }),
+        h('p', { id: 'probe-status', className: 'status', text: api.t('ui.install.notInPath') }),
       ]),
       toastHost(),
     ]);
@@ -65,10 +78,10 @@
   function buildEmptyState() {
     return h('section', { id: 'empty-state', className: 'empty-state' }, [
       h('div', { className: 'hero' }, [
-        h('h2', { className: 'hero-title', text: 'Esponi un servizio locale' }),
-        h('p', { className: 'hero-lead', text: 'Crea un quick tunnel su trycloudflare.com e segui i suoi log qui.' }),
+        h('h2', { className: 'hero-title', text: api.t('ui.hero.title') }),
+        h('p', { className: 'hero-lead', text: api.t('ui.hero.lead') }),
         h('div', { id: 'hero-slot', className: 'hero-slot' }),
-        h('p', { className: 'hero-hint', text: 'Basta la porta. Accetta anche un URL completo http/https.' }),
+        h('p', { className: 'hero-hint', text: api.t('ui.hero.hint') }),
       ]),
     ]);
   }
@@ -80,7 +93,7 @@
       h('div', { className: 'nav-scrim', 'aria-hidden': 'true', dataset: { action: 'menu-close' } }),
       h('main', { className: 'main-area' }, [
         h('div', { className: 'mobile-bar' }, [
-          h('button', { type: 'button', className: 'btn icon', 'aria-label': 'Tunnel', 'aria-controls': 'sidebar', text: '☰', dataset: { action: 'menu' } }),
+          h('button', { type: 'button', className: 'btn icon', 'aria-label': api.t('ui.tunnels'), 'aria-controls': 'sidebar', text: '☰', dataset: { action: 'menu' } }),
           h('span', { className: 'brand' }, [
             h('img', { src: 'logo.svg', alt: '', width: '22', height: '22', className: 'brand-logo' }),
             h('span', { text: 'trydash' }),
@@ -117,6 +130,9 @@
     armed: null,
     searchTimer: 0,
     timer: 0,
+    tab: 'log',
+    requests: null,
+    reqSearchTimer: 0,
   };
 
   function currentSession() {
@@ -159,10 +175,25 @@
     if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
   }
 
+  var PORTS_EVERY_MS = 4000;
+  var portsAt = 0;
+
+  // Asks the server which dev ports are listening, at most every few seconds.
+  function refreshPorts(force) {
+    if (!force && Date.now() - portsAt < PORTS_EVERY_MS) return;
+    portsAt = Date.now();
+    fetch('/api/ports').then(function (response) {
+      return response.ok ? response.json() : null;
+    }).then(function (data) {
+      if (data) api.paintPortHints(document.getElementById('create-form'), data.ports);
+    }, function () {});
+  }
+
   function setNewOpen(open) {
     if (state.sessions.length === 0) return;
     state.newOpen = open;
     placeCreateForm();
+    if (open) refreshPorts(true);
     if (open) {
       var input = document.getElementById('origin');
       if (input) input.focus();
@@ -178,12 +209,21 @@
     var isEmpty = state.sessions.length === 0;
     if (empty) empty.hidden = !isEmpty;
     if (view) view.hidden = !session;
+    if (isEmpty) refreshPorts(false);
     if (isEmpty && !state.wasEmpty) {
       var input = document.getElementById('origin');
       if (input) input.focus();
     }
     state.wasEmpty = isEmpty;
     if (state.view) state.view.update(session);
+    if (state.requests) state.requests.update(session);
+  }
+
+  function setTab(tab) {
+    state.tab = tab === 'requests' ? 'requests' : 'log';
+    api.showTab(state.tab);
+    if (state.requests) state.requests.setActive(state.tab === 'requests');
+    if (state.tab === 'log' && state.view) state.view.render();
   }
 
   async function copyText(text, done) {
@@ -214,17 +254,41 @@
     disarm();
   }
 
+  function paintNotifyToggle() {
+    var button = document.getElementById('notify-toggle');
+    if (!button || !api.notifications) return;
+    var on = api.notifications.enabled();
+    button.textContent = on ? '🔔' : '🔕';
+    button.title = api.t(on ? 'ui.notify.turnOff' : 'ui.notify.turnOn');
+    button.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+
   function announceTransitions(sessions) {
     var next = {};
+    var nowMs = Date.now();
     sessions.forEach(function (session) {
       var prev = state.prevById[session.id];
+      if (api.notifications) {
+        api.notifications.noticesFor(prev, session, nowMs).forEach(function (notice) {
+          api.notifications.show(notice.title, notice.body, {
+            tag: session.id + ':' + notice.kind,
+            onClick: function () {
+              state.currentId = session.id;
+              resetView();
+              writeHash(session.id);
+              paintShell();
+            },
+          });
+        });
+      }
       if (prev && prev.status !== session.status) {
-        if (session.status === 'running' && session.url) notify('Nuovo URL: ' + session.url);
+        if (session.status === 'running' && session.url) notify(api.t('ui.toast.newUrl', { url: session.url }));
+        if (session.status === 'stopped' && session.expired) notify(api.t('ui.toast.expired'));
         if (session.status === 'exited') {
-          notify('cloudflared terminato (codice ' + (session.exitCode == null ? '?' : session.exitCode) + ')', 'error');
+          notify(api.t('ui.toast.exited', { code: session.exitCode == null ? '?' : session.exitCode }), 'error');
         }
       }
-      next[session.id] = { status: session.status };
+      next[session.id] = { status: session.status, lastOriginError: session.lastOriginError };
     });
     state.prevById = next;
   }
@@ -248,19 +312,30 @@
     } catch (err) {
       throw offlineError(api.t('client.offline'));
     }
+    if (response.status === 401) {
+      if (state.phase !== 'auth') renderAuthGate(state.app);
+      state.phase = 'auth';
+      state.view = null;
+      state.requests = null;
+      return;
+    }
     if (!response.ok) throw offlineError(api.t('client.stateUnavailable'));
     var data = await response.json();
     var nextPhase = api.viewForProbe(data.probe).phase;
     var phaseChanged = nextPhase !== state.phase;
     state.probe = data.probe;
     state.phase = nextPhase;
+    api.platform = data.probe && data.probe.platform;
     if (phaseChanged) {
       api.renderPhase(state.app, data.probe);
       state.view = nextPhase === 'workspace' ? api.createLogView() : null;
+      state.requests = nextPhase === 'workspace' ? api.createRequestView() : null;
+      if (state.requests) api.showTab(state.tab);
+      if (state.requests) state.requests.setActive(state.tab === 'requests');
     }
     if (nextPhase === 'install') {
       var status = document.getElementById('probe-status');
-      if (status) status.textContent = 'cloudflared non è nel PATH.';
+      if (status) status.textContent = api.t('ui.install.notInPath');
       return;
     }
     announceTransitions(data.sessions);
@@ -288,7 +363,7 @@
   }
 
   async function api_(method, path, body) {
-    var headers = { 'Accept-Language': api.lang || 'it' };
+    var headers = { 'Accept-Language': api.lang || 'en' };
     if (body) headers['Content-Type'] = 'application/json';
     var response = await fetch(path, {
       method: method,
@@ -309,10 +384,16 @@
     if (submit) submit.disabled = true;
     try {
       var options = api.readCreateOptions(form);
-      var data = await api_('POST', '/api/sessions', { origin: input ? input.value : '', options: options });
+      var origin = input ? input.value : '';
+      if (api.looksLikeFolder(origin)) {
+        options.mode = 'folder';
+        options.folder = origin.trim();
+        origin = '';
+      }
+      var data = await api_('POST', '/api/sessions', { origin: origin, options: options });
       api.rememberMail(data.session.options ? data.session.options.allowedMail : []);
       resetCreateForm(form);
-      await selectCreated(data.session, 'Tunnel creato');
+      await selectCreated(data.session, api.t('ui.toast.created'));
     } finally {
       state.creating = false;
       if (submit) submit.disabled = false;
@@ -328,6 +409,10 @@
       var node = form.querySelector('#' + id);
       if (node) node.checked = false;
     });
+    var inspect = form.querySelector('#inspect');
+    if (inspect) inspect.checked = true;
+    var expires = form.querySelector('#expires');
+    if (expires) expires.value = '';
     ['mail-details', 'origin-details'].forEach(function (id) {
       var node = form.querySelector('#' + id);
       if (node) node.open = false;
@@ -350,15 +435,17 @@
     if (state.creating) return;
     var form = document.getElementById('create-form');
     var session = currentSession();
+    var formOptions = api.readCreateOptions(form);
     var allowedMail = fromBanner && session && session.options
       ? session.options.allowedMail
-      : api.readCreateOptions(form).allowedMail;
+      : formOptions.allowedMail;
+    var expiresIn = fromBanner && session && session.options ? session.options.expiresIn : formOptions.expiresIn;
     state.creating = true;
     try {
-      var data = await api_('POST', '/api/sessions', { options: { mode: 'hello', allowedMail: allowedMail } });
+      var data = await api_('POST', '/api/sessions', { options: { mode: 'hello', allowedMail: allowedMail, expiresIn: expiresIn } });
       api.rememberMail(data.session.options ? data.session.options.allowedMail : []);
       if (form && !fromBanner) api.paintRecentMail(form);
-      await selectCreated(data.session, 'Tunnel Hello World creato');
+      await selectCreated(data.session, api.t('ui.toast.helloCreated'));
     } finally {
       state.creating = false;
     }
@@ -386,7 +473,7 @@
   }
 
   function armedLabel(action) {
-    return action === 'remove' ? 'Conferma rimozione' : 'Nuovo URL — conferma';
+    return action === 'remove' ? api.t('ui.confirm.remove') : api.t('ui.confirm.restart');
   }
 
   function confirmStep(armed, action, nowMs) {
@@ -449,12 +536,12 @@
     var id = encodeURIComponent(session.id);
     if (action === 'stop') {
       await api_('POST', '/api/sessions/' + id + '/stop');
-      notify('Tunnel fermato');
+      notify(api.t('ui.toast.stopped'));
     } else if (action === 'restart') {
-      notify('Riavvio…');
+      notify(api.t('ui.toast.restarting'));
       await api_('POST', '/api/sessions/' + id + '/restart');
     } else if (action === 'force-restart') {
-      notify('Riavvio…');
+      notify(api.t('ui.toast.restarting'));
       await api_('POST', '/api/sessions/' + id + '/stop');
       await api_('POST', '/api/sessions/' + id + '/restart');
     } else if (action === 'remove') {
@@ -462,7 +549,7 @@
       state.currentId = null;
       resetView();
       writeHash(null);
-      notify('Tunnel rimosso');
+      notify(api.t('ui.toast.removed'));
     }
     await refresh();
   }
@@ -478,6 +565,12 @@
     var target = event.target;
     if (!target) return;
     if (target.closest && target.closest('#create-form')) api.refreshCreateForm(document.getElementById('create-form'));
+    if (target.id === 'req-search' && state.requests) {
+      clearTimeout(state.reqSearchTimer);
+      state.reqSearchTimer = setTimeout(function () {
+        state.requests.setQuery(target.value);
+      }, 150);
+    }
     if (target.id === 'log-search' && state.view) {
       clearTimeout(state.searchTimer);
       state.searchTimer = setTimeout(function () {
@@ -491,11 +584,20 @@
   }
 
   function onClick(event) {
-    var node = event.target.closest ? event.target.closest('[data-action], [data-index], [data-session]') : null;
+    var node = event.target.closest ? event.target.closest('[data-action], [data-index], [data-session], [data-req]') : null;
     if (!node) return;
     var action = node.dataset.action;
     if (action === 'hello') {
       createHello(!!(node.closest && node.closest('#tunnel-warnings'))).catch(fail);
+      return;
+    }
+    if (action === 'pick-port') {
+      var originField = document.getElementById('origin');
+      if (originField) {
+        originField.value = node.dataset.origin;
+        api.refreshCreateForm(document.getElementById('create-form'));
+        originField.focus();
+      }
       return;
     }
     if (action === 'recent-mail') {
@@ -504,7 +606,7 @@
     }
     if (action === 'recheck') {
       var status = document.getElementById('probe-status');
-      if (status) status.textContent = 'Controllo…';
+      if (status) status.textContent = api.t('ui.install.checkingShort');
       fetch('/api/probe?fresh=1').then(refresh).catch(function (err) {
         if (status) status.textContent = err.message;
       });
@@ -513,7 +615,7 @@
     if (action === 'copy') {
       var step = node.closest('.step');
       var pre = step && step.querySelector('.cmd');
-      if (pre) copyText(pre.textContent, 'Comando copiato');
+      if (pre) copyText(pre.textContent, api.t('ui.toast.commandCopied'));
       return;
     }
     if (action === 'menu') {
@@ -525,9 +627,22 @@
       closeNav();
       return;
     }
+    if (action === 'notify') {
+      api.notifications.toggle().then(function (on) {
+        paintNotifyToggle();
+        notify(api.t(on ? 'ui.notify.nowOn' : (typeof Notification === 'function' && Notification.permission === 'denied' ? 'ui.notify.denied' : 'ui.notify.nowOff')));
+      });
+      return;
+    }
+    if (action === 'lang') {
+      // Every text is drawn once, so a new language is a reload away.
+      api.langPref.set(api.langPref.other());
+      if (typeof location !== 'undefined' && location.reload) location.reload();
+      return;
+    }
     if (action === 'theme') {
-      var mode = api.theme.cycle();
-      node.textContent = api.theme.label(mode);
+      api.theme.cycle();
+      api.paintThemeToggle(node);
       return;
     }
     if (action === 'new') {
@@ -536,22 +651,36 @@
     }
     if (action === 'copy-url') {
       var session = currentSession();
-      if (session && session.url) copyText(session.url, 'URL copiato');
+      if (session && session.url) copyText(session.url, api.t('ui.toast.urlCopied'));
       return;
     }
     if (action === 'stop' || action === 'restart' || action === 'force-restart' || action === 'remove') {
       sessionAction(action, node).catch(fail);
       return;
     }
+    if (action === 'qr') {
+      var withUrl = currentSession();
+      if (!api.closeQr() && withUrl && withUrl.url) api.openQr(withUrl.url);
+      return;
+    }
+    if (action === 'qr-close') {
+      api.closeQr();
+      return;
+    }
     if (action === 'copy-cmd') {
       var current = currentSession();
-      if (current) copyText(current.equivalent, 'Comando copiato');
+      if (current) copyText(api.commandFor(current), api.platform === 'win32' ? api.t('ui.toast.commandCopiedWindows') : api.t('ui.toast.commandCopied'));
       return;
     }
     if (action === 'open') {
       if (!(currentSession() && currentSession().url)) event.preventDefault();
       return;
     }
+    if (action === 'tab') {
+      setTab(node.dataset.tab);
+      return;
+    }
+    if (state.requests && requestAction(action, node)) return;
     if (!state.view) return;
     if (action === 'chip') {
       state.view.toggleLevel(node.dataset.group || '');
@@ -567,12 +696,13 @@
     }
     if (action === 'copy-row') {
       var entry = state.view.detail();
-      if (entry) copyText(entry.raw, 'Riga copiata');
+      if (entry) copyText(entry.raw, api.t('ui.toast.rowCopied'));
       return;
     }
     if (node.dataset.session) {
       if (node.dataset.session !== state.currentId) {
         state.currentId = node.dataset.session;
+        api.closeQr();
         resetView();
         writeHash(state.currentId);
         paintShell();
@@ -585,10 +715,78 @@
     }
   }
 
+  // Clicks inside the Requests tab; true when handled.
+  function requestAction(action, node) {
+    var view = state.requests;
+    if (action === 'req-filter') {
+      view.setFilter(node.dataset.filter);
+      return true;
+    }
+    if (action === 'clear-requests') {
+      view.clear().then(function () { notify(api.t('ui.toast.requestsCleared')); }, fail);
+      return true;
+    }
+    if (action === 'close-req') {
+      view.closeDetail();
+      return true;
+    }
+    if (action === 'copy-curl') {
+      var curl = view.curl();
+      if (curl) copyText(curl, api.t('ui.toast.curlCopied'));
+      return true;
+    }
+    if (action === 'edit-replay') {
+      view.startEdit();
+      return true;
+    }
+    if (action === 'cancel-edit') {
+      view.cancelEdit();
+      return true;
+    }
+    if (action === 'send-edited') {
+      node.disabled = true;
+      view.sendEdited().then(function (row) {
+        if (row) notify(api.t('ui.toast.replayed', { result: row.status == null ? (row.error || api.t('ui.toast.noResponse')) : row.status }), api.isProblemRequest(row) ? 'error' : 'info');
+      }, function (err) {
+        node.disabled = false;
+        fail(err);
+      });
+      return true;
+    }
+    if (action === 'replay') {
+      node.disabled = true;
+      view.replay().then(function (row) {
+        if (row) notify(api.t('ui.toast.replayed', { result: row.status == null ? (row.error || api.t('ui.toast.noResponse')) : row.status }), row && api.isProblemRequest(row) ? 'error' : 'info');
+      }, function (err) {
+        node.disabled = false;
+        fail(err);
+      });
+      return true;
+    }
+    if (!action && node.dataset.req) {
+      view.select(Number(node.dataset.req));
+      return true;
+    }
+    return false;
+  }
+
   function onKey(event) {
     var target = event.target || {};
     var typing = target.matches && target.matches('input, textarea, select');
     if (event.key === 'Escape') {
+      if (api.closeQr()) {
+        event.preventDefault();
+        return;
+      }
+      if (target.id === 'req-search' && target.value) {
+        target.value = '';
+        if (state.requests) state.requests.setQuery('');
+        return;
+      }
+      if (state.tab === 'requests' && state.requests && state.requests.closeDetail()) {
+        event.preventDefault();
+        return;
+      }
       if (target.id === 'origin') {
         setNewOpen(false);
         return;
@@ -603,6 +801,22 @@
       return;
     }
     if (typing || !state.view) return;
+    if (state.tab === 'requests' && state.requests) {
+      if (event.key === '/') {
+        var reqSearch = document.getElementById('req-search');
+        if (reqSearch) {
+          event.preventDefault();
+          reqSearch.focus();
+        }
+      } else if (event.key === 'ArrowDown' || event.key === 'j') {
+        event.preventDefault();
+        state.requests.move(1);
+      } else if (event.key === 'ArrowUp' || event.key === 'k') {
+        event.preventDefault();
+        state.requests.move(-1);
+      }
+      return;
+    }
     if (event.key === '/') {
       var search = document.getElementById('log-search');
       if (search) {
@@ -636,6 +850,9 @@
     app.addEventListener('submit', onSubmit);
     app.addEventListener('click', onClick);
     app.addEventListener('input', onInput);
+    app.addEventListener('focusin', function (event) {
+      if (event.target && event.target.id === 'origin') refreshPorts(false);
+    });
     app.addEventListener('change', onInput);
     document.addEventListener('keydown', onKey);
     app.addEventListener('scroll', onScroll, true);
@@ -663,7 +880,8 @@
     if (typeof document === 'undefined') return;
     var app = document.getElementById('app');
     if (!app) return;
-    api.lang = api.pickLang(typeof navigator !== 'undefined' && navigator ? navigator.language : '');
+    api.lang = api.langPref.choose(typeof navigator !== 'undefined' && navigator ? navigator.language : '');
+    if (document.documentElement) document.documentElement.lang = api.lang;
     var protocol = typeof location !== 'undefined' && location ? location.protocol : 'http:';
     if (protocol === 'file:') {
       renderFileGate(app);
@@ -678,10 +896,12 @@
     start();
   }
 
+  api.request = api_;
   api.needsConfirm = needsConfirm;
   api.armedLabel = armedLabel;
   api.confirmStep = confirmStep;
   api.renderFileGate = renderFileGate;
   api.renderChecking = renderChecking;
+  api.renderAuthGate = renderAuthGate;
   api.renderPhase = renderPhase;
 })(globalThis);
