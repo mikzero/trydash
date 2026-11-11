@@ -174,3 +174,12 @@ test('detect: no suggestion on phones and tablets', () => {
   assert.equal(pick({ ua: UA.android, platform: 'Android', mobile: true }), null);
   assert.equal(pick({ ua: UA.mac, platform: 'MacIntel', touch: 5 }), null);
 });
+
+test('the Ko-fi link is on both pages and on GitHub', () => {
+  for (const page of Object.values(PAGES)) {
+    const html = read(page);
+    assert.equal((html.match(/href="https:\/\/ko-fi\.com\/mikzero" target="_blank" rel="noopener"/g) || []).length, 2, page);
+    assert.match(html, /<symbol id="i-coffee"/);
+  }
+  assert.match(fs.readFileSync(path.join(projectRoot, '.github/FUNDING.yml'), 'utf8'), /^ko_fi: mikzero$/m);
+});

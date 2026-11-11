@@ -876,3 +876,13 @@ test('the QR popover opens for the URL and closes on demand', () => {
   assert.equal(T.closeQr(), true);
   assert.equal(pop.hidden, true);
 });
+
+test('the sidebar links to Ko-fi without a referrer', () => {
+  const { T, host } = domSandbox();
+  T.renderPhase(host, { present: true, version: 'test', platform: 'linux' });
+  const link = walkAll(host).find((n) => n.className === 'donate');
+  assert.equal(link.attrs.href, 'https://ko-fi.com/mikzero');
+  assert.equal(link.attrs.target, '_blank');
+  assert.equal(link.attrs.rel, 'noopener noreferrer');
+  assert.equal(link.textContent, '☕ Sostieni trydash');
+});

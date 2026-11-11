@@ -488,12 +488,17 @@ h2 { margin: 0; font-size: 13px; font-weight: 600; }
 
 .tunnel-list-empty { margin: 0; padding: 4px 16px; color: var(--faint); font-size: 12px; }
 
+.side-foot { margin-top: auto; border-top: 1px solid var(--line); }
+
+.donate { display: block; padding: 8px 16px 0; color: var(--accent); font-size: 12px; font-weight: 600; text-decoration: none; }
+
+.donate:hover { text-decoration: underline; }
+
 .cf-version {
   margin: 0;
-  padding: 10px 16px;
+  padding: 6px 16px 10px;
   color: var(--faint);
   font-size: 11px;
-  border-top: 1px solid var(--line);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

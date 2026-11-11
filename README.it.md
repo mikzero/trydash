@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="README.md">English</a> · <b>Italiano</b> · <a href="https://mikzero.github.io/trydash/it/">Sito</a>
+  <a href="README.md">English</a> · <b>Italiano</b> · <a href="https://mikzero.github.io/trydash/it/">Sito</a> · <a href="https://ko-fi.com/mikzero">☕ Sostieni su Ko-fi</a>
 </p>
 
 <p align="center">
@@ -435,6 +435,10 @@ bun test
 ```
 
 I test usano processi finti e non avviano mai `cloudflared`. Il test della build compila un eseguibile per il sistema corrente e lo avvia da un’altra cartella: ci vogliono un paio di secondi.
+
+## Sostieni il progetto
+
+trydash è gratuito e lo sviluppo nel tempo libero. Se ti fa risparmiare tempo, puoi [offrirmi un caffè su Ko-fi](https://ko-fi.com/mikzero): lo stesso link sta dietro il pulsante **Sponsor** su GitHub, nel footer del sito e in fondo alla sidebar della dashboard.
 
 ## Licenza
 

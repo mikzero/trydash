@@ -250,5 +250,7 @@
     'ui.qr.button': 'QR code of the URL',
     'ui.qr.close': 'Close',
     'ui.qr.scan': 'Scan with your phone',
+    'ui.side.donate': '☕ Support trydash',
+    'ui.side.donateTitle': 'Buy the developer of trydash a coffee on Ko-fi',
   };
 })(globalThis);
