@@ -280,7 +280,9 @@ test('a tunnel that starts while trydash is closing is not left running', async 
   await new Promise((resolve) => setTimeout(resolve, 20));
   const closing = app.close();
   release();
-  await opening.then(() => {}, () => {});
+  const error = await opening.then(() => null, (e) => e);
+  assert.equal(error.status, 503);
+  assert.equal(error.key, 'server.closing');
   await closing;
   assert.equal(procs.filter(stillRunning).length, 0);
 });
@@ -327,9 +329,52 @@ test('a stop during restart is the last word', async () => {
     const stopped = await fetch(`${app.url}/api/sessions/${session.id}/stop`, { method: 'POST' });
     assert.equal(stopped.status, 200);
     hold.release();
-    await restarting.then(() => {}, () => {});
+    const error = await restarting.then(() => null, (e) => e);
+    // The tunnel still exists: the answer says it was stopped, not that it is missing.
+    assert.equal(error.status, 409);
+    assert.equal(error.key, 'session.stoppedWhileStarting');
     assert.equal(store.get(session.id).active, false);
     assert.equal(procs.filter(stillRunning).length, 0);
+  } finally {
+    await app.close();
+  }
+});
+
+test('a tunnel removed while it starts gets a 404 that says so, and never runs', async () => {
+  const store = dash.createSessionStore();
+  const real = createInspector({ store, isLive: (id) => !!(store.get(id) && store.get(id).active) });
+  let release = null;
+  const inspector = {
+    ...real,
+    open(session) {
+      const pending = real.open(session);
+      return new Promise((resolve, reject) => { release = () => pending.then(resolve, reject); });
+    },
+  };
+  const procs = [];
+  const app = createApp({
+    store,
+    inspector,
+    probe: async () => ({ present: true, version: 'test' }),
+    spawn() { const proc = stubbornProcess({ dieOnTerm: true }); procs.push(proc); return proc; },
+  });
+  await app.listen(0, '127.0.0.1');
+  try {
+    const creating = fetch(`${app.url}/api/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept-Language': 'it' },
+      body: JSON.stringify({ origin: '3000' }),
+    });
+    for (let i = 0; i < 100 && !release; i += 1) await new Promise((resolve) => setTimeout(resolve, 10));
+    assert.ok(release, 'the inspector started opening');
+    assert.equal((await fetch(`${app.url}/api/sessions/s1`, { method: 'DELETE' })).status, 200);
+    release();
+    const res = await creating;
+    assert.equal(res.status, 404);
+    const body = await res.json();
+    assert.equal(body.key, 'session.removedWhileStarting');
+    assert.equal(body.error, 'Il tunnel è stato rimosso mentre si avviava');
+    assert.equal(procs.length, 0);
   } finally {
     await app.close();
   }

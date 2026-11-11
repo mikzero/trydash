@@ -253,5 +253,7 @@
     'ui.qr.scan': 'Scan with your phone',
     'ui.side.donate': 'Support trydash',
     'ui.side.donateTitle': 'Buy the developer of trydash a coffee on Ko-fi',
+    'session.removedWhileStarting': 'The tunnel was removed while it was starting',
+    'session.stoppedWhileStarting': 'The tunnel was stopped while it was starting',
   };
 })(globalThis);

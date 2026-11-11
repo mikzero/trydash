@@ -253,5 +253,7 @@
     'ui.qr.scan': 'Inquadra con il telefono',
     'ui.side.donate': 'Sostieni trydash',
     'ui.side.donateTitle': 'Offri un caffè su Ko-fi a chi sviluppa trydash',
+    'session.removedWhileStarting': 'Il tunnel è stato rimosso mentre si avviava',
+    'session.stoppedWhileStarting': 'Il tunnel è stato fermato mentre si avviava',
   };
 })(globalThis);

@@ -344,6 +344,14 @@ export function createApp(options = {}) {
     return !shuttingDown && current && current.active;
   }
 
+  // Why a tunnel that was starting must not go on: trydash is closing (503), it was
+  // removed (404), or it was stopped meanwhile (409).
+  function startAborted(id) {
+    if (shuttingDown) return withStatus(dash.appError('UNAVAILABLE', 'server.closing'), 503);
+    if (!store.get(id)) return withStatus(dash.appError('NOT_FOUND', 'session.removedWhileStarting'), 404);
+    return withStatus(dash.appError('CONFLICT', 'session.stoppedWhileStarting'), 409);
+  }
+
   async function restartTunnel(id) {
     if (shuttingDown) throw withStatus(dash.appError('UNAVAILABLE', 'server.closing'), 503);
     if (!store.get(id)) throw withStatus(dash.appError('NOT_FOUND', 'session.notFound'), 404);
@@ -360,14 +368,14 @@ export function createApp(options = {}) {
       if (session.options.inspect && !inspector.has(id)) {
         const target = await inspector.open(session);
         openedInspector = true;
-        if (!stillUp(id)) throw withStatus(dash.appError('CONFLICT', 'session.notFound'), 409);
+        if (!stillUp(id)) throw startAborted(id);
         store.setTarget(id, target);
       }
-      if (!stillUp(id)) throw withStatus(dash.appError('CONFLICT', 'session.notFound'), 409);
+      if (!stillUp(id)) throw startAborted(id);
       spawned = spawnForSession(store, session, spawnImpl, isCurrent);
       if (!stillUp(id)) {
         stopProcess(spawned.proc).catch(() => {});
-        throw withStatus(dash.appError('CONFLICT', 'session.notFound'), 409);
+        throw startAborted(id);
       }
     } catch (error) {
       if (openedInspector && !stillUp(id)) await inspector.close(id);
@@ -401,14 +409,14 @@ export function createApp(options = {}) {
     try {
       if (session.options.inspect) {
         const target = await inspector.open(session);
-        if (shuttingDown || !store.get(session.id)) throw withStatus(dash.appError('UNAVAILABLE', 'server.closing'), 503);
+        if (shuttingDown || !store.get(session.id)) throw startAborted(session.id);
         store.setTarget(session.id, target);
       }
-      if (shuttingDown || !store.get(session.id)) throw withStatus(dash.appError('UNAVAILABLE', 'server.closing'), 503);
+      if (shuttingDown || !store.get(session.id)) throw startAborted(session.id);
       spawned = spawnForSession(store, session, spawnImpl, isCurrent);
       if (shuttingDown || !store.get(session.id)) {
         stopProcess(spawned.proc).catch(() => {});
-        throw withStatus(dash.appError('UNAVAILABLE', 'server.closing'), 503);
+        throw startAborted(session.id);
       }
     } catch (error) {
       await inspector.close(session.id);
