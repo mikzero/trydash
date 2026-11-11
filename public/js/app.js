@@ -175,10 +175,25 @@
     if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
   }
 
+  var PORTS_EVERY_MS = 4000;
+  var portsAt = 0;
+
+  // Asks the server which dev ports are listening, at most every few seconds.
+  function refreshPorts(force) {
+    if (!force && Date.now() - portsAt < PORTS_EVERY_MS) return;
+    portsAt = Date.now();
+    fetch('/api/ports').then(function (response) {
+      return response.ok ? response.json() : null;
+    }).then(function (data) {
+      if (data) api.paintPortHints(document.getElementById('create-form'), data.ports);
+    }, function () {});
+  }
+
   function setNewOpen(open) {
     if (state.sessions.length === 0) return;
     state.newOpen = open;
     placeCreateForm();
+    if (open) refreshPorts(true);
     if (open) {
       var input = document.getElementById('origin');
       if (input) input.focus();
@@ -194,6 +209,7 @@
     var isEmpty = state.sessions.length === 0;
     if (empty) empty.hidden = !isEmpty;
     if (view) view.hidden = !session;
+    if (isEmpty) refreshPorts(false);
     if (isEmpty && !state.wasEmpty) {
       var input = document.getElementById('origin');
       if (input) input.focus();
@@ -552,6 +568,15 @@
       createHello(!!(node.closest && node.closest('#tunnel-warnings'))).catch(fail);
       return;
     }
+    if (action === 'pick-port') {
+      var originField = document.getElementById('origin');
+      if (originField) {
+        originField.value = node.dataset.origin;
+        api.refreshCreateForm(document.getElementById('create-form'));
+        originField.focus();
+      }
+      return;
+    }
     if (action === 'recent-mail') {
       addRecentMail(node.dataset.value);
       return;
@@ -781,6 +806,9 @@
     app.addEventListener('submit', onSubmit);
     app.addEventListener('click', onClick);
     app.addEventListener('input', onInput);
+    app.addEventListener('focusin', function (event) {
+      if (event.target && event.target.id === 'origin') refreshPorts(false);
+    });
     app.addEventListener('change', onInput);
     document.addEventListener('keydown', onKey);
     app.addEventListener('scroll', onScroll, true);

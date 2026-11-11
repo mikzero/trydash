@@ -236,5 +236,7 @@
     'ui.edit.title': 'Modifica la richiesta #{n}',
     'ui.edit.truncatedNote': 'Il body originale era troppo grande per tenerlo: scrivine uno.',
     'ui.req.edit': '✎ Modifica e rimanda',
+    'ui.ports.busy': 'già in un tunnel attivo',
+    'ui.ports.label': 'in ascolto:',
   };
 })(globalThis);

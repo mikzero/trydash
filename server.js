@@ -11,6 +11,7 @@ import { createInspector } from './src/inspector.js';
 import { resolveFolder } from './src/static.js';
 import { parseArgs, helpText, envValue, openBrowser, announceUrl } from './src/cli.js';
 import { createConfigFile, defaultConfigPath, tunnelKey } from './src/config.js';
+import { scanPorts } from './src/ports.js';
 import { readAsset } from './src/assets.js';
 
 
@@ -199,6 +200,32 @@ export function createApp(options = {}) {
     intervalMs: options.trafficIntervalMs || 2000,
   });
   let probeCache = null;
+  const scan = options.scanPorts || scanPorts;
+  let portsCache = null;
+  let portsInflight = null;
+
+  // Ports of dev servers on this machine: cached a few seconds, one scan at a time.
+  async function listeningPorts() {
+    if (portsCache && Date.now() - portsCache.at < 3000) return portsCache.ports;
+    if (!portsInflight) {
+      const own = [server.address() && server.address().port].concat(store.list().map((s) => inspector.info(s.id)).filter(Boolean).map((i) => i.port));
+      portsInflight = scan({ exclude: own.filter(Boolean) }).then((ports) => {
+        portsCache = { at: Date.now(), ports };
+        return ports;
+      }).finally(() => { portsInflight = null; });
+    }
+    const ports = await portsInflight;
+    // A port an active tunnel already points at is marked, not hidden.
+    const busy = new Set(store.list().filter((s) => s.active && s.origin).map((s) => {
+      try {
+        const u = new URL(s.origin);
+        return Number(u.port || (u.protocol === 'https:' ? 443 : 80));
+      } catch {
+        return null;
+      }
+    }));
+    return ports.map((item) => ({ ...item, busy: busy.has(item.port) }));
+  }
   let expiryTimer = null;
 
   // Stops the tunnels whose expiry has come, like the Stop button.
@@ -434,6 +461,11 @@ export function createApp(options = {}) {
           return;
         }
         sendJson(res, 200, { probe, sessions: store.list().map((session) => summary(session, inspector)) });
+        return;
+      }
+
+      if (req.method === 'GET' && url.pathname === '/api/ports') {
+        sendJson(res, 200, { ports: await listeningPorts() });
         return;
       }
 

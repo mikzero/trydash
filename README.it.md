@@ -36,6 +36,10 @@
 
 ## Funzioni
 
+### Porte in ascolto
+
+Sotto il campo, “in ascolto:” propone i server di sviluppo avviati sul tuo computer, come `:5173 · Vite` o `:3000 · Next.js`: un clic riempie il campo. trydash prova solo le porte di sviluppo più comuni (3000, 4200, 5173, 8000, 8080…) con una semplice connessione TCP, così nei loro log non compare niente. Un server in ascolto solo su IPv6 (`::1`) viene proposto come `http://[::1]:5173`. Una porta già in un tunnel attivo appare sbiadita. Nell’API è `GET /api/ports`.
+
 ### Tunnel salvati
 
 trydash ricorda i tuoi tunnel tra un avvio e l’altro: origine o cartella e opzioni, mai log, richieste, URL o token. Al prossimo avvio tornano **fermi**, così niente torna pubblico finché non premi **Riavvia**. Ognuno riceve un URL nuovo, come sempre con i quick tunnel. Rimuovere un tunnel lo toglie anche dall’elenco.
@@ -260,6 +264,7 @@ Il frontend usa una piccola API JSON, utile anche per script. Ogni chiamata rich
 |---|---|---|
 | `GET` | `/api/state` | stato di `cloudflared` e di tutte le sessioni |
 | `GET` | `/api/probe?fresh=1` | ricontrolla `cloudflared` |
+| `GET` | `/api/ports` | i server di sviluppo in ascolto su questo computer, con `busy` se un tunnel attivo li usa già |
 | `POST` | `/api/sessions` | crea un tunnel, body `{ "origin": "3000", "options": { … } }` (vedi sotto) |
 | `POST` | `/api/sessions/:id/stop` | ferma il tunnel |
 | `POST` | `/api/sessions/:id/restart` | riavvia un tunnel fermato o terminato |

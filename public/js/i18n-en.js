@@ -236,5 +236,7 @@
     'ui.edit.title': 'Edit request #{n}',
     'ui.edit.truncatedNote': 'The original body was too large to keep: write one.',
     'ui.req.edit': '✎ Edit and replay',
+    'ui.ports.busy': 'already in a live tunnel',
+    'ui.ports.label': 'listening:',
   };
 })(globalThis);

@@ -786,3 +786,19 @@ test('the replay editor: header lines, fields and what it sends', async () => {
   assert.equal(view.closeDetail(), true);
   assert.equal(view.editing(), false);
 });
+
+test('port suggestions fill the origin field', () => {
+  const { T, host } = domSandbox();
+  T.renderPhase(host, { present: true, version: 'test', platform: 'linux' });
+  const form = host.querySelector('#create-form');
+  T.paintPortHints(form, []);
+  assert.equal(host.querySelector('#port-hints').hidden, true);
+  T.paintPortHints(form, [{ port: 5173, hint: 'Vite', origin: '5173', busy: false }, { port: 3000, hint: 'Next.js, React', origin: 'http://[::1]:3000', busy: true }]);
+  const hints = host.querySelector('#port-hints');
+  assert.equal(hints.hidden, false);
+  const chips = walkAll(hints).filter((n) => n.dataset && n.dataset.action === 'pick-port');
+  assert.deepEqual(chips.map((c) => [c.textContent, c.dataset.origin]), [[':5173 · Vite', '5173'], [':3000 · Next.js', 'http://[::1]:3000']]);
+  assert.match(chips[1].className, /is-busy/);
+  assert.equal(chips[1].attrs.title, 'già in un tunnel attivo');
+  assert.match(textOf(hints), /in ascolto:/);
+});

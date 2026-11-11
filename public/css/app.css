@@ -408,6 +408,12 @@ h2 { margin: 0; font-size: 13px; font-weight: 600; }
 .create-more textarea.input { width: 100%; resize: vertical; min-height: 34px; font-size: 12px; }
 .recent-mail { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 6px; }
 .recent-mail[hidden] { display: none; }
+
+.port-hints { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+
+.port-hints .chip { height: 22px; font-size: 11px; }
+
+.port-hints .chip.is-busy { opacity: 0.55; }
 .recent-label { font-size: 11px; color: var(--faint); }
 .create-more .field { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
 .create-more .checks { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; }

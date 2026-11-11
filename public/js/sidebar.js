@@ -80,6 +80,7 @@
         h('button', { type: 'submit', className: 'btn inv', text: api.t('ui.form.create'), dataset: { action: 'create' } }),
       ]),
       h('p', { id: 'origin-preview', className: 'origin-preview mono', 'aria-live': 'polite' }),
+      h('div', { id: 'port-hints', className: 'port-hints', hidden: true }),
       h('label', { className: 'expires-row' }, [
         h('span', { text: api.t('ui.form.expires') }),
         h('select', { id: 'expires', name: 'expiresIn', className: 'input' }, EXPIRY_CHOICES.map(function (choice) {
@@ -218,6 +219,28 @@
     var origin = field(form, 'origin');
     summaries(form, options);
     previewCommand(origin ? origin.value : '', options);
+  }
+
+  // Dev servers found on this machine, as chips that fill the origin field.
+  function paintPortHints(form, ports) {
+    var slot = field(form, 'port-hints');
+    if (!slot) return;
+    var list = ports || [];
+    var sig = JSON.stringify(list);
+    if (slot.dataset.sig === sig) return;
+    slot.dataset.sig = sig;
+    slot.hidden = list.length === 0;
+    var h = api.h;
+    slot.replaceChildren.apply(slot, list.length ? [h('span', { className: 'recent-label', text: api.t('ui.ports.label') })].concat(list.map(function (item) {
+      var label = ':' + item.port + (item.hint ? ' · ' + item.hint.split(',')[0] : '');
+      return h('button', {
+        type: 'button',
+        className: 'chip mono' + (item.busy ? ' is-busy' : ''),
+        title: item.busy ? api.t('ui.ports.busy') : (item.hint || item.origin),
+        text: label,
+        dataset: { action: 'pick-port', origin: item.origin },
+      });
+    })) : []);
   }
 
   function buildSidebar(vm) {
@@ -378,4 +401,5 @@
   api.paintRecentMail = paintRecentMail;
   api.previewCommand = previewCommand;
   api.refreshCreateForm = refreshCreateForm;
+  api.paintPortHints = paintPortHints;
 })(globalThis);

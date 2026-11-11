@@ -38,6 +38,10 @@ The interface is in English and Italian: it follows your browser, and the **EN**
 
 ## Features
 
+### Listening ports
+
+Under the field, “listening:” suggests the development servers running on your computer, like `:5173 · Vite` or `:3000 · Next.js`: a click fills the field. trydash only tries the usual development ports (3000, 4200, 5173, 8000, 8080…) with a plain TCP connection, so nothing shows up in their logs. A server listening only on IPv6 (`::1`) is suggested as `http://[::1]:5173`. A port already in a live tunnel is shown faded. The API has it as `GET /api/ports`.
+
 ### Saved tunnels
 
 trydash remembers your tunnels between runs: origin or folder and options, never logs, requests, URLs or tokens. At the next start they come back **stopped**, so nothing turns public again until you press **Restart**. Each one gets a new URL, as quick tunnels always do. Removing a tunnel removes it from the list too.
@@ -262,6 +266,7 @@ The frontend uses a small JSON API, also handy for scripts. Every call needs the
 |---|---|---|
 | `GET` | `/api/state` | state of `cloudflared` and of every session |
 | `GET` | `/api/probe?fresh=1` | check `cloudflared` again |
+| `GET` | `/api/ports` | development servers listening on this computer, with `busy` when a live tunnel already uses them |
 | `POST` | `/api/sessions` | create a tunnel, body `{ "origin": "3000", "options": { … } }` (see below) |
 | `POST` | `/api/sessions/:id/stop` | stop the tunnel |
 | `POST` | `/api/sessions/:id/restart` | restart a stopped or exited tunnel |
