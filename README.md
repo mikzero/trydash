@@ -38,6 +38,10 @@ The interface is in English and Italian: it follows your browser, and the **EN**
 
 ## Features
 
+### QR code
+
+**▦ QR** in the header shows the tunnel URL as a QR code: point your phone’s camera at it to try the site on mobile, or let a client scan it. The code is drawn by trydash itself (`public/js/qr.js`, no dependencies, checked against a reference encoder in the tests) and stays dark on light in the dark theme too, so every scanner reads it. It closes with `Esc` and when the URL changes.
+
 ### Notifications
 
 The 🔕 button in the sidebar turns on browser notifications (the browser asks first). While the dashboard tab is in the background, trydash tells you when a tunnel has its URL, when your server stops answering (once per outage) and when `cloudflared` exits or a tunnel expires. A click on the notification brings you to that tunnel. 🔔 turns them off. The choice stays in your browser.

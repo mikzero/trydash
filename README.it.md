@@ -36,6 +36,10 @@
 
 ## Funzioni
 
+### QR code
+
+**▦ QR** nell’intestazione mostra l’URL del tunnel come QR code: inquadralo con la fotocamera del telefono per provare il sito su mobile, o fallo inquadrare a un cliente. Il codice lo disegna trydash stesso (`public/js/qr.js`, senza dipendenze, verificato nei test contro un encoder di riferimento) e resta scuro su chiaro anche nel tema scuro, così ogni lettore lo legge. Si chiude con `Esc` e quando l’URL cambia.
+
 ### Notifiche
 
 Il pulsante 🔕 nella sidebar attiva le notifiche del browser (prima il browser chiede il permesso). Mentre la scheda della dashboard è in secondo piano, trydash ti avvisa quando un tunnel ha il suo URL, quando il tuo server smette di rispondere (una volta per interruzione) e quando `cloudflared` termina o un tunnel scade. Un clic sulla notifica ti porta a quel tunnel. 🔔 le spegne. La scelta resta nel tuo browser.

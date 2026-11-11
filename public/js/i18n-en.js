@@ -247,5 +247,8 @@
     'ui.notify.ready': 'Tunnel ready',
     'ui.notify.turnOff': 'Notifications on: click to turn them off',
     'ui.notify.turnOn': 'Notify me when a tunnel is ready or something goes wrong',
+    'ui.qr.button': 'QR code of the URL',
+    'ui.qr.close': 'Close',
+    'ui.qr.scan': 'Scan with your phone',
   };
 })(globalThis);

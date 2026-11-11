@@ -859,3 +859,20 @@ test('notifications: opt-in, only in the background, one per outage', async () =
   assert.equal(await N.toggle(), false);
   assert.equal(N.enabled(), false);
 });
+
+test('the QR popover opens for the URL and closes on demand', () => {
+  const { T, host } = domSandbox();
+  T.renderPhase(host, { present: true, version: 'test', platform: 'linux' });
+  assert.equal(T.closeQr(), false);
+  assert.equal(T.openQr(''), false);
+  assert.equal(T.openQr('https://aqua-wolf-1234.trycloudflare.com'), true);
+  const pop = host.querySelector('#qr-pop');
+  assert.equal(pop.hidden, false);
+  assert.equal(pop.dataset.url, 'https://aqua-wolf-1234.trycloudflare.com');
+  const svg = walkAll(pop).find((n) => n.tag === 'svg');
+  assert.equal(svg.attrs.viewBox, '0 0 37 37');   // version 3: 29 modules and a 4-module margin
+  assert.match(textOf(pop), /Inquadra con il telefono/);
+  assert.match(textOf(pop), /aqua-wolf-1234\.trycloudflare\.com/);
+  assert.equal(T.closeQr(), true);
+  assert.equal(pop.hidden, true);
+});

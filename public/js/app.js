@@ -641,8 +641,8 @@
       return;
     }
     if (action === 'theme') {
-      var mode = api.theme.cycle();
-      node.textContent = api.theme.label(mode);
+      api.theme.cycle();
+      api.paintThemeToggle(node);
       return;
     }
     if (action === 'new') {
@@ -656,6 +656,15 @@
     }
     if (action === 'stop' || action === 'restart' || action === 'force-restart' || action === 'remove') {
       sessionAction(action, node).catch(fail);
+      return;
+    }
+    if (action === 'qr') {
+      var withUrl = currentSession();
+      if (!api.closeQr() && withUrl && withUrl.url) api.openQr(withUrl.url);
+      return;
+    }
+    if (action === 'qr-close') {
+      api.closeQr();
       return;
     }
     if (action === 'copy-cmd') {
@@ -693,6 +702,7 @@
     if (node.dataset.session) {
       if (node.dataset.session !== state.currentId) {
         state.currentId = node.dataset.session;
+        api.closeQr();
         resetView();
         writeHash(state.currentId);
         paintShell();
@@ -764,6 +774,10 @@
     var target = event.target || {};
     var typing = target.matches && target.matches('input, textarea, select');
     if (event.key === 'Escape') {
+      if (api.closeQr()) {
+        event.preventDefault();
+        return;
+      }
       if (target.id === 'req-search' && target.value) {
         target.value = '';
         if (state.requests) state.requests.setQuery('');

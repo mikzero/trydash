@@ -21,6 +21,7 @@ export const browserScripts = [
   'public/js/sidebar.js',
   'public/js/warnings.js',
   'public/js/recent-mail.js',
+  'public/js/qr.js',
   'public/js/requests.js',
   'public/js/logview.js',
   'public/js/app.js',

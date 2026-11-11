@@ -48,7 +48,12 @@
     return api.t(LABELS[mode] || LABELS.auto);
   }
 
-  api.theme = { get: get, set: set, cycle: cycle, apply: apply, label: label };
+  // Just the symbol, for the narrow button; the label goes in its tooltip.
+  function icon(mode) {
+    return label(mode).split(' ')[0];
+  }
+
+  api.theme = { get: get, set: set, cycle: cycle, apply: apply, label: label, icon: icon };
 
   // The interface language: the one picked with the EN/IT button, else the browser's.
   var LANG_KEY = 'trydash.lang';

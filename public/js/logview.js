@@ -146,6 +146,10 @@
             h('span', { className: 'ico', 'aria-hidden': 'true', text: '⧉' }),
             h('span', { className: 'lbl', text: api.t('ui.head.copyUrl') }),
           ]),
+          h('button', { type: 'button', id: 'qr-button', className: 'btn', 'aria-label': api.t('ui.qr.button'), title: api.t('ui.qr.button'), 'aria-haspopup': 'dialog', 'aria-controls': 'qr-pop', dataset: { action: 'qr' } }, [
+            h('span', { className: 'ico', 'aria-hidden': 'true', text: '▦' }),
+            h('span', { className: 'lbl', text: 'QR' }),
+          ]),
           h('a', { id: 'open-url', className: 'btn', target: '_blank', rel: 'noopener', 'aria-label': api.t('ui.head.openUrl'), dataset: { action: 'open' } }, [
             h('span', { className: 'lbl', text: api.t('ui.head.open') }),
             h('span', { className: 'ico', 'aria-hidden': 'true', text: '↗' }),
@@ -164,6 +168,7 @@
           ]) : null,
         ]),
       ]),
+      h('div', { id: 'qr-pop', className: 'qr-pop', role: 'dialog', 'aria-label': api.t('ui.qr.button'), hidden: true }),
       h('div', { id: 'tunnel-warnings', className: 'tunnel-warnings', role: 'status' }),
       h('div', { className: 'tabs', role: 'tablist', 'aria-label': api.t('ui.tabs.label') }, [
         h('button', { type: 'button', id: 'tab-log', className: 'tab is-on', role: 'tab', 'aria-selected': 'true', 'aria-controls': 'pane-log', dataset: { action: 'tab', tab: 'log' } }, [
@@ -245,6 +250,32 @@
 
   function el(id) {
     return document.getElementById(id);
+  }
+
+  function openQr(url) {
+    var pop = el('qr-pop');
+    if (!pop || !url) return false;
+    var h = api.h;
+    pop.dataset.url = url;
+    pop.replaceChildren(
+      h('div', { className: 'detail-head' }, [
+        h('p', { className: 'k', text: api.t('ui.qr.scan') }),
+        h('button', { type: 'button', className: 'link-btn', 'aria-label': api.t('ui.qr.close'), text: '✕', dataset: { action: 'qr-close' } }),
+      ]),
+      h('div', { className: 'qr-code' }, [api.buildQrSvg(url)]),
+      h('p', { className: 'qr-url mono', text: url.replace(/^https?:\/\//, '') })
+    );
+    pop.hidden = false;
+    return true;
+  }
+
+  function closeQr() {
+    var pop = el('qr-pop');
+    if (!pop || pop.hidden) return false;
+    pop.hidden = true;
+    pop.replaceChildren();
+    pop.dataset.url = '';
+    return true;
   }
 
   // "1 h 12 min", "3 min", "<1 min": coarse on purpose, the header repaints every second.
@@ -544,6 +575,11 @@
       }
       var copy = document.querySelector('[data-action="copy-url"]');
       if (copy) copy.disabled = !session.url;
+      var qrButton = el('qr-button');
+      if (qrButton) qrButton.disabled = !session.url;
+      var pop = el('qr-pop');
+      // A QR for an old URL is worse than none: it closes when the URL changes.
+      if (pop && !pop.hidden && pop.dataset.url !== (session.url || '')) closeQr();
       var stop = document.querySelector('[data-action="stop"]');
       var restart = document.querySelector('[data-action="restart"]');
       if (stop) stop.hidden = !session.active;
@@ -740,6 +776,8 @@
   api.relativeTime = relativeTime;
   api.buildMain = buildMain;
   api.showTab = showTab;
+  api.openQr = openQr;
+  api.closeQr = closeQr;
   api.buildDetail = buildDetail;
   api.followAfterScroll = followAfterScroll;
   api.createLogView = createLogView;

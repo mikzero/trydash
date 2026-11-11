@@ -243,6 +243,13 @@
     })) : []);
   }
 
+  function paintThemeToggle(button) {
+    var full = api.t('ui.side.theme') + ': ' + api.theme.label(api.theme.get());
+    button.textContent = api.theme.icon(api.theme.get());
+    button.title = full;
+    button.setAttribute('aria-label', full);
+  }
+
   function buildSidebar(vm) {
     var h = api.h;
     var version = vm.workspace && vm.workspace.version ? vm.workspace.version : '';
@@ -252,14 +259,16 @@
           h('img', { src: 'logo.svg', alt: '', width: '22', height: '22', className: 'brand-logo' }),
           h('span', { text: 'trydash' }),
         ]),
-        h('button', {
-          type: 'button',
-          id: 'theme-toggle',
-          className: 'theme-toggle',
-          title: api.t('ui.side.theme'),
-          text: api.theme ? api.theme.label(api.theme.get()) : '◐ auto',
-          dataset: { action: 'theme' },
-        }),
+        h('div', { className: 'brand-tools' }, [
+          h('button', {
+            type: 'button',
+            id: 'theme-toggle',
+            className: 'theme-toggle',
+            title: api.t('ui.side.theme') + ': ' + (api.theme ? api.theme.label(api.theme.get()) : '◐ auto'),
+            'aria-label': api.t('ui.side.theme') + ': ' + (api.theme ? api.theme.label(api.theme.get()) : '◐ auto'),
+            text: api.theme ? api.theme.icon(api.theme.get()) : '◐',
+            dataset: { action: 'theme' },
+          }),
         h('button', {
           type: 'button',
           id: 'notify-toggle',
@@ -279,6 +288,7 @@
           text: api.lang === 'it' ? 'IT' : 'EN',
           dataset: { action: 'lang' },
         }),
+        ]),
       ]),
       h('div', { id: 'new-tunnel', className: 'new-tunnel' }, [
         h('button', {
@@ -394,7 +404,7 @@
     var empty = document.getElementById('tunnel-list-empty');
     if (empty) empty.hidden = state.sessions.length > 0;
     var toggle = document.getElementById('theme-toggle');
-    if (toggle && api.theme) toggle.textContent = api.theme.label(api.theme.get());
+    if (toggle && api.theme) paintThemeToggle(toggle);
   }
 
   api.shortOrigin = shortOrigin;
@@ -412,4 +422,5 @@
   api.previewCommand = previewCommand;
   api.refreshCreateForm = refreshCreateForm;
   api.paintPortHints = paintPortHints;
+  api.paintThemeToggle = paintThemeToggle;
 })(globalThis);

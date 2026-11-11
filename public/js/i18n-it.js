@@ -247,5 +247,8 @@
     'ui.notify.ready': 'Tunnel pronto',
     'ui.notify.turnOff': 'Notifiche attive: clic per spegnerle',
     'ui.notify.turnOn': 'Avvisami con una notifica quando un tunnel è pronto o qualcosa non va',
+    'ui.qr.button': 'Codice QR dell’URL',
+    'ui.qr.close': 'Chiudi',
+    'ui.qr.scan': 'Inquadra con il telefono',
   };
 })(globalThis);

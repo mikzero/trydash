@@ -365,6 +365,10 @@ h2 { margin: 0; font-size: 13px; font-weight: 600; }
 
 .theme-toggle:hover { color: var(--text); border-color: var(--faint); }
 
+.brand-tools { display: flex; align-items: center; gap: 4px; flex: none; }
+
+.brand-tools .theme-toggle { min-width: 28px; padding: 1px 7px; white-space: nowrap; }
+
 .new-tunnel { margin: 0 12px 12px; }
 
 .new-toggle {
@@ -387,7 +391,8 @@ h2 { margin: 0; font-size: 13px; font-weight: 600; }
 
 .new-tunnel.is-open .new-toggle { border-style: solid; color: var(--text); }
 
-.create-form { display: grid; gap: 6px; }
+/* minmax(0, 1fr): the narrow sidebar must not be widened by its longest child. */
+.create-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
 
 .create-row { display: flex; gap: 6px; }
 
@@ -531,6 +536,7 @@ h2 { margin: 0; font-size: 13px; font-weight: 600; }
 }
 
 .tunnel-head {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -968,6 +974,35 @@ mark { background: var(--mark); color: var(--mark-t); border-radius: 2px; paddin
 
 .req-detail .body-text { background: var(--card); font-size: 11.5px; max-height: 360px; overflow: auto; }
 
+/* ── QR code ─────────────────────────────────────────── */
+.tunnel-view { position: relative; }
+
+.qr-pop {
+  position: absolute;
+  top: 64px;
+  right: 20px;
+  z-index: 30;
+  width: 248px;
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: var(--pop);
+}
+
+.qr-code { border-radius: 8px; overflow: hidden; }
+
+.qr-code svg { display: block; width: 100%; height: auto; }
+
+/* Dark on light in both themes: many scanners do not read inverted codes. */
+.qr-bg { fill: #ffffff; }
+
+.qr-fg { fill: #000000; }
+
+.qr-url { margin: 0; font-size: 11px; color: var(--muted); overflow-wrap: anywhere; text-align: center; }
+
 /* ── Traffic, protection badges, warnings ───────────── */
 .lock, .tls-off { font-size: 11px; line-height: 1; }
 .tls-off { color: var(--w); }
@@ -1083,4 +1118,6 @@ mark { background: var(--mark); color: var(--mark-t); border-radius: 2px; paddin
   }
 
   .toasts { left: 16px; right: 16px; justify-items: stretch; }
+
+  .qr-pop { top: 56px; right: 16px; left: 16px; width: auto; max-width: 320px; margin-left: auto; }
 }
