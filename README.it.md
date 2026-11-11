@@ -36,6 +36,10 @@
 
 ## Funzioni
 
+### Notifiche
+
+Il pulsante 🔕 nella sidebar attiva le notifiche del browser (prima il browser chiede il permesso). Mentre la scheda della dashboard è in secondo piano, trydash ti avvisa quando un tunnel ha il suo URL, quando il tuo server smette di rispondere (una volta per interruzione) e quando `cloudflared` termina o un tunnel scade. Un clic sulla notifica ti porta a quel tunnel. 🔔 le spegne. La scelta resta nel tuo browser.
+
 ### Porte in ascolto
 
 Sotto il campo, “in ascolto:” propone i server di sviluppo avviati sul tuo computer, come `:5173 · Vite` o `:3000 · Next.js`: un clic riempie il campo. trydash prova solo le porte di sviluppo più comuni (3000, 4200, 5173, 8000, 8080…) con una semplice connessione TCP, così nei loro log non compare niente. Un server in ascolto solo su IPv6 (`::1`) viene proposto come `http://[::1]:5173`. Una porta già in un tunnel attivo appare sbiadita. Nell’API è `GET /api/ports`.

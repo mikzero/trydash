@@ -262,6 +262,16 @@
         }),
         h('button', {
           type: 'button',
+          id: 'notify-toggle',
+          className: 'theme-toggle',
+          hidden: !(api.notifications && api.notifications.supported()),
+          title: api.t(api.notifications && api.notifications.enabled() ? 'ui.notify.turnOff' : 'ui.notify.turnOn'),
+          'aria-pressed': api.notifications && api.notifications.enabled() ? 'true' : 'false',
+          text: api.notifications && api.notifications.enabled() ? '🔔' : '🔕',
+          dataset: { action: 'notify' },
+        }),
+        h('button', {
+          type: 'button',
           id: 'lang-toggle',
           className: 'theme-toggle',
           title: api.t('ui.lang'),

@@ -254,10 +254,33 @@
     disarm();
   }
 
+  function paintNotifyToggle() {
+    var button = document.getElementById('notify-toggle');
+    if (!button || !api.notifications) return;
+    var on = api.notifications.enabled();
+    button.textContent = on ? '🔔' : '🔕';
+    button.title = api.t(on ? 'ui.notify.turnOff' : 'ui.notify.turnOn');
+    button.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+
   function announceTransitions(sessions) {
     var next = {};
+    var nowMs = Date.now();
     sessions.forEach(function (session) {
       var prev = state.prevById[session.id];
+      if (api.notifications) {
+        api.notifications.noticesFor(prev, session, nowMs).forEach(function (notice) {
+          api.notifications.show(notice.title, notice.body, {
+            tag: session.id + ':' + notice.kind,
+            onClick: function () {
+              state.currentId = session.id;
+              resetView();
+              writeHash(session.id);
+              paintShell();
+            },
+          });
+        });
+      }
       if (prev && prev.status !== session.status) {
         if (session.status === 'running' && session.url) notify(api.t('ui.toast.newUrl', { url: session.url }));
         if (session.status === 'stopped' && session.expired) notify(api.t('ui.toast.expired'));
@@ -265,7 +288,7 @@
           notify(api.t('ui.toast.exited', { code: session.exitCode == null ? '?' : session.exitCode }), 'error');
         }
       }
-      next[session.id] = { status: session.status };
+      next[session.id] = { status: session.status, lastOriginError: session.lastOriginError };
     });
     state.prevById = next;
   }
@@ -602,6 +625,13 @@
     }
     if (action === 'menu-close') {
       closeNav();
+      return;
+    }
+    if (action === 'notify') {
+      api.notifications.toggle().then(function (on) {
+        paintNotifyToggle();
+        notify(api.t(on ? 'ui.notify.nowOn' : (typeof Notification === 'function' && Notification.permission === 'denied' ? 'ui.notify.denied' : 'ui.notify.nowOff')));
+      });
       return;
     }
     if (action === 'lang') {

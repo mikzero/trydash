@@ -802,3 +802,60 @@ test('port suggestions fill the origin field', () => {
   assert.equal(chips[1].attrs.title, 'già in un tunnel attivo');
   assert.match(textOf(hints), /in ascolto:/);
 });
+
+test('notifications: opt-in, only in the background, one per outage', async () => {
+  const { T, sandbox } = domSandbox();
+  const shown = [];
+  class FakeNotification {
+    constructor(title, opts) { this.title = title; this.opts = opts; shown.push(this); }
+    close() { this.closed = true; }
+    static requestPermission() { return Promise.resolve(FakeNotification.answer); }
+  }
+  FakeNotification.permission = 'default';
+  FakeNotification.answer = 'denied';
+  const store = new Map();
+  sandbox.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)) };
+  const N = T.notifications;
+  assert.equal(N.supported(), false);
+  sandbox.Notification = FakeNotification;
+  assert.equal(N.supported(), true);
+  assert.equal(N.enabled(), false);
+  assert.equal(await N.toggle(), false);
+  assert.equal(store.get('trydash.notify'), 'off');
+  FakeNotification.answer = 'granted';
+  FakeNotification.requestPermission = () => { FakeNotification.permission = 'granted'; return Promise.resolve('granted'); };
+  assert.equal(await N.toggle(), true);
+  assert.equal(N.enabled(), true);
+  assert.equal(store.get('trydash.notify'), 'on');
+
+  sandbox.document.hidden = false;
+  sandbox.document.hasFocus = () => true;
+  assert.equal(N.show('t', 'b'), null);
+  sandbox.document.hidden = true;
+  const note = N.show('Tunnel pronto', 'https://a.trycloudflare.com', { tag: 's1:ready' });
+  assert.equal(note.opts.tag, 's1:ready');
+  let clicked = false;
+  const other = N.show('x', 'y', { onClick: () => { clicked = true; } });
+  other.onclick();
+  assert.equal(clicked, true);
+  assert.equal(other.closed, true);
+
+  const base = { id: 's1', mode: 'origin', origin: 'http://127.0.0.1:3000', active: true, status: 'starting', url: null, lastOriginError: null, options: {} };
+  const now = Date.parse('2026-11-11T10:00:00Z');
+  assert.deepEqual(N.noticesFor(null, base, now).length, 0);
+  const ready = N.noticesFor(base, { ...base, status: 'running', url: 'https://a.trycloudflare.com' }, now);
+  assert.deepEqual(JSON.parse(JSON.stringify(ready.map((n) => [n.kind, n.title, n.body]))), [['ready', 'Tunnel pronto', 'https://a.trycloudflare.com']]);
+  const running = { ...base, status: 'running', url: 'https://a.trycloudflare.com' };
+  const down = { ...running, lastOriginError: { at: '2026-11-11T09:59:50Z', message: 'x' } };
+  const firstDown = N.noticesFor(running, down, now);
+  assert.equal(firstDown[0].kind, 'origin-down');
+  assert.match(firstDown[0].body, /Il tuo server su :3000 non risponde/);
+  assert.equal(N.noticesFor(down, { ...down, lastOriginError: { at: '2026-11-11T09:59:55Z' } }, now).length, 0, 'same outage');
+  assert.equal(N.noticesFor(down, { ...down, lastOriginError: { at: '2026-11-11T10:01:30Z' } }, Date.parse('2026-11-11T10:01:31Z')).length, 1, 'a new outage');
+  assert.equal(N.noticesFor(running, { ...running, status: 'exited', active: false }, now)[0].kind, 'exited');
+  assert.equal(N.noticesFor(running, { ...running, status: 'stopped', active: false, expired: true }, now)[0].kind, 'expired');
+  assert.equal(N.noticesFor(running, { ...running, status: 'stopped', active: false }, now).length, 0);
+
+  assert.equal(await N.toggle(), false);
+  assert.equal(N.enabled(), false);
+});

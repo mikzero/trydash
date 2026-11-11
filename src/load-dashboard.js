@@ -17,6 +17,7 @@ export const browserScripts = [
   'public/js/dom.js',
   'public/js/theme.js',
   'public/js/toast.js',
+  'public/js/notify.js',
   'public/js/sidebar.js',
   'public/js/warnings.js',
   'public/js/recent-mail.js',

@@ -38,6 +38,10 @@ The interface is in English and Italian: it follows your browser, and the **EN**
 
 ## Features
 
+### Notifications
+
+The 🔕 button in the sidebar turns on browser notifications (the browser asks first). While the dashboard tab is in the background, trydash tells you when a tunnel has its URL, when your server stops answering (once per outage) and when `cloudflared` exits or a tunnel expires. A click on the notification brings you to that tunnel. 🔔 turns them off. The choice stays in your browser.
+
 ### Listening ports
 
 Under the field, “listening:” suggests the development servers running on your computer, like `:5173 · Vite` or `:3000 · Next.js`: a click fills the field. trydash only tries the usual development ports (3000, 4200, 5173, 8000, 8080…) with a plain TCP connection, so nothing shows up in their logs. A server listening only on IPv6 (`::1`) is suggested as `http://[::1]:5173`. A port already in a live tunnel is shown faded. The API has it as `GET /api/ports`.

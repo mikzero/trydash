@@ -238,5 +238,14 @@
     'ui.req.edit': '✎ Modifica e rimanda',
     'ui.ports.busy': 'già in un tunnel attivo',
     'ui.ports.label': 'in ascolto:',
+    'ui.notify.denied': 'Il browser blocca le notifiche per questa pagina: puoi sbloccarle dalle impostazioni del sito',
+    'ui.notify.exited': 'cloudflared è terminato',
+    'ui.notify.expired': 'Tunnel scaduto',
+    'ui.notify.nowOff': 'Notifiche spente',
+    'ui.notify.nowOn': 'Notifiche attive: arrivano quando trydash è in secondo piano',
+    'ui.notify.originDown': 'Origine non raggiungibile',
+    'ui.notify.ready': 'Tunnel pronto',
+    'ui.notify.turnOff': 'Notifiche attive: clic per spegnerle',
+    'ui.notify.turnOn': 'Avvisami con una notifica quando un tunnel è pronto o qualcosa non va',
   };
 })(globalThis);

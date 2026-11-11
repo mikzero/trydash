@@ -238,5 +238,14 @@
     'ui.req.edit': '✎ Edit and replay',
     'ui.ports.busy': 'already in a live tunnel',
     'ui.ports.label': 'listening:',
+    'ui.notify.denied': 'The browser blocks notifications for this page: you can allow them in the site settings',
+    'ui.notify.exited': 'cloudflared exited',
+    'ui.notify.expired': 'Tunnel expired',
+    'ui.notify.nowOff': 'Notifications off',
+    'ui.notify.nowOn': 'Notifications on: they arrive while trydash is in the background',
+    'ui.notify.originDown': 'Origin not reachable',
+    'ui.notify.ready': 'Tunnel ready',
+    'ui.notify.turnOff': 'Notifications on: click to turn them off',
+    'ui.notify.turnOn': 'Notify me when a tunnel is ready or something goes wrong',
   };
 })(globalThis);
