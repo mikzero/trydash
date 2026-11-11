@@ -43,6 +43,12 @@
     <symbol id="i-traffic" viewBox="0 0 24 24"><path d="M3 12h4l2.5-6 5 12L17 12h4"/></symbol>
     <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
     <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17h.01"/></symbol>
+    <symbol id="i-inspect" viewBox="0 0 24 24"><path d="M4 6h9M4 10h6M4 14h5"/><circle cx="15.5" cy="14.5" r="4"/><path d="M18.5 17.5 21 20"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2.5h7.5A2.5 2.5 0 0 1 21 10v6.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5z"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M7 9l3 3-3 3M12 15h5"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+    <symbol id="i-qr" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2h-2zM18 14h2M14 18h2M18 18h2v2"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></symbol>
     <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
     <symbol id="i-github" viewBox="0 0 24 24"><path d="M9 19c-4 1.5-4-2-6-2.5M15 21v-3.5a3 3 0 0 0-.9-2.4c3-.3 6-1.4 6-6.5a5 5 0 0 0-1.4-3.5 4.6 4.6 0 0 0-.1-3.5s-1.1-.3-3.6 1.4a12.4 12.4 0 0 0-6.4 0C6.1 1.3 5 1.6 5 1.6a4.6 4.6 0 0 0-.1 3.5A5 5 0 0 0 3.5 8.6c0 5.1 3 6.2 6 6.5a3 3 0 0 0-.9 2.3V21"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M4 4h4.5L20 20h-4.5zM19.5 4l-6.3 7.2M10.8 12.8 4.5 20"/></symbol>
@@ -70,7 +76,7 @@
         <p class="eyebrow"><span class="pulse" aria-hidden="true"></span><span id="eyebrow-text">Free software · GPL-3.0</span></p>
         <h1>Your TryCloudflare quick tunnels,<br>in one dashboard.</h1>
         <p class="lead">
-          Expose a dev service in one click, keep an eye on every tunnel and read their logs in one place.
+          Expose a dev service or a folder in one click, see every request that comes in, and follow all your tunnels and their logs in one place.
           A single executable for Linux, macOS and Windows: nothing to install besides <code>cloudflared</code>.
         </p>
         <div class="cta">
@@ -89,7 +95,7 @@
               <aside class="d-side">
                 <div class="d-brand"><img src="images/logo.svg" alt="" width="16" height="16">trydash</div>
                 <div class="d-form">
-                  <div class="d-input"><span class="d-typed" data-el="port"></span><span class="d-caret"></span><span class="d-ph" data-el="ph">Port or URL</span></div>
+                  <div class="d-input"><span class="d-typed" data-el="port"></span><span class="d-caret"></span><span class="d-ph" data-el="ph">Port, URL or folder</span></div>
                   <div class="d-create" data-el="create">Create</div>
                 </div>
                 <div class="d-session" data-el="session">
@@ -117,7 +123,7 @@
             </div>
             <div class="d-term" data-el="term">
               <div class="d-tline"><span class="d-prompt">$</span> <span data-el="cmd"></span><span class="d-caret light"></span></div>
-              <div class="d-tline d-tout" data-el="tout">trydash 1.0.0 · <u>http://127.0.0.1:8787</u></div>
+              <div class="d-tline d-tout" data-el="tout">trydash 2.0.0 · <u>http://127.0.0.1:8787/?token=…</u></div>
             </div>
             <div class="d-toast" data-el="toast">✓ URL copied</div>
             <svg class="d-cursor" data-el="cursor" viewBox="0 0 16 20"><path d="M1 1l13 10.5-6 .6 3.6 6.4-2.6 1.3-3.5-6.5L1 17z"/></svg>
@@ -140,6 +146,44 @@
           with several terminals to watch, URLs to copy around and logs that are hard to read.
           trydash starts and manages quick tunnels for you.
         </p>
+      </div>
+    </section>
+
+    <section id="new" class="features new" data-mascot-mood="party" data-mascot="New in 2.0: try the request inspector!">
+      <div class="wrap">
+        <h2>New in 2.0</h2>
+        <div class="grid">
+          <article class="card reveal">
+            <span class="ico" aria-hidden="true"><svg><use href="#i-inspect"/></svg></span>
+            <h3>Request inspector</h3>
+            <p>Every request through the tunnel, with headers and body. Replay it, edit it first, or copy it as <code>curl</code>: made for webhooks.</p>
+          </article>
+          <article class="card reveal">
+            <span class="ico" aria-hidden="true"><svg><use href="#i-folder"/></svg></span>
+            <h3>Publish a folder</h3>
+            <p>Type <code>~/site/dist</code> instead of a port: trydash serves the folder itself, no local server needed. Hidden files stay out.</p>
+          </article>
+          <article class="card reveal">
+            <span class="ico" aria-hidden="true"><svg><use href="#i-terminal"/></svg></span>
+            <h3>Command line</h3>
+            <p><code>trydash 3000</code> opens the tunnel and the dashboard in your browser, ready for a <code>package.json</code> script.</p>
+          </article>
+          <article class="card reveal">
+            <span class="ico" aria-hidden="true"><svg><use href="#i-clock"/></svg></span>
+            <h3>Expiry and saved tunnels</h3>
+            <p>A tunnel can stop by itself after 30 minutes or a day. Your tunnels come back, stopped, the next time you start trydash.</p>
+          </article>
+          <article class="card reveal">
+            <span class="ico" aria-hidden="true"><svg><use href="#i-qr"/></svg></span>
+            <h3>QR code and notifications</h3>
+            <p>Scan the URL with your phone. Get a browser notification when a tunnel is ready or your server stops answering.</p>
+          </article>
+          <article class="card reveal">
+            <span class="ico" aria-hidden="true"><svg><use href="#i-lock"/></svg></span>
+            <h3>Safer by default</h3>
+            <p>An access token at every start, no framing by other sites, tunnels that really stop. The interface speaks English and Italian.</p>
+          </article>
+        </div>
       </div>
     </section>
 
@@ -181,10 +225,10 @@
         <figure class="shot reveal">
           <picture>
             <source media="(prefers-color-scheme: dark)" srcset="images/screenshot-dark.png">
-            <img src="images/screenshot-light.png" width="1280" height="720" alt="trydash: the tunnel list on the left, the selected tunnel’s logs in the middle, the details of one line on the right">
+            <img src="images/screenshot-light.png" width="1280" height="720" alt="trydash: the tunnel list on the left, the requests of the selected tunnel in the middle, the headers and body of one request on the right">
           </picture>
         </figure>
-        <p class="also">Plus: a Hello World test without a local server, stopped tunnels you can still read, light and dark themes, a mobile layout and keyboard shortcuts. The interface is in Italian; error messages follow your browser, in English or Italian.</p>
+        <p class="also">Plus: the development servers running on your computer suggested in the form, a Hello World test without a local server, stopped tunnels you can still read, light and dark themes, a mobile layout and keyboard shortcuts. The interface follows your browser, in English or Italian.</p>
       </div>
     </section>
 
@@ -201,20 +245,20 @@
             <table class="files">
               <thead><tr><th scope="col">System</th><th scope="col">File</th></tr></thead>
               <tbody>
-                <tr><td>Linux x64</td><td><a data-suffix="linux-x64" href="https://github.com/mikzero/trydash/releases/download/v1.0.0/trydash-1.0.0-linux-x64"><code>trydash-<span class="v">1.0.0</span>-linux-x64</code></a></td></tr>
-                <tr><td>Linux ARM64</td><td><a data-suffix="linux-arm64" href="https://github.com/mikzero/trydash/releases/download/v1.0.0/trydash-1.0.0-linux-arm64"><code>trydash-<span class="v">1.0.0</span>-linux-arm64</code></a></td></tr>
-                <tr><td>macOS Apple Silicon</td><td><a data-suffix="darwin-arm64" href="https://github.com/mikzero/trydash/releases/download/v1.0.0/trydash-1.0.0-darwin-arm64"><code>trydash-<span class="v">1.0.0</span>-darwin-arm64</code></a></td></tr>
-                <tr><td>macOS Intel</td><td><a data-suffix="darwin-x64" href="https://github.com/mikzero/trydash/releases/download/v1.0.0/trydash-1.0.0-darwin-x64"><code>trydash-<span class="v">1.0.0</span>-darwin-x64</code></a></td></tr>
-                <tr><td>Windows x64</td><td><a data-suffix="windows-x64.exe" href="https://github.com/mikzero/trydash/releases/download/v1.0.0/trydash-1.0.0-windows-x64.exe"><code>trydash-<span class="v">1.0.0</span>-windows-x64.exe</code></a></td></tr>
+                <tr><td>Linux x64</td><td><a data-suffix="linux-x64" href="https://github.com/mikzero/trydash/releases/download/v2.0.0/trydash-2.0.0-linux-x64"><code>trydash-<span class="v">2.0.0</span>-linux-x64</code></a></td></tr>
+                <tr><td>Linux ARM64</td><td><a data-suffix="linux-arm64" href="https://github.com/mikzero/trydash/releases/download/v2.0.0/trydash-2.0.0-linux-arm64"><code>trydash-<span class="v">2.0.0</span>-linux-arm64</code></a></td></tr>
+                <tr><td>macOS Apple Silicon</td><td><a data-suffix="darwin-arm64" href="https://github.com/mikzero/trydash/releases/download/v2.0.0/trydash-2.0.0-darwin-arm64"><code>trydash-<span class="v">2.0.0</span>-darwin-arm64</code></a></td></tr>
+                <tr><td>macOS Intel</td><td><a data-suffix="darwin-x64" href="https://github.com/mikzero/trydash/releases/download/v2.0.0/trydash-2.0.0-darwin-x64"><code>trydash-<span class="v">2.0.0</span>-darwin-x64</code></a></td></tr>
+                <tr><td>Windows x64</td><td><a data-suffix="windows-x64.exe" href="https://github.com/mikzero/trydash/releases/download/v2.0.0/trydash-2.0.0-windows-x64.exe"><code>trydash-<span class="v">2.0.0</span>-windows-x64.exe</code></a></td></tr>
               </tbody>
             </table>
-            <p class="small">Check the file with <a data-file="SHA256SUMS" href="https://github.com/mikzero/trydash/releases/download/v1.0.0/SHA256SUMS"><code>SHA256SUMS</code></a>: <code>sha256sum -c SHA256SUMS --ignore-missing</code></p>
+            <p class="small">Check the file with <a data-file="SHA256SUMS" href="https://github.com/mikzero/trydash/releases/download/v2.0.0/SHA256SUMS"><code>SHA256SUMS</code></a>: <code>sha256sum -c SHA256SUMS --ignore-missing</code></p>
           </li>
           <li>
             <h3>Run it</h3>
 <pre><code>chmod +x trydash-*-linux-x64     # Linux and macOS
-./trydash-*-linux-x64</code></pre>
-            <p>Open the address it prints, usually <code>http://127.0.0.1:8787</code>, type your service’s port and press <strong>Crea</strong> (“Create”). On Windows, just run the <code>.exe</code> file.</p>
+./trydash-*-linux-x64            # or: ./trydash-*-linux-x64 3000</code></pre>
+            <p>The dashboard opens in your browser, with its access token. Type your service’s port, or a folder, and press <strong>Create</strong>; with <code>3000</code> after the command, the tunnel starts right away. Without a browser, open the address it prints, like <code>http://127.0.0.1:8787/?token=…</code>. On Windows, just run the <code>.exe</code> file.</p>
             <p class="small">The binaries aren’t signed. On macOS, lift the Gatekeeper block with <code>xattr -d com.apple.quarantine trydash-*</code>; on Windows, if SmartScreen shows up, choose “More info” and then “Run anyway”.</p>
           </li>
         </ol>
@@ -222,7 +266,7 @@
       </div>
     </section>
 
-    <section class="notes" data-mascot="Don’t use HTTP/3. The 1.0.0 binaries don’t have the fix yet.">
+    <section class="notes" data-mascot="Open the link with the token: the dashboard answers only to you.">
       <div class="wrap two">
         <div>
           <h2>Good to know about quick tunnels</h2>
@@ -236,18 +280,18 @@
         <div>
           <h2>Security</h2>
           <ul>
-            <li>the dashboard only listens on <code>127.0.0.1</code>;</li>
-            <li>don’t use HTTP/3: the server stays on HTTP/1.1. The 1.0.0 binaries embed Bun 1.4.2, without the QPACK fix;</li>
-            <li>other pages open in your browser can’t control it;</li>
-            <li>no accounts, tokens or credentials: logs stay in memory;</li>
-            <li>a tunnel makes the service you expose public: protect it with email access.</li>
+            <li>the dashboard only listens on <code>127.0.0.1</code> and answers only with the token it prints at start-up;</li>
+            <li>other sites can’t control it or show it inside their pages;</li>
+            <li>the server stays on HTTP/1.1. The 2.0.0 binaries embed Bun 1.4.4, with the QPACK fix;</li>
+            <li>no accounts: logs and inspected requests stay in memory, saved tunnels keep only their settings;</li>
+            <li>a tunnel makes the service you expose public: protect it with email access or an expiry.</li>
           </ul>
         </div>
       </div>
     </section>
   </main>
 
-  <footer class="foot" data-mascot="Bye! See you on the other side of the tunnel.">
+  <footer class="foot" data-mascot-mood="wave" data-mascot="Bye! See you on the other side of the tunnel.">
     <div class="wrap">
       <nav class="social" aria-label="Author">
         <a href="https://x.com/mikvise" rel="me noopener" target="_blank"><svg aria-hidden="true"><use href="#i-x"/></svg>@mikvise</a>
@@ -262,11 +306,13 @@
 
   <div class="mascot" id="mascot">
     <p class="bubble" id="bubble" aria-hidden="true"></p>
+    <span class="fx" id="fx" aria-hidden="true"></span>
     <button type="button" class="mascot-btn" id="mascot-btn" aria-label="Inari Bash: tap for a tip">
-      <picture>
+      <span class="fox-shadow" aria-hidden="true"></span>
+      <span class="fox-lean"><span class="fox"><picture>
         <source type="image/webp" srcset="images/volpina-wave-footer-200-dark.webp 200w, images/volpina-wave-footer-800-dark.webp 800w" sizes="(max-width: 560px) 76px, 120px">
         <img class="volpina" src="images/volpina-wave-footer-200-dark.png" srcset="images/volpina-wave-footer-200-dark.png 200w, images/volpina-wave-footer-800-dark.png 800w" sizes="(max-width: 560px) 76px, 120px" width="120" height="120" alt="">
-      </picture>
+      </picture></span></span>
     </button>
   </div>
 

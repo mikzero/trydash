@@ -16,7 +16,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="site/images/screenshot-dark.png">
-    <img src="site/images/screenshot-light.png" alt="trydash: elenco dei tunnel a sinistra, log del tunnel selezionato al centro, dettaglio di una riga a destra" width="880">
+    <img src="site/images/screenshot-light.png" alt="trydash: elenco dei tunnel a sinistra, richieste del tunnel selezionato al centro, header e body di una richiesta a destra" width="880">
   </picture>
 </p>
 
@@ -157,9 +157,9 @@ Il modo più semplice è l’eseguibile già pronto: un unico file, senza Bun n�
 3. Avvialo:
 
    ```sh
-   chmod +x trydash-1.0.0-linux-x64          # Linux e macOS
-   xattr -d com.apple.quarantine trydash-1.0.0-darwin-arm64   # solo macOS, vedi sotto
-   ./trydash-1.0.0-linux-x64
+   chmod +x trydash-2.0.0-linux-x64          # Linux e macOS
+   xattr -d com.apple.quarantine trydash-2.0.0-darwin-arm64   # solo macOS, vedi sotto
+   ./trydash-2.0.0-linux-x64
    ```
 
    Su Windows basta avviare il file `.exe`, da un terminale o con doppio clic.
@@ -253,7 +253,7 @@ I quick tunnel sono pensati per **test e sviluppo**. Dalla [documentazione Cloud
 
 - La dashboard ascolta solo su `127.0.0.1`, quindi non è raggiungibile da altre macchine.
 - **L’API richiede un token**, così altri utenti e programmi sullo stesso computer non possono aprire tunnel né leggere le richieste ispezionate. trydash stampa all’avvio l’indirizzo con il token: aprirlo salva il token in un cookie `HttpOnly` e `SameSite=Strict` e lo toglie dalla barra degli indirizzi. Gli script lo mandano come `Authorization: Bearer <token>`. Senza token l’API risponde `401` e la pagina spiega cosa fare. Con `TRYDASH_TOKEN` il token resta fisso.
-- HTTP/3 resta spento. trydash ascolta con `node:http` su TCP. Bun serve HTTP/3 solo da `Bun.serve`, con `http3` a true e un certificato TLS, e in quel caso le risposte annunciano `Alt-Svc`. `fetch()` e `Bun.serve()` lasciano HTTP/3 spento se il chiamante non lo chiede. Le build di release incorporano Bun 1.4.4. Quella release conta la dimensione degli header decodificati come dice RFC 9114 §4.2.2, per `Bun.serve({ http3: true })` e per `fetch` con `protocol: "http3"`. Il limite del server è `--max-http-header-size`, 16 KB di default, e una richiesta oltre quel limite riceve lo stato `431`. È la correzione del bug di amplificazione QPACK delle release Bun precedenti ([FoxIO, ottobre 2026](https://foxio.io/blog/header-accordions-qpack-amplification-attacks-against-http-3-servers)). La stessa release porta il decoder Brotli a 1.2.1, con la correzione di CVE-2026-111497. I binari pubblicati di trydash 1.0.0 incorporano Bun 1.4.2, quindi non hanno nessuna delle due correzioni. Non passare `http3: true` su un binario 1.0.0.
+- HTTP/3 resta spento. trydash ascolta con `node:http` su TCP. Bun serve HTTP/3 solo da `Bun.serve`, con `http3` a true e un certificato TLS, e in quel caso le risposte annunciano `Alt-Svc`. `fetch()` e `Bun.serve()` lasciano HTTP/3 spento se il chiamante non lo chiede. Le build di release incorporano Bun 1.4.4. Quella release conta la dimensione degli header decodificati come dice RFC 9114 §4.2.2, per `Bun.serve({ http3: true })` e per `fetch` con `protocol: "http3"`. Il limite del server è `--max-http-header-size`, 16 KB di default, e una richiesta oltre quel limite riceve lo stato `431`. È la correzione del bug di amplificazione QPACK delle release Bun precedenti ([FoxIO, ottobre 2026](https://foxio.io/blog/header-accordions-qpack-amplification-attacks-against-http-3-servers)). La stessa release porta il decoder Brotli a 1.2.1, con la correzione di CVE-2026-111497. I binari di trydash 2.0.0 incorporano Bun 1.4.4 e hanno entrambe le correzioni; i binari 1.0.0 incorporano Bun 1.4.2 e non ne hanno nessuna, quindi non passare `http3: true` su un binario 1.0.0.
 - Le altre pagine aperte nel browser non possono comandarla. Le richieste con un `Host` diverso da `127.0.0.1`/`localhost` vengono rifiutate, e questo blocca il DNS rebinding. Lo stesso vale per le richieste di modifica (`POST`, `DELETE`) con un `Origin` di un altro sito, e per ogni chiamata all’API, `GET` compresa, che il browser segna come proveniente da un’altra pagina (`Sec-Fetch-Site` diverso da `same-origin`), anche da un’altra porta di `127.0.0.1`. Gli script locali senza questi header, come `curl`, continuano a funzionare.
 - La dashboard non si può mostrare dentro un’altra pagina (`frame-ancestors 'none'`, `X-Frame-Options: DENY`), così un altro sito non può farti cliccare i suoi pulsanti di nascosto. La sua `Content-Security-Policy` ammette solo i suoi script e i suoi stili.
 - **Fermare un tunnel lo ferma davvero.** **Ferma** e **Rimuovi** mandano `SIGTERM` a `cloudflared`, e `SIGKILL` dopo 5 secondi se è ancora attivo. Dal primo clic il proxy locale del tunnel risponde `503` a tutto ciò che arriva ancora. Chiudendo trydash, si aspetta che i suoi processi `cloudflared` siano terminati.
@@ -304,7 +304,7 @@ Con `"mode": "hello"` l’origine viene ignorata e il tunnel serve la pagina Hel
 
 ```sh
 bun run build                                 # eseguibile per il sistema corrente, in dist/
-bun run build -- --all --version 1.0.0        # tutti e 5 i sistemi
+bun run build -- --all --version 2.0.0        # tutti e 5 i sistemi
 bun run build -- --target bun-linux-arm64     # un sistema preciso
 ```
 
@@ -402,6 +402,8 @@ I tag seguono il [versionamento semantico](https://semver.org/lang/it/), `vMAGGI
 ## Sito
 
 La landing page sta in `site/`: HTML, CSS e JavaScript statici, senza build. È in due lingue: inglese in `site/index.html`, la pagina principale, e italiano in `site/it/index.html`. I testi scritti dagli script stanno in `site/i18n.js`. Un browser in italiano che arriva sulla pagina inglese viene portato su quella italiana, a meno che il visitatore non abbia già scelto una lingua dal selettore EN/IT. Un test controlla che le due pagine abbiano la stessa struttura. Il workflow `.github/workflows/pages.yml` la pubblica su GitHub Pages a ogni push su `main` che la tocca. Per vederla basta aprire `site/index.html` nel browser.
+
+Inari Bash, la volpina nell’angolo, sta in `site/mascot.js`. Dice una frase per sezione (`data-mascot`) e per alcune ha un umore (`data-mascot-mood`: `party` lancia coriandoli, `wave` saluta). Si inclina con lo scorrimento e verso il puntatore, si dimena con dei cuoricini quando la tocchi, e si appisola dopo 25 secondi senza scorrere. È un’unica immagine su livelli sovrapposti (`.fox-lean`, `.fox`, `.volpina` in `site/site.css`), e con “riduci movimento” resta solo il fumetto.
 
 `site/images/logo.svg`, `site/favicon.svg` e `site/favicon.png` sono copie di quelli in `public/`: un test controlla che restino uguali.
 

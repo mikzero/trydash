@@ -166,9 +166,10 @@ export function seedFixture(store, file) {
   const session = store.create('http://127.0.0.1:8080');
   store.appendChunk(session.id, text);
   // Sample traffic so the strip and sparkline show without a real tunnel.
-  for (let i = 0; i < 40; i += 1) {
+  // As many samples as the sparkline holds, so it is drawn end to end.
+  for (let i = 0; i < 150; i += 1) {
     store.recordTraffic(session.id, {
-      inflight: Math.round(6 + 6 * Math.sin(i / 4)),
+      inflight: Math.round(8 + 6 * Math.sin(i / 6) + 3 * Math.sin(i / 2.3)),
       total: 30 + i * 7,
       errors: 3,
       connections: 4,

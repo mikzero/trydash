@@ -16,7 +16,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="site/images/screenshot-dark.png">
-    <img src="site/images/screenshot-light.png" alt="trydash: the tunnel list on the left, the selected tunnel’s logs in the middle, the details of one line on the right" width="880">
+    <img src="site/images/screenshot-light.png" alt="trydash: the tunnel list on the left, the requests of the selected tunnel in the middle, the headers and body of one request on the right" width="880">
   </picture>
 </p>
 
@@ -159,9 +159,9 @@ The easiest way is the ready-made executable: a single file, without Bun or any 
 3. Run it:
 
    ```sh
-   chmod +x trydash-1.0.0-linux-x64          # Linux and macOS
-   xattr -d com.apple.quarantine trydash-1.0.0-darwin-arm64   # macOS only, see below
-   ./trydash-1.0.0-linux-x64
+   chmod +x trydash-2.0.0-linux-x64          # Linux and macOS
+   xattr -d com.apple.quarantine trydash-2.0.0-darwin-arm64   # macOS only, see below
+   ./trydash-2.0.0-linux-x64
    ```
 
    On Windows, just run the `.exe` file, from a terminal or with a double click.
@@ -255,7 +255,7 @@ Quick tunnels are meant for **testing and development**. From the [Cloudflare do
 
 - The dashboard only listens on `127.0.0.1`, so other machines can’t reach it.
 - **The API needs a token**, so other users and programs on the same computer can’t open tunnels or read the inspected requests. trydash prints the address with the token at start-up: opening it saves the token in an `HttpOnly`, `SameSite=Strict` cookie and removes it from the address bar. Scripts send it as `Authorization: Bearer <token>`. Without the token the API answers `401` and the page explains what to do. Set `TRYDASH_TOKEN` for a fixed token.
-- HTTP/3 stays off. trydash listens with `node:http` on TCP. Bun serves HTTP/3 only from `Bun.serve` when `http3` is true and a TLS certificate is set, and those responses advertise `Alt-Svc`. `fetch()` and `Bun.serve()` leave HTTP/3 off unless the caller asks for it. Release builds embed Bun 1.4.4. That release counts decoded header size as RFC 9114 §4.2.2 specifies, for `Bun.serve({ http3: true })` and for `fetch` with `protocol: "http3"`. The server limit is `--max-http-header-size`, 16 KB by default, and a request over it gets status `431`. This is the fix for the QPACK amplification bug in earlier Bun releases ([FoxIO, October 2026](https://foxio.io/blog/header-accordions-qpack-amplification-attacks-against-http-3-servers)). The same release updates the Brotli decoder to 1.2.1, which includes the fix for CVE-2026-111497. The published trydash 1.0.0 binaries embed Bun 1.4.2, so they include neither fix. Do not pass `http3: true` on a 1.0.0 binary.
+- HTTP/3 stays off. trydash listens with `node:http` on TCP. Bun serves HTTP/3 only from `Bun.serve` when `http3` is true and a TLS certificate is set, and those responses advertise `Alt-Svc`. `fetch()` and `Bun.serve()` leave HTTP/3 off unless the caller asks for it. Release builds embed Bun 1.4.4. That release counts decoded header size as RFC 9114 §4.2.2 specifies, for `Bun.serve({ http3: true })` and for `fetch` with `protocol: "http3"`. The server limit is `--max-http-header-size`, 16 KB by default, and a request over it gets status `431`. This is the fix for the QPACK amplification bug in earlier Bun releases ([FoxIO, October 2026](https://foxio.io/blog/header-accordions-qpack-amplification-attacks-against-http-3-servers)). The same release updates the Brotli decoder to 1.2.1, which includes the fix for CVE-2026-111497. The trydash 2.0.0 binaries embed Bun 1.4.4 and include both fixes; the 1.0.0 binaries embed Bun 1.4.2 and include neither, so do not pass `http3: true` on a 1.0.0 binary.
 - Other pages open in your browser can’t control it. Requests with a `Host` other than `127.0.0.1`/`localhost` are refused, which blocks DNS rebinding. The same goes for changing requests (`POST`, `DELETE`) with an `Origin` from another site, and for every API call, `GET` included, that the browser marks as coming from another page (`Sec-Fetch-Site` other than `same-origin`), even a page on another port of `127.0.0.1`. Local scripts without these headers, like `curl`, keep working.
 - The dashboard can’t be shown inside another page (`frame-ancestors 'none'`, `X-Frame-Options: DENY`), so another site can’t trick you into clicking its buttons. Its `Content-Security-Policy` only allows its own scripts and styles.
 - **Stopping a tunnel stops it for real.** **Stop** and **Remove** send `SIGTERM` to `cloudflared`, and `SIGKILL` 5 seconds later if it’s still running. From the first click, the tunnel’s local proxy answers `503` to anything that still arrives. Closing trydash waits for its `cloudflared` processes to exit.
@@ -306,7 +306,7 @@ With `"mode": "hello"` the origin is ignored and the tunnel serves the Hello Wor
 
 ```sh
 bun run build                                 # executable for the current system, in dist/
-bun run build -- --all --version 1.0.0        # all 5 systems
+bun run build -- --all --version 2.0.0        # all 5 systems
 bun run build -- --target bun-linux-arm64     # one specific system
 ```
 
@@ -404,6 +404,8 @@ Tags follow [semantic versioning](https://semver.org/), `vMAJOR.MINOR.PATCH`:
 ## Website
 
 The landing page lives in `site/`: static HTML, CSS and JavaScript, no build. It comes in two languages: English in `site/index.html`, the main page, and Italian in `site/it/index.html`. The texts written by the scripts live in `site/i18n.js`. An Italian browser landing on the English page is sent to the Italian one, unless the visitor already picked a language from the EN/IT switch. A test checks that both pages have the same structure. The `.github/workflows/pages.yml` workflow publishes it to GitHub Pages on every push to `main` that touches it. To look at it, just open `site/index.html` in a browser.
+
+Inari Bash, the fox in the corner, lives in `site/mascot.js`. She says one line per section (`data-mascot`) and has a mood for some of them (`data-mascot-mood`: `party` throws confetti, `wave` waves). She leans with the scroll and towards the pointer, wiggles with hearts when tapped, and dozes off after 25 seconds without scrolling. She is one picture on stacked layers (`.fox-lean`, `.fox`, `.volpina` in `site/site.css`), and with “reduce motion” only her speech bubble is left.
 
 `site/images/logo.svg`, `site/favicon.svg` and `site/favicon.png` are copies of the ones in `public/`: a test checks they stay the same.
 

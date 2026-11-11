@@ -68,11 +68,25 @@ for (const [lang, page] of Object.entries(PAGES)) {
   });
 }
 
-test('both pages tell visitors the published 1.0.0 binaries still leave HTTP/3 off', () => {
-  assert.match(read(PAGES.en), /data-mascot="Don’t use HTTP\/3\. The 1\.0\.0 binaries don’t have the fix yet\."/);
-  assert.match(read(PAGES.it), /data-mascot="Non usare HTTP\/3\. I binari 1\.0\.0 non hanno ancora la correzione\."/);
-  assert.match(read(PAGES.en), /don’t use HTTP\/3: the server stays on HTTP\/1\.1\. The 1\.0\.0 binaries embed Bun 1\.4\.2, without the QPACK fix/);
-  assert.match(read(PAGES.it), /non usare HTTP\/3: il server resta su HTTP\/1\.1\. I binari 1\.0\.0 incorporano Bun 1\.4\.2, senza la correzione QPACK/);
+test('both pages explain the 2.0 token and the HTTP/3 fix in the 2.0.0 binaries', () => {
+  assert.match(read(PAGES.en), /data-mascot="Open the link with the token: the dashboard answers only to you\."/);
+  assert.match(read(PAGES.it), /data-mascot="Apri il link con il token: la dashboard risponde solo a te\."/);
+  assert.match(read(PAGES.en), /The 2\.0\.0 binaries embed Bun 1\.4\.4, with the QPACK fix/);
+  assert.match(read(PAGES.it), /I binari 2\.0\.0 incorporano Bun 1\.4\.4, con la correzione QPACK/);
+  for (const page of Object.values(PAGES)) {
+    const html = read(page);
+    assert.match(html, /<section id="new" class="features new"/);
+    assert.equal((html.match(/<section id="new"[\s\S]*?<\/section>/)[0].match(/<article class="card/g) || []).length, 6);
+    for (const icon of ['i-inspect', 'i-folder', 'i-terminal', 'i-clock', 'i-qr', 'i-lock']) assert.match(html, new RegExp(`<symbol id="${icon}"`));
+    // Inari's layers and moods, used by mascot.js and site.css.
+    assert.match(html, /<section id="new" class="features new" data-mascot-mood="party"/);
+    assert.match(html, /<footer class="foot" data-mascot-mood="wave"/);
+    assert.match(html, /<span class="fx" id="fx" aria-hidden="true"><\/span>/);
+    assert.match(html, /<span class="fox-shadow" aria-hidden="true"><\/span>\s*<span class="fox-lean"><span class="fox"><picture>/);
+  }
+  const script = fs.readFileSync(path.join(site, 'mascot.js'), 'utf8');
+  assert.match(script, /prefers-reduced-motion/);
+  for (const name of ['hop', 'party', 'wave', 'wiggle', 'sleepy', 'startle']) assert.match(fs.readFileSync(path.join(site, 'site.css'), 'utf8'), new RegExp(`\\.mascot\\.${name} \\.fox`), name);
 });
 
 test('both languages have the same page structure and release version', () => {

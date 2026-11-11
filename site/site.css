@@ -140,6 +140,19 @@ section.hero { border-top: 0; padding-top: 3.5rem; }
 }
 .card p { margin: 0; color: var(--muted); }
 .also { color: var(--muted); margin: 1.5rem 0 0; }
+/* New in 2.0: the same cards, with the accent on the heading. */
+.features.new h2::after {
+  content: "2.0";
+  margin-left: 0.6rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--card);
+  font-size: 0.75rem;
+  font-weight: 700;
+  vertical-align: middle;
+  letter-spacing: 0.02em;
+}
 
 /* Download */
 .steps { list-style: none; counter-reset: step; padding: 0; margin: 0; }
@@ -201,7 +214,10 @@ section.hero { border-top: 0; padding-top: 3.5rem; }
   pre { font-size: 0.85rem; }
 }
 
-/* ── Mascot: Inari Bash, always in the bottom-right corner */
+/* ── Mascot: Inari Bash, always in the bottom-right corner
+   Layers, so moves add up instead of fighting over one transform:
+   .fox-lean (scroll lean and look, set by mascot.js) > .fox (moods: hop, party,
+   wave, sleep) > .volpina (idle breathing); .fox-shadow stays on the ground. */
 .mascot {
   position: fixed;
   right: 12px;
@@ -209,10 +225,14 @@ section.hero { border-top: 0; padding-top: 3.5rem; }
   z-index: 5;
   width: 120px;
   pointer-events: none;
-  animation: peek 0.7s cubic-bezier(0.3, 1.4, 0.6, 1) 0.6s both;
+  animation: peek 0.8s cubic-bezier(0.3, 1.5, 0.6, 1) 0.6s both;
 }
-@keyframes peek { from { transform: translateY(110%); } }
+@keyframes peek {
+  0% { transform: translateY(115%) rotate(8deg); }
+  70% { transform: translateY(-4%) rotate(-3deg); }
+}
 .mascot-btn {
+  position: relative;
   display: block;
   width: 100%;
   padding: 0;
@@ -223,17 +243,111 @@ section.hero { border-top: 0; padding-top: 3.5rem; }
   -webkit-tap-highlight-color: transparent;
 }
 .mascot-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 12px; }
+.fox-lean {
+  display: block;
+  transform-origin: 50% 92%;
+  transform: rotate(var(--lean, 0deg)) translateX(var(--shift, 0px));
+  will-change: transform;
+}
+.fox { display: block; transform-origin: 50% 92%; }
 .volpina {
   display: block;
   width: 100%;
   height: auto;
   transform-origin: 50% 95%;
   filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.18));
-  animation: sway 4s ease-in-out infinite;
+  animation: breathe 3.2s ease-in-out infinite;
 }
-.mascot-btn:hover .volpina, .mascot.hop .volpina { animation: hop 0.6s ease; }
-@keyframes sway { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg) translateY(-3px); } }
-@keyframes hop { 30% { transform: translateY(-10px) rotate(-4deg); } 60% { transform: translateY(0) rotate(3deg); } }
+@keyframes breathe {
+  0%, 100% { transform: scale(1, 1); }
+  50% { transform: scale(1.02, 0.975) translateY(1px); }
+}
+.fox-shadow {
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  bottom: 3%;
+  height: 9px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.28), transparent);
+  transform-origin: 50% 50%;
+}
+
+/* Moods (classes on .mascot) */
+.mascot.hop .fox { animation: hop 0.75s cubic-bezier(0.3, 0.8, 0.4, 1); }
+.mascot.hop .fox-shadow { animation: shadow-hop 0.75s cubic-bezier(0.3, 0.8, 0.4, 1); }
+@keyframes hop {
+  0% { transform: none; }
+  16% { transform: scale(1.1, 0.88); }
+  44% { transform: translateY(-20px) scale(0.92, 1.1) rotate(-4deg); }
+  70% { transform: translateY(0) scale(1.08, 0.92) rotate(2deg); }
+  86% { transform: scale(0.97, 1.03); }
+  100% { transform: none; }
+}
+@keyframes shadow-hop {
+  44% { transform: scale(0.55); opacity: 0.5; }
+  70% { transform: scale(1.1); }
+}
+.mascot.party .fox { animation: party 1s cubic-bezier(0.3, 0.8, 0.4, 1); }
+.mascot.party .fox-shadow { animation: shadow-hop 1s ease; }
+@keyframes party {
+  0% { transform: none; }
+  12% { transform: scale(1.12, 0.86); }
+  45% { transform: translateY(-28px) rotate(-360deg) scale(0.95, 1.08); }
+  72% { transform: translateY(0) rotate(-360deg) scale(1.1, 0.9); }
+  100% { transform: rotate(-360deg); }
+}
+.mascot.wave .fox { animation: wave 1.6s ease-in-out infinite; }
+@keyframes wave {
+  0%, 100% { transform: rotate(0deg); }
+  15% { transform: rotate(-8deg); }
+  30% { transform: rotate(6deg); }
+  45% { transform: rotate(-6deg); }
+  60% { transform: rotate(3deg); }
+  75% { transform: rotate(0deg); }
+}
+.mascot.wiggle .fox { animation: wiggle-fox 0.5s ease; }
+@keyframes wiggle-fox {
+  25% { transform: rotate(-7deg) scale(1.04); }
+  50% { transform: rotate(6deg) scale(1.04); }
+  75% { transform: rotate(-3deg); }
+}
+.mascot.sleepy .fox { animation: doze 4.5s ease-in-out infinite; }
+.mascot.sleepy .volpina { animation-duration: 5s; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.18)) saturate(0.85); }
+@keyframes doze {
+  0%, 100% { transform: rotate(6deg) translateY(2px); }
+  50% { transform: rotate(8deg) translateY(4px) scale(1.01, 0.98); }
+}
+.mascot.startle .fox { animation: startle 0.55s cubic-bezier(0.2, 1.6, 0.5, 1); }
+@keyframes startle {
+  0% { transform: rotate(7deg) translateY(3px); }
+  35% { transform: translateY(-14px) scale(0.94, 1.08); }
+  100% { transform: none; }
+}
+
+/* Particles: confetti, hearts and the zzz of a nap. */
+.fx { position: absolute; left: 50%; top: 35%; width: 0; height: 0; pointer-events: none; }
+.fx span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 0.9rem;
+  line-height: 1;
+  animation: burst 0.95s cubic-bezier(0.15, 0.7, 0.3, 1) forwards;
+}
+.fx .confetti { width: 7px; height: 11px; border-radius: 2px; }
+@keyframes burst {
+  0% { transform: translate(0, 0) rotate(0deg) scale(0.4); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(1); opacity: 0; }
+}
+.fx .heart { animation: float-up 1.2s ease-out forwards; }
+.fx .zzz { font-weight: 700; color: var(--muted); animation: float-up 2.4s ease-out forwards; }
+@keyframes float-up {
+  0% { transform: translate(0, 0) scale(0.5); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translate(var(--dx), -58px) scale(1.15); opacity: 0; }
+}
+
 .bubble {
   position: absolute;
   right: 92px;
@@ -251,11 +365,16 @@ section.hero { border-top: 0; padding-top: 3.5rem; }
   line-height: 1.35;
   box-shadow: var(--pop);
   opacity: 0;
-  transform: scale(0.8) translateY(6px);
+  transform: scale(0.6) translate(10px, 10px) rotate(4deg);
   transform-origin: 100% 100%;
-  transition: opacity 0.3s ease, transform 0.35s cubic-bezier(0.3, 1.6, 0.6, 1);
+  transition: opacity 0.25s ease, transform 0.45s cubic-bezier(0.3, 1.7, 0.5, 1);
 }
 .bubble.show { opacity: 1; transform: none; }
+/* The full line keeps the bubble's size while the typed one grows on top of it. */
+.bubble .sizer { visibility: hidden; }
+.bubble .typed { position: absolute; inset: 0.55rem 0.85rem; }
+.bubble .typed::after { content: "▍"; margin-left: 1px; color: var(--accent); animation: blink 0.8s steps(1) infinite; }
+.bubble.done .typed::after { content: none; }
 /* Keep the footer text clear of the mascot and her goodbye bubble. */
 .foot { padding-bottom: 7rem; }
 .foot p { max-width: 38rem; }
@@ -263,6 +382,7 @@ section.hero { border-top: 0; padding-top: 3.5rem; }
 @media (max-width: 560px) {
   .mascot { width: 76px; right: 6px; bottom: 4px; }
   .bubble { right: 56px; bottom: 56px; max-width: 11rem; padding: 0.45rem 0.7rem; font-size: 0.8rem; }
+  .bubble .typed { inset: 0.45rem 0.7rem; }
   .foot { padding-bottom: 6rem; }
 }
 
