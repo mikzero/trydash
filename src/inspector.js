@@ -178,9 +178,19 @@ export function createInspector({
   requestBodyCap = REQUEST_BODY_CAP,
   responseBodyCap = RESPONSE_BODY_CAP,
   clock = () => Date.now(),
+  isLive = () => true,
 } = {}) {
   const proxies = new Map();
   const token = crypto.randomBytes(16).toString('hex');
+
+  function isReplay(req) {
+    return String(req.headers[REPLAY_HEADER] || '').split(':')[0] === token;
+  }
+
+  // Traffic for a tunnel the user stopped is refused, even if cloudflared still runs; replays still go.
+  function refuseStopped(entry, req) {
+    return !isLive(entry.id) && !isReplay(req);
+  }
 
   function bump(entry) {
     entry.version += 1;
@@ -254,7 +264,14 @@ export function createInspector({
     };
   }
 
+  function refuse(res) {
+    const body = 'trydash: questo tunnel è fermo.\n';
+    res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8', 'Content-Length': Buffer.byteLength(body), Connection: 'close' });
+    res.end(body);
+  }
+
   function onRequest(entry, req, res) {
+    if (refuseStopped(entry, req)) return refuse(res);
     const rec = startRecord(entry, req);
     const { lib, options } = upstreamOptions(entry, req, rec.forward);
     const upstream = lib.request(options);
@@ -297,6 +314,7 @@ export function createInspector({
 
   // A folder tunnel: trydash itself answers, from the files in the folder.
   function onFolderRequest(entry, req, res) {
+    if (refuseStopped(entry, req)) return refuse(res);
     const rec = startRecord(entry, req);
     req.on('data', (chunk) => take(rec.requestBody, chunk));
     req.on('end', () => {
@@ -335,6 +353,10 @@ export function createInspector({
   }
 
   function onUpgrade(entry, req, socket, head) {
+    if (refuseStopped(entry, req)) {
+      socket.end('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
+      return;
+    }
     if (entry.folder) {
       socket.end('HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
       return;

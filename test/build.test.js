@@ -42,11 +42,12 @@ test('the compiled binary runs from another folder', { timeout: 120000 }, async 
     const version = spawnSync(binary, ['--version'], { cwd: elsewhere });
     assert.equal(version.stdout.toString(), 'trydash 9.9.9-test\n');
 
-    proc = spawn(binary, [], { cwd: elsewhere, env: { ...process.env, PORT: '0', DASHBOARD_PROBE: 'present' } });
+    proc = spawn(binary, [], { cwd: elsewhere, env: { ...process.env, PORT: '0', DASHBOARD_PROBE: 'present', TRYDASH_TOKEN: 'build-test-token' } });
     const url = await waitForUrl(proc);
     assert.match(await (await fetch(`${url}/`)).text(), /<title>trydash<\/title>/);
     assert.equal((await fetch(`${url}/js/parse.js`)).status, 200);
-    assert.equal((await fetch(`${url}/api/state`)).status, 200);
+    assert.equal((await fetch(`${url}/api/state`)).status, 401);
+    assert.equal((await fetch(`${url}/api/state`, { headers: { Authorization: 'Bearer build-test-token' } })).status, 200);
 
     // A second copy on the same port must fail and exit, not hang.
     const busy = spawnSync(binary, [], { cwd: elsewhere, timeout: 8000, env: { ...process.env, PORT: new URL(url).port, DASHBOARD_PROBE: 'present' } });

@@ -37,5 +37,8 @@
     'folder.invalid': 'Invalid folder path',
     'folder.notFound': 'Folder not found: {path}',
     'folder.notDirectory': 'Not a folder: {path}',
+    'request.unauthorized': 'Access token required: open the address trydash printed in the terminal',
+    'session.tooMany': 'At most {max} tunnels: remove some first',
+    'folder.tooBroad': 'Folder too broad to publish: {path}. Pick a more specific one',
   };
 })(globalThis);

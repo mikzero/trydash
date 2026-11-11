@@ -64,7 +64,12 @@ export function resolveFolder(input, cwd = process.cwd()) {
     throw appError('BAD_OPTIONS', 'folder.notFound', { path: full });
   }
   if (!stat.isDirectory()) throw appError('BAD_OPTIONS', 'folder.notDirectory', { path: full });
-  return fs.realpathSync(full);
+  const real = fs.realpathSync(full);
+  // The whole disk or the whole home would publish far more than a site.
+  let home = '';
+  try { home = fs.realpathSync(os.homedir()); } catch { /* no home */ }
+  if (real === path.parse(real).root || (home && real === home)) throw appError('BAD_OPTIONS', 'folder.tooBroad', { path: real });
+  return real;
 }
 
 function escapeHtml(text) {
@@ -153,6 +158,8 @@ export async function planStatic(root, req) {
     return textPlan(404, 'Non trovato.\n');
   }
   if (!inside(root, real)) return textPlan(404, 'Non trovato.\n');
+  // The real name counts too: on Windows `ENV~1` is the short name of `.env`.
+  if (path.relative(root, real).split(path.sep).some((segment) => segment.startsWith('.'))) return textPlan(404, 'Non trovato.\n');
 
   let file = real;
   if (stat.isDirectory()) {
@@ -179,6 +186,7 @@ export async function planStatic(root, req) {
     ETag: etag,
     'Cache-Control': 'no-cache',
     'Accept-Ranges': 'bytes',
+    'X-Content-Type-Options': 'nosniff',
   };
   if (req.headers['if-none-match'] === etag) return { status: 304, headers: { ETag: etag, 'Cache-Control': 'no-cache' }, body: Buffer.alloc(0) };
   const range = req.headers.range ? parseRange(req.headers.range, stat.size) : null;

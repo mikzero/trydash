@@ -48,7 +48,7 @@ Type the path of a folder instead of a port, for example `~/site/dist`, `./build
 - nothing outside the folder is reachable, symbolic links included;
 - only `GET` and `HEAD`: other methods get `405`.
 
-`~` is your home folder, and a relative path starts from the folder trydash runs in. The folder must exist when you create the tunnel. Its requests always appear in the **Richieste** tab, and the sidebar shows 📁 and the folder name. The origin options don’t apply to a folder.
+`~` is your home folder, and a relative path starts from the folder trydash runs in. The folder must exist when you create the tunnel, and it can’t be the root of the disk or your whole home folder. Its requests always appear in the **Richieste** tab, and the sidebar shows 📁 and the folder name. The origin options don’t apply to a folder.
 
 ### Request inspector
 
@@ -92,7 +92,7 @@ Under **Opzioni origine** (“Origin options”):
 - **Origine HTTP/2** (“HTTP/2 origin”), that is `--http2-origin`. It turns the request inspector off;
 - **Ispeziona richieste** (“Inspect requests”), on by default: see [Request inspector](#request-inspector).
 
-Email and options stay the same when you restart the tunnel. The preview under the field shows the equivalent `cloudflared` command. You can copy it as is: entries with `*` are already quoted.
+Email and options stay the same when you restart the tunnel. The preview under the field shows the equivalent `cloudflared` command. You can copy it as is: entries with `*` are already quoted. When trydash runs on Windows, the command uses double quotes that work in both PowerShell and `cmd.exe`, with `$`, `` ` `` and `"` percent-encoded.
 
 ### Try with Hello World
 
@@ -162,13 +162,14 @@ cd trydash
 bun start            # or: bun server.js
 ```
 
-Open the printed address, usually <http://127.0.0.1:8787>, type your service’s port, or the path of a folder to publish, and press **Crea** (Create).
+Open the printed address, usually `http://127.0.0.1:8787/?token=…`, type your service’s port, or the path of a folder to publish, and press **Crea** (Create).
 
 ### Environment variables
 
 | Variable | Default | What it does |
 |---|---|---|
 | `PORT` | `8787` | Port of the dashboard, which only listens on `127.0.0.1`. |
+| `TRYDASH_TOKEN` | random | Access token of the dashboard and the API. By default trydash picks a new one at every start and prints it in the address. |
 | `DASHBOARD_SEED` | — | With `1`, loads a sample session from the logs and requests in `test/fixtures/`. Handy to try the interface without opening tunnels. |
 | `DASHBOARD_PROBE` | `auto` | `present` or `missing` pretend that `cloudflared` is there or not, without running it. |
 | `DASHBOARD_PROBE_VERSION` | — | Version text shown when `DASHBOARD_PROBE=present`. |
@@ -202,8 +203,12 @@ Quick tunnels are meant for **testing and development**. From the [Cloudflare do
 ## Security
 
 - The dashboard only listens on `127.0.0.1`, so other machines can’t reach it.
+- **The API needs a token**, so other users and programs on the same computer can’t open tunnels or read the inspected requests. trydash prints the address with the token at start-up: opening it saves the token in an `HttpOnly`, `SameSite=Strict` cookie and removes it from the address bar. Scripts send it as `Authorization: Bearer <token>`. Without the token the API answers `401` and the page explains what to do. Set `TRYDASH_TOKEN` for a fixed token.
 - HTTP/3 stays off. trydash listens with `node:http` on TCP. Bun serves HTTP/3 only from `Bun.serve` when `http3` is true and a TLS certificate is set, and those responses advertise `Alt-Svc`. `fetch()` and `Bun.serve()` leave HTTP/3 off unless the caller asks for it. Release builds embed Bun 1.4.4. That release counts decoded header size as RFC 9114 §4.2.2 specifies, for `Bun.serve({ http3: true })` and for `fetch` with `protocol: "http3"`. The server limit is `--max-http-header-size`, 16 KB by default, and a request over it gets status `431`. This is the fix for the QPACK amplification bug in earlier Bun releases ([FoxIO, October 2026](https://foxio.io/blog/header-accordions-qpack-amplification-attacks-against-http-3-servers)). The same release updates the Brotli decoder to 1.2.1, which includes the fix for CVE-2026-111497. The published trydash 1.0.0 binaries embed Bun 1.4.2, so they include neither fix. Do not pass `http3: true` on a 1.0.0 binary.
-- Other pages open in your browser can’t control it. Requests with a `Host` other than `127.0.0.1`/`localhost` are refused, which blocks DNS rebinding. The same goes for changing requests (`POST`, `DELETE`) with an `Origin` from another site. Local scripts without an `Origin`, like `curl`, keep working.
+- Other pages open in your browser can’t control it. Requests with a `Host` other than `127.0.0.1`/`localhost` are refused, which blocks DNS rebinding. The same goes for changing requests (`POST`, `DELETE`) with an `Origin` from another site, and for every API call, `GET` included, that the browser marks as coming from another page (`Sec-Fetch-Site` other than `same-origin`), even a page on another port of `127.0.0.1`. Local scripts without these headers, like `curl`, keep working.
+- The dashboard can’t be shown inside another page (`frame-ancestors 'none'`, `X-Frame-Options: DENY`), so another site can’t trick you into clicking its buttons. Its `Content-Security-Policy` only allows its own scripts and styles.
+- **Stopping a tunnel stops it for real.** **Ferma** and **Rimuovi** send `SIGTERM` to `cloudflared`, and `SIGKILL` 5 seconds later if it’s still running. From the first click, the tunnel’s local proxy answers `503` to anything that still arrives. Closing trydash waits for its `cloudflared` processes to exit.
+- Memory has limits: at most 50 tunnels, the latest 20,000 log lines per tunnel (the oldest go first), log lines cut at 16 KB, and the request inspector keeps its 200 requests with capped bodies. A burst of `cloudflared` checks shares one running check.
 - **A tunnel makes the service you expose public**: anyone with the URL can reach it. To limit it to specific people, use email access. Either way, don’t expose services with real data or admin panels without protection.
 - trydash doesn’t ask for or store credentials, tokens or accounts. Logs and inspected requests stay in memory and disappear when you close the server. Inspected requests can contain cookies and tokens sent to your service: they never leave your machine, and **Svuota** clears them.
 - The inspector’s proxy listens on `127.0.0.1` only, on a random port, and forwards only to the origin of its tunnel.
@@ -212,7 +217,7 @@ Quick tunnels are meant for **testing and development**. From the [Cloudflare do
 
 ## API
 
-The frontend uses a small JSON API, also handy for scripts:
+The frontend uses a small JSON API, also handy for scripts. Every call needs the token, for example `curl -H "Authorization: Bearer $TRYDASH_TOKEN" http://127.0.0.1:8787/api/state`:
 
 | Method | Path | Description |
 |---|---|---|
@@ -242,7 +247,7 @@ The frontend uses a small JSON API, also handy for scripts:
 }
 ```
 
-With `"mode": "hello"` the origin is ignored and the tunnel serves the Hello World page. With `"mode": "folder"` and `"folder": "~/site"` the tunnel serves that folder: a missing folder gets `400` with the key `folder.notFound`. Every session in `/api/state` has an `inspect` field: `{ "enabled": true, "count": 12, "total": 40, "version": 85, "target": "http://127.0.0.1:41733" }`, or `{ "enabled": false, "reason": "hello" | "http2" | "off" }`. The request endpoints answer `409` with the key `inspect.disabled` when the inspector is off. Error responses look like `{ "error": "…", "key": "options.mailInvalid", "params": { … } }`.
+With `"mode": "hello"` the origin is ignored and the tunnel serves the Hello World page. With `"mode": "folder"` and `"folder": "~/site"` the tunnel serves that folder: a missing folder gets `400` with the key `folder.notFound`, and the disk root or the home folder `folder.tooBroad`. Each session also has `equivalentWindows`, the command quoted for Windows. More than 50 tunnels get `429` with `session.tooMany`. Every session in `/api/state` has an `inspect` field: `{ "enabled": true, "count": 12, "total": 40, "version": 85, "target": "http://127.0.0.1:41733" }`, or `{ "enabled": false, "reason": "hello" | "http2" | "off" }`. The request endpoints answer `409` with the key `inspect.disabled` when the inspector is off. Error responses look like `{ "error": "…", "key": "options.mailInvalid", "params": { … } }`.
 
 ## Local build
 

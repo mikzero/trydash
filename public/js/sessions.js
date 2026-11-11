@@ -3,14 +3,28 @@
 
   var api = root.TryDash || (root.TryDash = {});
   var TRAFFIC_KEEP = 150;
+  // A chatty or stuck cloudflared must not fill the memory: past MAX_ENTRIES the
+  // oldest LOG_DROP lines go. `index` keeps counting, so a line keeps its number.
+  var MAX_ENTRIES = 20000;
+  var LOG_DROP = 5000;
 
   function now() {
     return new Date().toISOString();
   }
 
+  function trim(session) {
+    var gone = session.entries.splice(0, LOG_DROP);
+    for (var i = 0; i < gone.length; i += 1) {
+      var group = api.levelGroup(gone[i].level);
+      if (session.counts[group]) session.counts[group] -= 1;
+    }
+    session.droppedEntries += gone.length;
+  }
+
   function push(session, fields) {
+    if (session.entries.length >= MAX_ENTRIES) trim(session);
     var stored = {
-      index: session.entries.length,
+      index: session.droppedEntries + session.entries.length,
       level: fields.level,
       message: fields.message,
       timestamp: fields.timestamp,
@@ -59,6 +73,7 @@
           restarts: 0,
           counts: {},
           entries: [],
+          droppedEntries: 0,
           url: null,
           selected: null,
         };
@@ -89,7 +104,7 @@
       },
       select: function (id, index) {
         var session = requireSession(id);
-        var entry = session.entries[index];
+        var entry = session.entries[index - session.droppedEntries];
         if (!entry) {
           throw api.appError('NOT_FOUND', 'entry.notFound');
         }
@@ -99,7 +114,7 @@
       detail: function (id) {
         var session = requireSession(id);
         if (session.selected == null) return null;
-        return session.entries[session.selected] || null;
+        return session.entries[session.selected - session.droppedEntries] || null;
       },
       stop: function (id) {
         var session = requireSession(id);
@@ -194,5 +209,7 @@
   }
 
   api.TRAFFIC_KEEP = TRAFFIC_KEEP;
+  api.MAX_ENTRIES = MAX_ENTRIES;
+  api.LOG_DROP = LOG_DROP;
   api.createSessionStore = createSessionStore;
 })(globalThis);

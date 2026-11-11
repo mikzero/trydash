@@ -50,7 +50,8 @@ test('resolveFolder expands ~ and relative paths and refuses what is not a folde
   try {
     assert.equal(resolveFolder('site', site.base), fs.realpathSync(site.root));
     assert.equal(resolveFolder('./site/docs/', site.base), fs.realpathSync(path.join(site.root, 'docs')));
-    assert.equal(resolveFolder('~'), fs.realpathSync(os.homedir()));
+    assert.throws(() => resolveFolder('~'), (e) => e.key === 'folder.tooBroad');
+    assert.throws(() => resolveFolder('/'), (e) => e.key === 'folder.tooBroad');
     assert.throws(() => resolveFolder('  '), (e) => e.key === 'folder.empty');
     assert.throws(() => resolveFolder('nope', site.base), (e) => e.key === 'folder.notFound' && e.params.path === path.join(site.base, 'nope'));
     assert.throws(() => resolveFolder('outside.txt', site.base), (e) => e.key === 'folder.notDirectory');

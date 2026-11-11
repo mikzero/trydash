@@ -1,10 +1,11 @@
 import http from 'node:http';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFile, spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadDashboard } from './src/load-dashboard.js';
-import { spawnForSession, stopProcess } from './src/runtime.js';
+import { spawnForSession, stopProcess, KILL_AFTER_MS } from './src/runtime.js';
 import { createTrafficSampler } from './src/traffic.js';
 import { createInspector } from './src/inspector.js';
 import { resolveFolder } from './src/static.js';
@@ -65,15 +66,52 @@ function hostnameOf(host) {
 // The dashboard can open public tunnels, so a page from another site must not
 // drive it: a foreign Host means DNS rebinding, a foreign Origin a cross-site write.
 // Requests without Origin (curl, scripts) stay allowed.
-export function isAllowedRequest(method, headers) {
+// API calls must also come from the dashboard itself: a page on another port of
+// 127.0.0.1 is "same-site" for the browser, and a GET can still have effects
+// (a fresh probe starts a process), so only same-origin or direct requests pass.
+export function isAllowedRequest(method, headers, { api = false } = {}) {
   const host = String(headers.host || '');
   if (!LOCAL_HOSTNAMES.has(hostnameOf(host))) return false;
+  const site = headers['sec-fetch-site'];
+  if (api && site && site !== 'same-origin' && site !== 'none') return false;
   if (method === 'GET' || method === 'HEAD') return true;
   if (headers['sec-fetch-site'] === 'cross-site') return false;
   const origin = headers.origin;
   if (origin == null) return true;
   return origin === `http://${host}`;
 }
+
+// Sent with every dashboard response: no framing (clickjacking), no inline code,
+// no MIME sniffing, no referrer leaking the token or a tunnel URL.
+export const SECURITY_HEADERS = {
+  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; "
+    + "object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+  'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'no-referrer',
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Resource-Policy': 'same-origin',
+};
+
+function safeEqual(a, b) {
+  const left = Buffer.from(String(a));
+  const right = Buffer.from(String(b));
+  return left.length === right.length && crypto.timingSafeEqual(left, right);
+}
+
+function cookieValue(header, name) {
+  for (const part of String(header || '').split(';')) {
+    const at = part.indexOf('=');
+    if (at > 0 && part.slice(0, at).trim() === name) return part.slice(at + 1).trim();
+  }
+  return null;
+}
+
+export function newToken() {
+  return crypto.randomBytes(18).toString('base64url');
+}
+
+export const MAX_SESSIONS = 50;
 
 function sendJson(res, code, body) {
   const payload = JSON.stringify(body);
@@ -104,7 +142,9 @@ function summary(session, inspector) {
     active: session.active,
     url: session.url,
     entryCount: session.entries.length,
+    droppedEntries: session.droppedEntries,
     equivalent: session.invocation.equivalent,
+    equivalentWindows: session.invocation.equivalentWindows,
     exitCode: session.exitCode,
     startedAt: session.startedAt,
     stoppedAt: session.stoppedAt,
@@ -147,13 +187,27 @@ export function createApp(options = {}) {
   const store = options.store || dash.createSessionStore();
   const spawnImpl = options.spawn || spawn;
   const processes = new Map();
-  const inspector = options.inspector || createInspector({ store });
+  // A stopped tunnel's proxy turns traffic away at once, even before cloudflared has exited.
+  const inspector = options.inspector || createInspector({ store, isLive: (id) => !!(store.get(id) && store.get(id).active) });
   const sampler = createTrafficSampler({
     store,
     fetchImpl: options.fetch || fetch,
     intervalMs: options.trafficIntervalMs || 2000,
   });
   let probeCache = null;
+  let probeInflight = null;
+  // With a token, every /api call needs it: as the cookie set by `/?token=…`,
+  // or as `Authorization: Bearer …` for scripts. Without one (tests, embedding), no check.
+  const token = options.token || null;
+  let cookieName = 'trydash';
+
+  function authorized(req) {
+    if (!token) return true;
+    const auth = String(req.headers.authorization || '');
+    if (auth.startsWith('Bearer ') && safeEqual(auth.slice(7).trim(), token)) return true;
+    const cookie = cookieValue(req.headers.cookie, cookieName);
+    return cookie != null && safeEqual(cookie, token);
+  }
 
   // Error bodies are { error, key, params }, with error in the caller's language.
   function sendError(res, req, status, errOrKey, params, extra) {
@@ -162,9 +216,16 @@ export function createApp(options = {}) {
     sendJson(res, status, { ...dash.errorBody(err, lang), ...(extra || {}) });
   }
 
+  // One probe at a time: a burst of refreshes shares the running one.
   async function readProbe({ fresh = false } = {}) {
-    if (!probeCache || fresh) probeCache = await probeOnce();
-    return probeCache;
+    if (probeCache && !fresh) return probeCache;
+    if (!probeInflight) {
+      probeInflight = probeOnce().then((result) => {
+        probeCache = result;
+        return result;
+      }).finally(() => { probeInflight = null; });
+    }
+    return probeInflight;
   }
 
   // A stopped session keeps its last process's shutdown lines; after a restart
@@ -239,8 +300,23 @@ export function createApp(options = {}) {
 
   async function handle(req, res) {
     const url = new URL(req.url || '/', 'http://127.0.0.1');
-    if (!isAllowedRequest(req.method, req.headers)) {
+    const isApi = url.pathname.startsWith('/api/');
+    if (!isAllowedRequest(req.method, req.headers, { api: isApi })) {
       sendError(res, req, 403, 'request.forbidden');
+      return;
+    }
+    // `/?token=…` from the terminal: keep it in an HttpOnly cookie and drop it from the address bar.
+    if (token && req.method === 'GET' && !isApi && url.searchParams.has('token')) {
+      const ok = safeEqual(url.searchParams.get('token'), token);
+      url.searchParams.delete('token');
+      const headers = { Location: url.pathname + url.search, 'Cache-Control': 'no-store' };
+      if (ok) headers['Set-Cookie'] = `${cookieName}=${token}; HttpOnly; SameSite=Strict; Path=/`;
+      res.writeHead(303, headers);
+      res.end();
+      return;
+    }
+    if (isApi && !authorized(req)) {
+      sendError(res, req, 401, 'request.unauthorized');
       return;
     }
     try {
@@ -272,7 +348,8 @@ export function createApp(options = {}) {
       if (req.method === 'GET' && entryMatch) {
         const session = store.get(decodeURIComponent(entryMatch[1]));
         if (!session) return sendError(res, req, 404, 'session.notFound');
-        const resolved = dash.resolveWindowEntry(session.entries, Number(entryMatch[2]));
+        const position = Number(entryMatch[2]) - session.droppedEntries;
+        const resolved = position < 0 ? {} : dash.resolveWindowEntry(session.entries, position);
         if (!resolved.detail) return sendError(res, req, 404, 'entry.notFound');
         sendJson(res, 200, { detail: resolved.detail });
         return;
@@ -296,6 +373,10 @@ export function createApp(options = {}) {
           payload = JSON.parse(body || '{}');
         } catch {
           sendError(res, req, 400, 'request.badJson');
+          return;
+        }
+        if (store.list().length >= MAX_SESSIONS) {
+          sendError(res, req, 429, 'session.tooMany', { max: MAX_SESSIONS });
           return;
         }
         let session;
@@ -378,7 +459,7 @@ export function createApp(options = {}) {
       if (req.method === 'POST' && stopMatch) {
         const id = decodeURIComponent(stopMatch[1]);
         if (!store.get(id)) return sendError(res, req, 404, 'session.notFound');
-        stopProcess(processes.get(id));
+        stopProcess(processes.get(id)).catch(() => {});
         processes.delete(id);
         const session = store.stop(id);
         sendJson(res, 200, { ok: true, session: summary(session, inspector) });
@@ -389,7 +470,7 @@ export function createApp(options = {}) {
       if (req.method === 'DELETE' && delMatch) {
         const id = decodeURIComponent(delMatch[1]);
         if (!store.get(id)) return sendError(res, req, 404, 'session.notFound');
-        stopProcess(processes.get(id));
+        stopProcess(processes.get(id)).catch(() => {});
         processes.delete(id);
         store.remove(id);
         await inspector.close(id);
@@ -408,6 +489,7 @@ export function createApp(options = {}) {
   }
 
   const server = http.createServer((req, res) => {
+    for (const [name, value] of Object.entries(SECURITY_HEADERS)) res.setHeader(name, value);
     handle(req, res).catch((error) => {
       if (!res.headersSent) sendError(res, req, 500, error);
     });
@@ -430,13 +512,25 @@ export function createApp(options = {}) {
       });
       sampler.start();
       const address = server.address();
+      // Cookies ignore the port: two dashboards on one machine keep separate ones.
+      cookieName = `trydash_${address.port}`;
       this.url = `http://${host}:${address.port}`;
       return this.url;
     },
     async close() {
       sampler.stop();
-      for (const proc of processes.values()) stopProcess(proc);
+      // Real children get their SIGTERM, then SIGKILL; the dashboard waits for them, within a limit.
+      const exits = Array.from(processes.values()).map((proc) => {
+        const done = stopProcess(proc);
+        return proc.spawnfile ? done : Promise.resolve();
+      });
       processes.clear();
+      let limit;
+      await Promise.race([
+        Promise.all(exits),
+        new Promise((resolve) => { limit = setTimeout(resolve, KILL_AFTER_MS + 1000); }),
+      ]);
+      clearTimeout(limit);
       await inspector.closeAll();
       if (!server.listening) return;
       await new Promise((resolve) => server.close(resolve));
@@ -462,12 +556,13 @@ export async function main() {
     console.log(`trydash ${appVersion()}`);
     return null;
   }
-  const app = createApp();
+  const token = process.env.TRYDASH_TOKEN || newToken();
+  const app = createApp({ token });
   if (process.env.DASHBOARD_SEED === '1') await seedInspector(app.inspector, seedFixture(app.store));
   const port = Number(process.env.PORT || 8787);
   const url = await app.listen(port, '127.0.0.1');
   const probe = process.env.DASHBOARD_PROBE || 'auto';
-  console.log(`trydash ${appVersion()}  ${url}`);
+  console.log(`trydash ${appVersion()}  ${url}/?token=${token}`);
   console.log(`probe ${probe}`);
   const shutdown = () => {
     app.close().then(() => process.exit(0));

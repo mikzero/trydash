@@ -513,8 +513,9 @@
       }
       var cmd = el('tunnel-cmd');
       if (cmd) {
-        cmd.textContent = session.equivalent;
-        cmd.title = session.equivalent;
+        var command = api.commandFor(session);
+        cmd.textContent = command;
+        cmd.title = command;
       }
       var open = el('open-url');
       if (open) {
@@ -567,6 +568,8 @@
       }
       var changed = !session || session.id !== summary.id;
       var restarted = session && !changed && summary.restarts !== session.restarts;
+      // The oldest lines were dropped: positions moved, so the pages are fetched again.
+      var trimmed = session && !changed && (summary.droppedEntries || 0) !== (session.droppedEntries || 0);
       session = summary;
       paintHeader();
       if (changed) {
@@ -584,6 +587,12 @@
         return;
       }
       if (restarted) follow = true;
+      if (trimmed) {
+        lastCount = summary.entryCount;
+        paintChips();
+        reload();
+        return;
+      }
       paintChips();
       if (summary.entryCount !== lastCount) {
         lastCount = summary.entryCount;

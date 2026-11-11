@@ -46,7 +46,7 @@ Scrivi il percorso di una cartella al posto della porta, per esempio `~/sito/dis
 - niente fuori dalla cartella è raggiungibile, nemmeno con i link simbolici;
 - solo `GET` e `HEAD`: gli altri metodi ricevono `405`.
 
-`~` è la tua cartella home, e un percorso relativo parte dalla cartella da cui avvii trydash. La cartella deve esistere quando crei il tunnel. Le sue richieste compaiono sempre nella scheda **Richieste**, e nella sidebar si vedono 📁 e il nome della cartella. Le opzioni dell’origine non valgono per una cartella.
+`~` è la tua cartella home, e un percorso relativo parte dalla cartella da cui avvii trydash. La cartella deve esistere quando crei il tunnel, e non può essere la radice del disco o tutta la tua home. Le sue richieste compaiono sempre nella scheda **Richieste**, e nella sidebar si vedono 📁 e il nome della cartella. Le opzioni dell’origine non valgono per una cartella.
 
 ### Ispettore delle richieste
 
@@ -90,7 +90,7 @@ Sotto **Opzioni origine**:
 - **Origine HTTP/2**, cioè `--http2-origin`. Spegne l’ispettore delle richieste;
 - **Ispeziona richieste**, attivo di default: vedi [Ispettore delle richieste](#ispettore-delle-richieste).
 
-Email e opzioni restano uguali quando riavvii il tunnel. L’anteprima sotto il campo mostra il comando `cloudflared` equivalente. Si può copiare così com’è: le voci con `*` sono già tra apici.
+Email e opzioni restano uguali quando riavvii il tunnel. L’anteprima sotto il campo mostra il comando `cloudflared` equivalente. Si può copiare così com’è: le voci con `*` sono già tra apici. Quando trydash gira su Windows, il comando usa doppi apici che funzionano sia in PowerShell sia in `cmd.exe`, con `$`, `` ` `` e `"` codificati come `%24`, `%60` e `%22`.
 
 ### Prova con Hello World
 
@@ -160,13 +160,14 @@ cd trydash
 bun start            # oppure: bun server.js
 ```
 
-Apri l’indirizzo stampato, di solito <http://127.0.0.1:8787>, scrivi la porta del tuo servizio, o il percorso di una cartella da pubblicare, e premi **Crea**.
+Apri l’indirizzo stampato, di solito `http://127.0.0.1:8787/?token=…`, scrivi la porta del tuo servizio, o il percorso di una cartella da pubblicare, e premi **Crea**.
 
 ### Variabili d’ambiente
 
 | Variabile | Default | A cosa serve |
 |---|---|---|
 | `PORT` | `8787` | Porta della dashboard, che ascolta solo su `127.0.0.1`. |
+| `TRYDASH_TOKEN` | casuale | Token di accesso della dashboard e dell’API. Di default trydash ne sceglie uno nuovo a ogni avvio e lo stampa nell’indirizzo. |
 | `DASHBOARD_SEED` | — | Con `1` carica una sessione d’esempio dai log e dalle richieste in `test/fixtures/`. Utile per provare l’interfaccia senza aprire tunnel. |
 | `DASHBOARD_PROBE` | `auto` | `present` o `missing` simulano la presenza o l’assenza di `cloudflared`, senza eseguirlo. |
 | `DASHBOARD_PROBE_VERSION` | — | Testo della versione mostrato quando `DASHBOARD_PROBE=present`. |
@@ -200,8 +201,12 @@ I quick tunnel sono pensati per **test e sviluppo**. Dalla [documentazione Cloud
 ## Sicurezza
 
 - La dashboard ascolta solo su `127.0.0.1`, quindi non è raggiungibile da altre macchine.
+- **L’API richiede un token**, così altri utenti e programmi sullo stesso computer non possono aprire tunnel né leggere le richieste ispezionate. trydash stampa all’avvio l’indirizzo con il token: aprirlo salva il token in un cookie `HttpOnly` e `SameSite=Strict` e lo toglie dalla barra degli indirizzi. Gli script lo mandano come `Authorization: Bearer <token>`. Senza token l’API risponde `401` e la pagina spiega cosa fare. Con `TRYDASH_TOKEN` il token resta fisso.
 - HTTP/3 resta spento. trydash ascolta con `node:http` su TCP. Bun serve HTTP/3 solo da `Bun.serve`, con `http3` a true e un certificato TLS, e in quel caso le risposte annunciano `Alt-Svc`. `fetch()` e `Bun.serve()` lasciano HTTP/3 spento se il chiamante non lo chiede. Le build di release incorporano Bun 1.4.4. Quella release conta la dimensione degli header decodificati come dice RFC 9114 §4.2.2, per `Bun.serve({ http3: true })` e per `fetch` con `protocol: "http3"`. Il limite del server è `--max-http-header-size`, 16 KB di default, e una richiesta oltre quel limite riceve lo stato `431`. È la correzione del bug di amplificazione QPACK delle release Bun precedenti ([FoxIO, ottobre 2026](https://foxio.io/blog/header-accordions-qpack-amplification-attacks-against-http-3-servers)). La stessa release porta il decoder Brotli a 1.2.1, con la correzione di CVE-2026-111497. I binari pubblicati di trydash 1.0.0 incorporano Bun 1.4.2, quindi non hanno nessuna delle due correzioni. Non passare `http3: true` su un binario 1.0.0.
-- Le altre pagine aperte nel browser non possono comandarla. Le richieste con un `Host` diverso da `127.0.0.1`/`localhost` vengono rifiutate, e questo blocca il DNS rebinding. Lo stesso vale per le richieste di modifica (`POST`, `DELETE`) con un `Origin` di un altro sito. Gli script locali senza `Origin`, come `curl`, continuano a funzionare.
+- Le altre pagine aperte nel browser non possono comandarla. Le richieste con un `Host` diverso da `127.0.0.1`/`localhost` vengono rifiutate, e questo blocca il DNS rebinding. Lo stesso vale per le richieste di modifica (`POST`, `DELETE`) con un `Origin` di un altro sito, e per ogni chiamata all’API, `GET` compresa, che il browser segna come proveniente da un’altra pagina (`Sec-Fetch-Site` diverso da `same-origin`), anche da un’altra porta di `127.0.0.1`. Gli script locali senza questi header, come `curl`, continuano a funzionare.
+- La dashboard non si può mostrare dentro un’altra pagina (`frame-ancestors 'none'`, `X-Frame-Options: DENY`), così un altro sito non può farti cliccare i suoi pulsanti di nascosto. La sua `Content-Security-Policy` ammette solo i suoi script e i suoi stili.
+- **Fermare un tunnel lo ferma davvero.** **Ferma** e **Rimuovi** mandano `SIGTERM` a `cloudflared`, e `SIGKILL` dopo 5 secondi se è ancora attivo. Dal primo clic il proxy locale del tunnel risponde `503` a tutto ciò che arriva ancora. Chiudendo trydash, si aspetta che i suoi processi `cloudflared` siano terminati.
+- La memoria ha dei limiti: al massimo 50 tunnel, le ultime 20.000 righe di log per tunnel (le più vecchie se ne vanno), righe tagliate a 16 KB, e l’ispettore tiene 200 richieste con body limitati. Una raffica di controlli di `cloudflared` ne condivide uno solo.
 - **Un tunnel rende pubblico il servizio che esponi**: chiunque abbia l’URL può raggiungerlo. Per limitarlo a persone precise usa l’accesso via email. Comunque non esporre servizi con dati reali o pannelli di amministrazione senza protezione.
 - trydash non chiede né salva credenziali, token o account. I log e le richieste ispezionate restano in memoria e spariscono quando chiudi il server. Le richieste ispezionate possono contenere cookie e token mandati al tuo servizio: non lasciano mai il tuo computer, e **Svuota** le cancella.
 - Il proxy dell’ispettore ascolta solo su `127.0.0.1`, su una porta casuale, e inoltra solo verso l’origine del suo tunnel.
@@ -210,7 +215,7 @@ I quick tunnel sono pensati per **test e sviluppo**. Dalla [documentazione Cloud
 
 ## API
 
-Il frontend usa una piccola API JSON, utile anche per script:
+Il frontend usa una piccola API JSON, utile anche per script. Ogni chiamata richiede il token, per esempio `curl -H "Authorization: Bearer $TRYDASH_TOKEN" http://127.0.0.1:8787/api/state`:
 
 | Metodo | Percorso | Descrizione |
 |---|---|---|
@@ -240,7 +245,7 @@ Il frontend usa una piccola API JSON, utile anche per script:
 }
 ```
 
-Con `"mode": "hello"` l’origine viene ignorata e il tunnel serve la pagina Hello World. Con `"mode": "folder"` e `"folder": "~/sito"` il tunnel serve quella cartella: se la cartella non esiste la risposta è `400` con la chiave `folder.notFound`. Ogni sessione in `/api/state` ha un campo `inspect`: `{ "enabled": true, "count": 12, "total": 40, "version": 85, "target": "http://127.0.0.1:41733" }`, oppure `{ "enabled": false, "reason": "hello" | "http2" | "off" }`. Gli endpoint delle richieste rispondono `409` con la chiave `inspect.disabled` quando l’ispettore è spento. Le risposte d’errore hanno la forma `{ "error": "…", "key": "options.mailInvalid", "params": { … } }`.
+Con `"mode": "hello"` l’origine viene ignorata e il tunnel serve la pagina Hello World. Con `"mode": "folder"` e `"folder": "~/sito"` il tunnel serve quella cartella: se la cartella non esiste la risposta è `400` con la chiave `folder.notFound`, e per la radice del disco o la home `folder.tooBroad`. Ogni sessione ha anche `equivalentWindows`, il comando con gli apici per Windows. Oltre 50 tunnel la risposta è `429` con `session.tooMany`. Ogni sessione in `/api/state` ha un campo `inspect`: `{ "enabled": true, "count": 12, "total": 40, "version": 85, "target": "http://127.0.0.1:41733" }`, oppure `{ "enabled": false, "reason": "hello" | "http2" | "off" }`. Gli endpoint delle richieste rispondono `409` con la chiave `inspect.disabled` quando l’ispettore è spento. Le risposte d’errore hanno la forma `{ "error": "…", "key": "options.mailInvalid", "params": { … } }`.
 
 ## Build locale
 

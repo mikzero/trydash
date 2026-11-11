@@ -37,5 +37,8 @@
     'folder.invalid': 'Percorso della cartella non valido',
     'folder.notFound': 'Cartella non trovata: {path}',
     'folder.notDirectory': 'Non è una cartella: {path}',
+    'request.unauthorized': 'Serve il token di accesso: apri l’indirizzo che trydash ha stampato nel terminale',
+    'session.tooMany': 'Al massimo {max} tunnel: rimuovine qualcuno',
+    'folder.tooBroad': 'Cartella troppo ampia da pubblicare: {path}. Scegline una più specifica',
   };
 })(globalThis);

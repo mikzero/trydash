@@ -113,6 +113,17 @@
     return SHELL_SAFE_RE.test(value) ? value : "'" + value.replace(/'/g, "'\\''") + "'";
   }
 
+  // Windows has two shells with opposite rules: cmd.exe treats `'` as a letter (so
+  // `&` after it runs a command), PowerShell expands `$` and `` ` `` inside `"…"`.
+  // Double quotes are safe in both once `$`, `` ` `` and `"` are percent-encoded,
+  // which a URL reads the same way; the other values never contain them.
+  function windowsWord(value) {
+    if (SHELL_SAFE_RE.test(value)) return value;
+    return '"' + value.replace(/[$`"]/g, function (c) {
+      return '%' + c.charCodeAt(0).toString(16).toUpperCase();
+    }) + '"';
+  }
+
   // Quick tunnel: `cloudflared tunnel --url <origin>` or `--hello-world`.
   // `--metrics` feeds the traffic view; `--output json` only changes the log shape.
   // No named tunnel, login, or route.
@@ -139,6 +150,7 @@
       mode: options.mode,
       options: options,
       equivalent: ['cloudflared', 'tunnel'].concat(source, chosen).map(shellWord).join(' '),
+      equivalentWindows: ['cloudflared', 'tunnel'].concat(source, chosen).map(windowsWord).join(' '),
     };
   }
 
@@ -147,5 +159,11 @@
   api.isMailEntry = isMailEntry;
   api.buildQuickTunnelCommand = buildQuickTunnelCommand;
   api.shellWord = shellWord;
+  api.windowsWord = windowsWord;
+  // The command for the machine that runs cloudflared (api.platform comes from the probe).
+  api.commandFor = function (item) {
+    if (!item) return '';
+    return api.platform === 'win32' && item.equivalentWindows ? item.equivalentWindows : item.equivalent;
+  };
   api.looksLikeFolder = looksLikeFolder;
 })(globalThis);

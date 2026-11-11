@@ -185,7 +185,7 @@
       return;
     }
     try {
-      preview.textContent = '→ ' + api.buildQuickTunnelCommand(originValue, options).equivalent;
+      preview.textContent = '→ ' + api.commandFor(api.buildQuickTunnelCommand(originValue, options));
       preview.className = 'origin-preview mono';
     } catch (err) {
       preview.textContent = err.key ? api.t(err.key, err.params) : err.message;

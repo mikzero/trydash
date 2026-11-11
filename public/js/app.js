@@ -21,6 +21,19 @@
     ]));
   }
 
+  // A dashboard started with a token answers 401 until the browser has it.
+  function renderAuthGate(parent) {
+    parent.replaceChildren(h('main', { className: 'gate', dataset: { phase: 'auth' } }, [
+      h('section', { className: 'gate-card' }, [
+        h('p', { className: 'eyebrow', text: 'try.cloudflare.com' }),
+        h('h1', { text: 'Serve il link con il token' }),
+        h('p', { className: 'lead', text: 'Per sicurezza la dashboard risponde solo a chi apre l’indirizzo che trydash stampa all’avvio. Copialo dal terminale e aprilo in questa finestra:' }),
+        h('pre', { className: 'cmd', text: 'http://127.0.0.1:8787/?token=…' }),
+        h('p', { className: 'lead', style: { marginTop: '14px' }, text: 'Il token cambia a ogni avvio. Per uno fisso, avvia trydash con la variabile TRYDASH_TOKEN.' }),
+      ]),
+    ]));
+  }
+
   function renderChecking(parent) {
     parent.replaceChildren(h('main', { className: 'gate', dataset: { phase: 'checking' } }, [
       h('section', { className: 'gate-card' }, [
@@ -259,12 +272,20 @@
     } catch (err) {
       throw offlineError(api.t('client.offline'));
     }
+    if (response.status === 401) {
+      if (state.phase !== 'auth') renderAuthGate(state.app);
+      state.phase = 'auth';
+      state.view = null;
+      state.requests = null;
+      return;
+    }
     if (!response.ok) throw offlineError(api.t('client.stateUnavailable'));
     var data = await response.json();
     var nextPhase = api.viewForProbe(data.probe).phase;
     var phaseChanged = nextPhase !== state.phase;
     state.probe = data.probe;
     state.phase = nextPhase;
+    api.platform = data.probe && data.probe.platform;
     if (phaseChanged) {
       api.renderPhase(state.app, data.probe);
       state.view = nextPhase === 'workspace' ? api.createLogView() : null;
@@ -573,7 +594,7 @@
     }
     if (action === 'copy-cmd') {
       var current = currentSession();
-      if (current) copyText(current.equivalent, 'Comando copiato');
+      if (current) copyText(api.commandFor(current), api.platform === 'win32' ? 'Comando copiato (PowerShell o cmd)' : 'Comando copiato');
       return;
     }
     if (action === 'open') {
@@ -779,5 +800,6 @@
   api.confirmStep = confirmStep;
   api.renderFileGate = renderFileGate;
   api.renderChecking = renderChecking;
+  api.renderAuthGate = renderAuthGate;
   api.renderPhase = renderPhase;
 })(globalThis);
