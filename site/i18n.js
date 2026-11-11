@@ -24,6 +24,8 @@
       live: 'live',
       liveChip: 'LIVE',
       pickYourFile: 'Pick the file for your system below.',
+      urlCopied: '✓ URL copied',
+      replayed: '✓ Replayed · 200',
     },
     it: {
       yourSystem: 'il tuo sistema',
@@ -45,6 +47,8 @@
       live: 'attivo',
       liveChip: 'ATTIVO',
       pickYourFile: 'Scegli il file per il tuo sistema qui sotto.',
+      urlCopied: '✓ URL copiato',
+      replayed: '✓ Rimandata · 200',
     },
   };
 

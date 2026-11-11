@@ -85,11 +85,11 @@
         </div>
         <p class="hint" id="primary-hint">Eseguibili per 5 sistemi, verificabili con <code>SHA256SUMS</code>.</p>
         <figure class="demo-wrap" id="demo">
-          <p class="sr-only">Animazione: si avvia trydash dal terminale, si scrive la porta 3000 e si preme Crea; il tunnel parte, riceve un URL pubblico da copiare e mostra log e traffico.</p>
+          <p class="sr-only">Animazione: trydash 2.0 si avvia con “./trydash 3000” e apre da solo il browser; il tunnel riceve un URL pubblico, che viene copiato e mostrato come QR code; arrivano le richieste di un webhook, una fallita viene aperta e rimandata; poi log e traffico; infine si pubblica una cartella scrivendone il percorso.</p>
           <div class="demo" aria-hidden="true">
             <div class="d-chrome">
               <span class="d-dots"><i></i><i></i><i></i></span>
-              <span class="d-addr">127.0.0.1:8787</span>
+              <span class="d-addr" data-el="addr">127.0.0.1:8787</span>
             </div>
             <div class="d-body">
               <aside class="d-side">
@@ -101,16 +101,26 @@
                 <div class="d-session" data-el="session">
                   <span class="d-dot" data-el="dot"></span>
                   <span class="d-sname">:3000</span>
-                  <span class="d-sstate" data-el="sstate">in avvio</span>
+                  <span class="d-sstate" data-el="sstate">starting</span>
                   <span class="d-bar"><span data-el="bar"></span></span>
                 </div>
+                <div class="d-session d-folder" data-el="folder">
+                  <span class="d-dot"></span>
+                  <span class="d-sname">📁 dist</span>
+                  <span class="d-sstate" data-el="fstate">starting</span>
+                </div>
               </aside>
-              <div class="d-main">
-                <div class="d-empty" data-el="empty"><span>Scrivi una porta e premi <b>Crea</b></span></div>
+              <div class="d-main" data-el="main">
+                <div class="d-empty" data-el="empty"><span>Avvio del tunnel…</span></div>
                 <div class="d-head" data-el="head">
-                  <span class="d-chip" data-el="chip">IN AVVIO</span>
-                  <span class="d-url" data-el="url">in attesa dell’URL…</span>
+                  <span class="d-chip" data-el="chip">STARTING</span>
+                  <span class="d-url" data-el="url">waiting for the URL…</span>
+                  <span class="d-qrbtn" data-el="qrbtn">▦ QR</span>
                   <span class="d-copy" data-el="copy">Copia URL</span>
+                </div>
+                <div class="d-tabs" data-el="tabs">
+                  <span class="d-tab on" data-el="tlogs">Log</span>
+                  <span class="d-tab" data-el="treqs">Richieste <b data-el="rcount">0</b></span>
                 </div>
                 <div class="d-stats" data-el="stats">
                   <div><b data-el="inflight">0</b><small>in corso / 200</small></div>
@@ -119,20 +129,35 @@
                   <svg class="d-spark" viewBox="0 0 120 30" preserveAspectRatio="none"><path data-el="spark" pathLength="1" d="M0 26 L10 25 L20 22 L30 24 L40 18 L50 20 L60 12 L70 15 L80 9 L90 13 L100 6 L110 10 L120 4"/></svg>
                 </div>
                 <ol class="d-logs" data-el="logs"></ol>
+                <ol class="d-reqs" data-el="reqs"></ol>
+                <div class="d-detail" data-el="detail">
+                  <p class="d-dtitle"><span class="d-st s5">500</span> POST /webhooks/stripe</p>
+                  <p class="d-dlabel">Richiesta</p>
+                  <pre class="d-json">{
+  "type": "checkout.session.completed",
+  "amount_total": 4900
+}</pre>
+                  <span class="d-replay" data-el="replay">↻ Rimanda</span>
+                </div>
+                <div class="d-qr" data-el="qr">
+                  <svg viewBox="0 0 37 37" shape-rendering="crispEdges"><rect width="37" height="37" fill="#fff"/><path fill="#000" d="M4 4h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM7 4h1v1h-1zM8 4h1v1h-1zM9 4h1v1h-1zM10 4h1v1h-1zM14 4h1v1h-1zM16 4h1v1h-1zM19 4h1v1h-1zM21 4h1v1h-1zM22 4h1v1h-1zM23 4h1v1h-1zM26 4h1v1h-1zM27 4h1v1h-1zM28 4h1v1h-1zM29 4h1v1h-1zM30 4h1v1h-1zM31 4h1v1h-1zM32 4h1v1h-1zM4 5h1v1h-1zM10 5h1v1h-1zM13 5h1v1h-1zM14 5h1v1h-1zM16 5h1v1h-1zM17 5h1v1h-1zM19 5h1v1h-1zM21 5h1v1h-1zM22 5h1v1h-1zM24 5h1v1h-1zM26 5h1v1h-1zM32 5h1v1h-1zM4 6h1v1h-1zM6 6h1v1h-1zM7 6h1v1h-1zM8 6h1v1h-1zM10 6h1v1h-1zM14 6h1v1h-1zM15 6h1v1h-1zM20 6h1v1h-1zM21 6h1v1h-1zM26 6h1v1h-1zM28 6h1v1h-1zM29 6h1v1h-1zM30 6h1v1h-1zM32 6h1v1h-1zM4 7h1v1h-1zM6 7h1v1h-1zM7 7h1v1h-1zM8 7h1v1h-1zM10 7h1v1h-1zM14 7h1v1h-1zM16 7h1v1h-1zM18 7h1v1h-1zM19 7h1v1h-1zM22 7h1v1h-1zM23 7h1v1h-1zM26 7h1v1h-1zM28 7h1v1h-1zM29 7h1v1h-1zM30 7h1v1h-1zM32 7h1v1h-1zM4 8h1v1h-1zM6 8h1v1h-1zM7 8h1v1h-1zM8 8h1v1h-1zM10 8h1v1h-1zM13 8h1v1h-1zM15 8h1v1h-1zM16 8h1v1h-1zM17 8h1v1h-1zM18 8h1v1h-1zM19 8h1v1h-1zM20 8h1v1h-1zM26 8h1v1h-1zM28 8h1v1h-1zM29 8h1v1h-1zM30 8h1v1h-1zM32 8h1v1h-1zM4 9h1v1h-1zM10 9h1v1h-1zM12 9h1v1h-1zM13 9h1v1h-1zM14 9h1v1h-1zM15 9h1v1h-1zM17 9h1v1h-1zM19 9h1v1h-1zM23 9h1v1h-1zM24 9h1v1h-1zM26 9h1v1h-1zM32 9h1v1h-1zM4 10h1v1h-1zM5 10h1v1h-1zM6 10h1v1h-1zM7 10h1v1h-1zM8 10h1v1h-1zM9 10h1v1h-1zM10 10h1v1h-1zM12 10h1v1h-1zM14 10h1v1h-1zM16 10h1v1h-1zM18 10h1v1h-1zM20 10h1v1h-1zM22 10h1v1h-1zM24 10h1v1h-1zM26 10h1v1h-1zM27 10h1v1h-1zM28 10h1v1h-1zM29 10h1v1h-1zM30 10h1v1h-1zM31 10h1v1h-1zM32 10h1v1h-1zM14 11h1v1h-1zM18 11h1v1h-1zM19 11h1v1h-1zM21 11h1v1h-1zM24 11h1v1h-1zM4 12h1v1h-1zM7 12h1v1h-1zM9 12h1v1h-1zM10 12h1v1h-1zM12 12h1v1h-1zM13 12h1v1h-1zM15 12h1v1h-1zM17 12h1v1h-1zM19 12h1v1h-1zM20 12h1v1h-1zM22 12h1v1h-1zM23 12h1v1h-1zM25 12h1v1h-1zM27 12h1v1h-1zM4 13h1v1h-1zM5 13h1v1h-1zM11 13h1v1h-1zM13 13h1v1h-1zM16 13h1v1h-1zM20 13h1v1h-1zM24 13h1v1h-1zM26 13h1v1h-1zM29 13h1v1h-1zM32 13h1v1h-1zM6 14h1v1h-1zM7 14h1v1h-1zM10 14h1v1h-1zM15 14h1v1h-1zM16 14h1v1h-1zM21 14h1v1h-1zM23 14h1v1h-1zM25 14h1v1h-1zM27 14h1v1h-1zM28 14h1v1h-1zM29 14h1v1h-1zM30 14h1v1h-1zM31 14h1v1h-1zM4 15h1v1h-1zM5 15h1v1h-1zM7 15h1v1h-1zM9 15h1v1h-1zM11 15h1v1h-1zM13 15h1v1h-1zM15 15h1v1h-1zM17 15h1v1h-1zM18 15h1v1h-1zM20 15h1v1h-1zM23 15h1v1h-1zM25 15h1v1h-1zM27 15h1v1h-1zM30 15h1v1h-1zM31 15h1v1h-1zM5 16h1v1h-1zM6 16h1v1h-1zM7 16h1v1h-1zM8 16h1v1h-1zM10 16h1v1h-1zM11 16h1v1h-1zM12 16h1v1h-1zM13 16h1v1h-1zM16 16h1v1h-1zM17 16h1v1h-1zM20 16h1v1h-1zM21 16h1v1h-1zM23 16h1v1h-1zM24 16h1v1h-1zM26 16h1v1h-1zM29 16h1v1h-1zM31 16h1v1h-1zM32 16h1v1h-1zM4 17h1v1h-1zM13 17h1v1h-1zM21 17h1v1h-1zM22 17h1v1h-1zM23 17h1v1h-1zM25 17h1v1h-1zM4 18h1v1h-1zM10 18h1v1h-1zM13 18h1v1h-1zM14 18h1v1h-1zM17 18h1v1h-1zM20 18h1v1h-1zM21 18h1v1h-1zM25 18h1v1h-1zM28 18h1v1h-1zM29 18h1v1h-1zM30 18h1v1h-1zM31 18h1v1h-1zM32 18h1v1h-1zM7 19h1v1h-1zM11 19h1v1h-1zM12 19h1v1h-1zM13 19h1v1h-1zM15 19h1v1h-1zM16 19h1v1h-1zM17 19h1v1h-1zM18 19h1v1h-1zM19 19h1v1h-1zM20 19h1v1h-1zM21 19h1v1h-1zM27 19h1v1h-1zM28 19h1v1h-1zM29 19h1v1h-1zM31 19h1v1h-1zM5 20h1v1h-1zM6 20h1v1h-1zM10 20h1v1h-1zM21 20h1v1h-1zM23 20h1v1h-1zM25 20h1v1h-1zM31 20h1v1h-1zM9 21h1v1h-1zM12 21h1v1h-1zM14 21h1v1h-1zM18 21h1v1h-1zM20 21h1v1h-1zM22 21h1v1h-1zM26 21h1v1h-1zM27 21h1v1h-1zM29 21h1v1h-1zM32 21h1v1h-1zM4 22h1v1h-1zM6 22h1v1h-1zM7 22h1v1h-1zM8 22h1v1h-1zM9 22h1v1h-1zM10 22h1v1h-1zM12 22h1v1h-1zM15 22h1v1h-1zM16 22h1v1h-1zM17 22h1v1h-1zM21 22h1v1h-1zM22 22h1v1h-1zM26 22h1v1h-1zM27 22h1v1h-1zM28 22h1v1h-1zM31 22h1v1h-1zM32 22h1v1h-1zM6 23h1v1h-1zM11 23h1v1h-1zM13 23h1v1h-1zM15 23h1v1h-1zM18 23h1v1h-1zM19 23h1v1h-1zM21 23h1v1h-1zM24 23h1v1h-1zM25 23h1v1h-1zM31 23h1v1h-1zM32 23h1v1h-1zM4 24h1v1h-1zM8 24h1v1h-1zM10 24h1v1h-1zM15 24h1v1h-1zM17 24h1v1h-1zM18 24h1v1h-1zM24 24h1v1h-1zM25 24h1v1h-1zM26 24h1v1h-1zM27 24h1v1h-1zM28 24h1v1h-1zM30 24h1v1h-1zM12 25h1v1h-1zM14 25h1v1h-1zM15 25h1v1h-1zM16 25h1v1h-1zM20 25h1v1h-1zM22 25h1v1h-1zM23 25h1v1h-1zM24 25h1v1h-1zM28 25h1v1h-1zM30 25h1v1h-1zM31 25h1v1h-1zM32 25h1v1h-1zM4 26h1v1h-1zM5 26h1v1h-1zM6 26h1v1h-1zM7 26h1v1h-1zM8 26h1v1h-1zM9 26h1v1h-1zM10 26h1v1h-1zM17 26h1v1h-1zM20 26h1v1h-1zM22 26h1v1h-1zM24 26h1v1h-1zM26 26h1v1h-1zM28 26h1v1h-1zM31 26h1v1h-1zM4 27h1v1h-1zM10 27h1v1h-1zM12 27h1v1h-1zM15 27h1v1h-1zM17 27h1v1h-1zM20 27h1v1h-1zM22 27h1v1h-1zM24 27h1v1h-1zM28 27h1v1h-1zM29 27h1v1h-1zM30 27h1v1h-1zM31 27h1v1h-1zM32 27h1v1h-1zM4 28h1v1h-1zM6 28h1v1h-1zM7 28h1v1h-1zM8 28h1v1h-1zM10 28h1v1h-1zM13 28h1v1h-1zM15 28h1v1h-1zM16 28h1v1h-1zM18 28h1v1h-1zM19 28h1v1h-1zM20 28h1v1h-1zM21 28h1v1h-1zM24 28h1v1h-1zM25 28h1v1h-1zM26 28h1v1h-1zM27 28h1v1h-1zM28 28h1v1h-1zM4 29h1v1h-1zM6 29h1v1h-1zM7 29h1v1h-1zM8 29h1v1h-1zM10 29h1v1h-1zM12 29h1v1h-1zM14 29h1v1h-1zM16 29h1v1h-1zM21 29h1v1h-1zM24 29h1v1h-1zM26 29h1v1h-1zM28 29h1v1h-1zM29 29h1v1h-1zM30 29h1v1h-1zM31 29h1v1h-1zM4 30h1v1h-1zM6 30h1v1h-1zM7 30h1v1h-1zM8 30h1v1h-1zM10 30h1v1h-1zM17 30h1v1h-1zM18 30h1v1h-1zM20 30h1v1h-1zM22 30h1v1h-1zM23 30h1v1h-1zM28 30h1v1h-1zM29 30h1v1h-1zM30 30h1v1h-1zM32 30h1v1h-1zM4 31h1v1h-1zM10 31h1v1h-1zM14 31h1v1h-1zM17 31h1v1h-1zM18 31h1v1h-1zM19 31h1v1h-1zM20 31h1v1h-1zM21 31h1v1h-1zM22 31h1v1h-1zM24 31h1v1h-1zM25 31h1v1h-1zM26 31h1v1h-1zM31 31h1v1h-1zM4 32h1v1h-1zM5 32h1v1h-1zM6 32h1v1h-1zM7 32h1v1h-1zM8 32h1v1h-1zM9 32h1v1h-1zM10 32h1v1h-1zM12 32h1v1h-1zM14 32h1v1h-1zM16 32h1v1h-1zM19 32h1v1h-1zM21 32h1v1h-1zM24 32h1v1h-1zM25 32h1v1h-1zM28 32h1v1h-1zM31 32h1v1h-1z"/></svg>
+                  <small>Inquadra con il telefono</small>
+                </div>
               </div>
             </div>
             <div class="d-term" data-el="term">
               <div class="d-tline"><span class="d-prompt">$</span> <span data-el="cmd"></span><span class="d-caret light"></span></div>
-              <div class="d-tline d-tout" data-el="tout">trydash 2.0.0 · <u>http://127.0.0.1:8787/?token=…</u></div>
+              <div class="d-tline d-tout" data-el="tout">trydash 2.0.0 · <u>http://127.0.0.1:8787/?token=k3fQ…</u></div>
             </div>
             <div class="d-toast" data-el="toast">✓ URL copiato</div>
             <svg class="d-cursor" data-el="cursor" viewBox="0 0 16 20"><path d="M1 1l13 10.5-6 .6 3.6 6.4-2.6 1.3-3.5-6.5L1 17z"/></svg>
           </div>
           <figcaption class="d-steps">
             <button type="button" data-step="0">Avvia trydash</button>
-            <button type="button" data-step="1">Scrivi la porta</button>
-            <button type="button" data-step="2">Condividi l’URL</button>
+            <button type="button" data-step="1">Condividi l’URL</button>
+            <button type="button" data-step="2">Guarda ogni richiesta</button>
             <button type="button" data-step="3">Segui log e traffico</button>
+            <button type="button" data-step="4">Pubblica una cartella</button>
           </figcaption>
         </figure>
       </div>
