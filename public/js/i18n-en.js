@@ -225,5 +225,16 @@
     'ui.remain.minutes': '{m} min',
     'ui.side.expired': 'expired · {lines}',
     'ui.toast.expired': 'Tunnel expired: it stopped by itself',
+    'inspect.replayInvalid': 'Invalid change to the request to replay: {field}',
+    'ui.edit.binaryNote': 'The body is binary: it goes again as it is.',
+    'ui.edit.body': 'Body',
+    'ui.edit.cancel': 'Cancel',
+    'ui.edit.headers': 'Headers, one per line (Name: value)',
+    'ui.edit.lengthNote': 'Content-Length is computed again. A signature (Stripe, GitHub…) made on the original body no longer matches if you change it.',
+    'ui.edit.method': 'Method',
+    'ui.edit.path': 'Path',
+    'ui.edit.title': 'Edit request #{n}',
+    'ui.edit.truncatedNote': 'The original body was too large to keep: write one.',
+    'ui.req.edit': '✎ Edit and replay',
   };
 })(globalThis);

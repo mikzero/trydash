@@ -66,6 +66,7 @@ Ogni tunnel verso un’origine locale passa da un piccolo proxy che trydash avvi
 - **Errori** per vedere solo le risposte `4xx` e `5xx` e le richieste fallite, e un filtro per percorso, metodo o stato;
 - per ogni richiesta, header e body sia della richiesta sia della risposta. Il JSON è indentato, e i body `gzip`, `br` e `deflate` vengono decompressi per mostrarli;
 - **Rimanda**, che manda di nuovo la stessa richiesta alla tua origine, per esempio il webhook di un pagamento dopo che hai corretto il codice. La nuova richiesta compare in cima con ↻ e il collegamento all’originale;
+- **✎ Modifica e rimanda**, che apre prima la richiesta in un editor: metodo, percorso, header (uno per riga, `Nome: valore`) e body. La nuova richiesta compare con ↻✎. `Content-Length` viene ricalcolato; una firma calcolata sul body originale (Stripe, GitHub…) non vale più se lo cambi. Un body troppo grande per tenerlo si può riscrivere qui e mandare;
 - **Copia come curl**, la stessa richiesta come comando `curl` verso l’origine locale. Gli header aggiunti da Cloudflare (`Cf-*`) restano fuori.
 
 trydash tiene i primi 256 KB del body di ogni richiesta e i primi 64 KB di ogni risposta. Una richiesta con un body più grande viene mostrata tagliata e non si può rimandare. Tutto resta in memoria: **Svuota** cancella l’elenco, e rimuovere il tunnel lo elimina.
@@ -267,7 +268,7 @@ Il frontend usa una piccola API JSON, utile anche per script. Ogni chiamata rich
 | `GET` | `/api/sessions/:id/entries/:index` | una singola riga di log |
 | `GET` | `/api/sessions/:id/requests?version=` | le richieste ispezionate, dalla più recente; con la `version` attuale la risposta è solo `{ "unchanged": true }` |
 | `GET` | `/api/sessions/:id/requests/:seq` | una richiesta con header e body |
-| `POST` | `/api/sessions/:id/requests/:seq/replay` | rimanda la richiesta all’origine; restituisce quella nuova |
+| `POST` | `/api/sessions/:id/requests/:seq/replay` | rimanda la richiesta all’origine; restituisce quella nuova. Un body facoltativo `{ "method", "path", "headers": [["Nome", "valore"]], "body" }` la modifica prima |
 | `DELETE` | `/api/sessions/:id/requests` | svuota l’elenco |
 
 `options` è facoltativo:

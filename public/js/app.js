@@ -670,6 +670,24 @@
       if (curl) copyText(curl, api.t('ui.toast.curlCopied'));
       return true;
     }
+    if (action === 'edit-replay') {
+      view.startEdit();
+      return true;
+    }
+    if (action === 'cancel-edit') {
+      view.cancelEdit();
+      return true;
+    }
+    if (action === 'send-edited') {
+      node.disabled = true;
+      view.sendEdited().then(function (row) {
+        if (row) notify(api.t('ui.toast.replayed', { result: row.status == null ? (row.error || api.t('ui.toast.noResponse')) : row.status }), api.isProblemRequest(row) ? 'error' : 'info');
+      }, function (err) {
+        node.disabled = false;
+        fail(err);
+      });
+      return true;
+    }
     if (action === 'replay') {
       node.disabled = true;
       view.replay().then(function (row) {

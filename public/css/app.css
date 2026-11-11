@@ -928,6 +928,14 @@ mark { background: var(--mark); color: var(--mark-t); border-radius: 2px; paddin
 
 .req-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 
+.edit-line { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 6px; }
+
+.edit-line .input, .edit-field textarea { width: 100%; font-size: 12px; }
+
+.edit-field textarea { resize: vertical; min-height: 80px; padding: 6px 8px; }
+
+.edit-field textarea:disabled { opacity: 0.6; }
+
 .replay-note, .req-error { margin: 0; font-size: 12px; color: var(--muted); }
 
 .replay-note .link-btn { color: var(--accent); font-size: 12px; }

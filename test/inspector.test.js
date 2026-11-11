@@ -317,6 +317,13 @@ test('HTTP API: tunnels go through the inspector unless it cannot or should not'
     assert.equal(replay.status, 201);
     assert.equal((await replay.json()).request.replayOf, rows.requests[0].seq);
     assert.equal(origin.seen.length, 2);
+    const editedReplay = await post(`/api/sessions/${id}/requests/${rows.requests[0].seq}/replay`, { body: '{"n":2}' });
+    assert.equal(editedReplay.status, 201);
+    assert.equal((await editedReplay.json()).request.edited, true);
+    assert.equal(origin.seen.at(-1).body, '{"n":2}');
+    const badEdit = await post(`/api/sessions/${id}/requests/${rows.requests[0].seq}/replay`, { path: 'x' });
+    assert.equal(badEdit.status, 400);
+    assert.equal((await badEdit.json()).key, 'inspect.replayInvalid');
 
     const crossSite = await fetch(`${app.url}/api/sessions/${id}/requests/${rows.requests[0].seq}/replay`, { method: 'POST', headers: { Origin: 'https://evil.example' } });
     assert.equal(crossSite.status, 403);
@@ -346,6 +353,59 @@ test('HTTP API: tunnels go through the inspector unless it cannot or should not'
     assert.equal(app.inspector.has(id), false);
   } finally {
     await app.close();
+    await origin.close();
+  }
+});
+
+test('an edited replay sends the changes, and nothing can split the request', async () => {
+  const origin = await startOrigin((req, res) => res.end('ok'));
+  const store = dash.createSessionStore();
+  const inspector = createInspector({ store, requestBodyCap: 64 });
+  try {
+    const session = sessionFor(store, origin.url);
+    const target = await inspector.open(session);
+    await request(target, { method: 'POST', path: '/hook', headers: { 'Content-Type': 'application/json', 'X-Sig': 'old' }, body: '{"a":1}' });
+    const first = await until(() => inspector.list(session.id).requests.find((r) => r.state === 'done'));
+
+    const edited = await inspector.replay(session.id, first.seq, {
+      method: 'PUT',
+      path: '/hook?try=2',
+      headers: [['Content-Type', 'text/plain'], ['X-Sig', 'new'], ['Content-Length', '999'], ['Connection', 'close']],
+      body: 'changed body',
+    });
+    assert.equal(edited.replayOf, first.seq);
+    assert.equal(edited.edited, true);
+    const seen = origin.seen.at(-1);
+    assert.equal(seen.method, 'PUT');
+    assert.equal(seen.url, '/hook?try=2');
+    assert.equal(seen.body, 'changed body');
+    assert.equal(seen.headers['x-sig'], 'new');
+    assert.equal(seen.headers['content-length'], '12');
+    assert.equal(inspector.list(session.id).requests.find((r) => r.seq === first.seq).edited, false);
+
+    for (const bad of [
+      { method: 'GET /x HTTP/1.1' },
+      { path: 'no-slash' },
+      { path: '/a b' },
+      { path: '/a\r\nX-Evil: 1' },
+      { headers: [['X-Evil\r\nHost', 'x']] },
+      { headers: [['X-A', 'ok\r\nX-Evil: 1']] },
+      { headers: [['X-A']] },
+      { headers: 'X-A: 1' },
+      { body: 'x'.repeat(65) },
+    ]) {
+      await assert.rejects(inspector.replay(session.id, first.seq, bad), (e) => e.key === 'inspect.replayInvalid', JSON.stringify(bad));
+    }
+
+    // A body too large to keep can still go again once a new one is written.
+    await request(target, { method: 'POST', path: '/big', body: 'y'.repeat(200) });
+    const big = await until(() => inspector.list(session.id).requests.find((r) => r.path === '/big' && r.state === 'done'));
+    await assert.rejects(inspector.replay(session.id, big.seq), (e) => e.key === 'inspect.replayTruncated');
+    const rewritten = await inspector.replay(session.id, big.seq, { body: 'small' });
+    assert.equal(rewritten.status, 200);
+    assert.equal(origin.seen.at(-1).body, 'small');
+  } finally {
+    await inspector.closeAll();
     await origin.close();
   }
 });

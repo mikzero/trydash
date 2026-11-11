@@ -17,6 +17,7 @@ export const RESPONSE_BODY_CAP = 64 * 1024;
 const DECODED_CAP = 1024 * 1024;
 const REPLAY_TIMEOUT_MS = 30000;
 export const REPLAY_HEADER = 'x-trydash-replay';
+const HEADER_NAME_RE = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
 
 const HOP_BY_HOP = new Set([
   'connection', 'keep-alive', 'proxy-connection', 'proxy-authenticate', 'proxy-authorization',
@@ -142,6 +143,7 @@ function summaryOf(rec) {
     state: rec.state,
     error: rec.error,
     replayOf: rec.replayOf,
+    edited: !!rec.edited,
     websocket: rec.websocket,
     requestSize: rec.requestBody.size,
     responseSize: rec.responseBody.size,
@@ -182,6 +184,7 @@ export function createInspector({
 } = {}) {
   const proxies = new Map();
   const token = crypto.randomBytes(16).toString('hex');
+  const editedReplays = new Set();
 
   function isReplay(req) {
     return String(req.headers[REPLAY_HEADER] || '').split(':')[0] === token;
@@ -220,7 +223,10 @@ export function createInspector({
       replayOf,
       websocket: !!extra.websocket,
     };
-    if (replayOf != null && marker[2]) entry.replays.set(marker[2], rec);
+    if (replayOf != null && marker[2]) {
+      entry.replays.set(marker[2], rec);
+      if (editedReplays.has(marker[2])) rec.edited = true;
+    }
     entry.records.push(rec);
     entry.total += 1;
     if (entry.records.length > keep) entry.records.splice(0, entry.records.length - keep);
@@ -473,37 +479,75 @@ export function createInspector({
     return rec;
   }
 
-  async function replay(id, seq) {
+  // Changes for an edited replay: method, path, headers ([name, value] pairs) and body.
+  // Header names and values are checked here, so no CR/LF can split the request.
+  function checkEdits(edits) {
+    const bad = (field) => appError('BAD_REQUEST', 'inspect.replayInvalid', { field });
+    const out = {};
+    if (edits.method != null) {
+      if (!/^[A-Z][A-Z0-9-]{0,15}$/.test(String(edits.method))) throw bad('method');
+      out.method = String(edits.method);
+    }
+    if (edits.path != null) {
+      const p = String(edits.path);
+      if (!p.startsWith('/') || p.length > 8192 || /[\s\u0000-\u001f\u007f]/.test(p)) throw bad('path');
+      out.path = p;
+    }
+    if (edits.headers != null) {
+      if (!Array.isArray(edits.headers) || edits.headers.length > 100) throw bad('headers');
+      out.headers = edits.headers.map((pair) => {
+        if (!Array.isArray(pair) || pair.length !== 2) throw bad('headers');
+        const name = String(pair[0]);
+        const value = String(pair[1]);
+        if (!HEADER_NAME_RE.test(name) || /[\r\n\u0000]/.test(value) || value.length > 8192) throw bad('headers');
+        return [name, value];
+      });
+    }
+    if (edits.body != null) {
+      const body = Buffer.from(String(edits.body), 'utf8');
+      if (body.length > requestBodyCap) throw bad('body');
+      out.body = body;
+    }
+    return out;
+  }
+
+  async function replay(id, seq, edits = null) {
     const entry = entryFor(id);
     const rec = findRecord(entry, seq);
     if (rec.websocket) throw appError('CONFLICT', 'inspect.replayWebsocket');
-    if (rec.requestBody.size > rec.requestBody.kept) throw appError('CONFLICT', 'inspect.replayTruncated');
-    const body = Buffer.concat(rec.requestBody.chunks);
+    const change = edits ? checkEdits(edits) : {};
+    if (!change.body && rec.requestBody.size > rec.requestBody.kept) throw appError('CONFLICT', 'inspect.replayTruncated');
+    const body = change.body || Buffer.concat(rec.requestBody.chunks);
+    const method = change.method || rec.method;
     const nonce = crypto.randomBytes(8).toString('hex');
     // Original spelling and order of the header names, minus the hop-by-hop ones.
-    const allowed = new Set(Object.keys(rec.forward));
+    const allowed = change.headers ? null : new Set(Object.keys(rec.forward));
+    const source = change.headers || rec.requestHeaders;
     const headers = {};
-    for (const [name, value] of rec.requestHeaders) {
+    for (const [name, value] of source) {
       const key = name.toLowerCase();
-      if (!allowed.has(key) || key === 'content-length') continue;
+      if (key === 'content-length' || key === REPLAY_HEADER || HOP_BY_HOP.has(key)) continue;
+      if (allowed && !allowed.has(key)) continue;
       const existing = Object.keys(headers).find((k) => k.toLowerCase() === key);
       if (existing) headers[existing] = [].concat(headers[existing], value);
       else headers[name] = value;
     }
-    if (body.length || !['GET', 'HEAD', 'DELETE', 'OPTIONS'].includes(rec.method)) headers['content-length'] = String(body.length);
+    if (body.length || !['GET', 'HEAD', 'DELETE', 'OPTIONS'].includes(method)) headers['content-length'] = String(body.length);
     headers[REPLAY_HEADER] = `${token}:${rec.seq}:${nonce}`;
+    if (edits) editedReplays.add(nonce);
     return new Promise((resolve, reject) => {
       const req = http.request({
         hostname: '127.0.0.1',
         port: entry.port,
-        method: rec.method,
-        path: rec.path,
+        method,
+        path: change.path || rec.path,
         headers,
         agent: false,
       });
       const done = () => {
         const created = entry.replays.get(nonce);
         entry.replays.delete(nonce);
+        editedReplays.delete(nonce);
         if (created) resolve(summaryOf(created));
         else reject(appError('SERVER', 'inspect.replayFailed'));
       };

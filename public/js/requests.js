@@ -172,6 +172,57 @@
     ]);
   }
 
+  // "Name: value" lines, as typed in the editor; empty lines and lines without a name are ignored.
+  function parseHeaderLines(text) {
+    var pairs = [];
+    String(text || '').split(/\r?\n/).forEach(function (line) {
+      var at = line.indexOf(':');
+      if (at <= 0) return;
+      var name = line.slice(0, at).trim();
+      if (name) pairs.push([name, line.slice(at + 1).trim()]);
+    });
+    return pairs;
+  }
+
+  function headerLines(list) {
+    return (list || []).filter(function (pair) {
+      return String(pair[0]).toLowerCase() !== 'content-length';
+    }).map(function (pair) { return pair[0] + ': ' + pair[1]; }).join('\n');
+  }
+
+  // The editor that replaces the details while a replay is being changed.
+  function buildReplayEditor(detail) {
+    var h = api.h;
+    var body = detail.requestBody || {};
+    var bodyEditable = !body.binary;
+    var bodyText = body.truncated || body.text == null ? '' : body.text;
+    var note = body.binary ? api.t('ui.edit.binaryNote') : body.truncated ? api.t('ui.edit.truncatedNote') : '';
+    return [
+      h('div', { className: 'detail-head' }, [
+        h('h2', { className: 'req-title', text: api.t('ui.edit.title', { n: detail.seq }) }),
+        h('button', { type: 'button', className: 'link-btn', 'aria-label': api.t('ui.edit.cancel'), text: '✕', dataset: { action: 'cancel-edit' } }),
+      ]),
+      h('div', { className: 'edit-line' }, [
+        h('input', { id: 'edit-method', className: 'input mono edit-method', value: detail.method, 'aria-label': api.t('ui.edit.method'), spellcheck: 'false', autocomplete: 'off' }),
+        h('input', { id: 'edit-path', className: 'input mono', value: detail.path, 'aria-label': api.t('ui.edit.path'), spellcheck: 'false', autocomplete: 'off' }),
+      ]),
+      h('label', { className: 'field edit-field' }, [
+        h('span', { className: 'k', text: api.t('ui.edit.headers') }),
+        h('textarea', { id: 'edit-headers', className: 'input mono', rows: '6', spellcheck: 'false', text: headerLines(detail.requestHeaders) }),
+      ]),
+      h('label', { className: 'field edit-field' }, [
+        h('span', { className: 'k', text: api.t('ui.edit.body') }),
+        h('textarea', { id: 'edit-body', className: 'input mono', rows: '8', spellcheck: 'false', disabled: !bodyEditable, text: bodyText }),
+      ]),
+      note ? h('p', { className: 'body-note', text: note }) : null,
+      h('p', { className: 'body-note', text: api.t('ui.edit.lengthNote') }),
+      h('div', { className: 'req-actions' }, [
+        h('button', { type: 'button', className: 'btn inv', text: api.t('ui.req.replay'), dataset: { action: 'send-edited' } }),
+        h('button', { type: 'button', className: 'btn', text: api.t('ui.edit.cancel'), dataset: { action: 'cancel-edit' } }),
+      ]),
+    ].filter(Boolean);
+  }
+
   function buildRequestDetail(detail) {
     var h = api.h;
     var field = function (label, node) {
@@ -197,6 +248,7 @@
       detail.error ? h('p', { className: 'req-error', text: detail.state === 'aborted' ? api.t('ui.req.aborted') : api.t('ui.req.error', { error: detail.error }) }) : null,
       h('div', { className: 'req-actions' }, [
         h('button', { type: 'button', className: 'btn inv', text: api.t('ui.req.replay'), title: replayTitle, disabled: !detail.replayable, dataset: { action: 'replay' } }),
+        h('button', { type: 'button', className: 'btn', text: api.t('ui.req.edit'), disabled: !!detail.websocket, dataset: { action: 'edit-replay' } }),
         h('button', { type: 'button', className: 'btn', text: api.t('ui.req.copyCurl'), dataset: { action: 'copy-curl' } }),
       ]),
       h('section', { className: 'req-side' }, [
@@ -225,6 +277,7 @@
     var selected = null;
     var detail = null;
     var detailSig = '';
+    var editing = false;
     var listSig = '';
 
     function enabled() {
@@ -274,7 +327,7 @@
     function rowNode(row) {
       var isSelected = row.seq === selected;
       var path = h('span', { className: 'req-path' });
-      if (row.replayOf != null) path.append(h('span', { className: 'req-tag', title: api.t('ui.req.replayTag', { n: row.replayOf }), text: '↻' }));
+      if (row.replayOf != null) path.append(h('span', { className: 'req-tag', title: api.t('ui.req.replayTag', { n: row.replayOf }), text: row.edited ? '↻✎' : '↻' }));
       if (row.websocket) path.append(h('span', { className: 'req-tag', text: 'WS' }));
       api.highlightParts(row.path, q).forEach(function (part) {
         path.append(part.mark ? h('mark', { text: part.text }) : document.createTextNode(part.text));
@@ -329,11 +382,12 @@
         detailSig = '';
         return;
       }
-      var sig = JSON.stringify([detail.seq, detail.state, detail.status, detail.responseSize, detail.durationMs]);
+      // While editing, polling must not wipe what is being typed.
+      var sig = editing ? 'edit:' + detail.seq : JSON.stringify([detail.seq, detail.state, detail.status, detail.responseSize, detail.durationMs]);
       pane.hidden = false;
       if (sig === detailSig) return;
       detailSig = sig;
-      pane.replaceChildren.apply(pane, buildRequestDetail(detail));
+      pane.replaceChildren.apply(pane, editing ? buildReplayEditor(detail) : buildRequestDetail(detail));
     }
 
     function fetchDetail(seq) {
@@ -420,6 +474,7 @@
     function select(seq) {
       if (!enabled()) return Promise.resolve();
       selected = seq;
+      editing = false;
       if (!detail || detail.seq !== seq) detail = null;
       paintList();
       paintDetail();
@@ -439,6 +494,7 @@
     }
 
     function closeDetail() {
+      if (cancelEdit()) return true;
       if (selected == null && !detail) return false;
       selected = null;
       detail = null;
@@ -457,11 +513,39 @@
       paintList();
     }
 
-    function replay() {
+    function startEdit() {
+      if (!detail || detail.websocket) return false;
+      editing = true;
+      paintDetail();
+      return true;
+    }
+
+    function cancelEdit() {
+      if (!editing) return false;
+      editing = false;
+      paintDetail();
+      return true;
+    }
+
+    // What the editor holds; the body only when it could be edited.
+    function readEdits() {
+      var value = function (id) { var node = el(id); return node ? String(node.value == null ? '' : node.value) : ''; };
+      var bodyNode = el('edit-body');
+      var edits = {
+        method: value('edit-method').trim().toUpperCase(),
+        path: value('edit-path').trim(),
+        headers: parseHeaderLines(value('edit-headers')),
+      };
+      if (bodyNode && !bodyNode.disabled) edits.body = value('edit-body');
+      return edits;
+    }
+
+    function replay(edits) {
       if (!session || !detail) return Promise.resolve(null);
       var id = session.id;
-      return api.request('POST', '/api/sessions/' + encodeURIComponent(id) + '/requests/' + detail.seq + '/replay').then(function (data) {
+      return api.request('POST', '/api/sessions/' + encodeURIComponent(id) + '/requests/' + detail.seq + '/replay', edits || undefined).then(function (data) {
         if (!session || session.id !== id) return null;
+        editing = false;
         selected = data.request.seq;
         detail = null;
         return load(true).then(function () {
@@ -493,6 +577,10 @@
       setFilter: setFilter,
       replay: replay,
       clear: clear,
+      startEdit: startEdit,
+      cancelEdit: cancelEdit,
+      sendEdited: function () { return replay(readEdits()); },
+      editing: function () { return editing; },
       curl: function () {
         if (!detail || !session) return '';
         return curlFor(detail, session.origin || (session.inspect && session.inspect.target) || '');
@@ -511,5 +599,7 @@
   api.prettyBody = prettyText;
   api.buildRequestsPane = buildRequestsPane;
   api.buildRequestDetail = buildRequestDetail;
+  api.buildReplayEditor = buildReplayEditor;
+  api.parseHeaderLines = parseHeaderLines;
   api.createRequestView = createRequestView;
 })(globalThis);

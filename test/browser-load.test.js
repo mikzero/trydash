@@ -744,3 +744,45 @@ test('expiry: the menu, the countdown badge and the expired label', () => {
   assert.doesNotMatch(textOf(host.querySelector('#tunnel-badges')), /⏱/);
   assert.equal(T.statusText({ status: 'stopped', expired: true, entryCount: 4 }), 'scaduto · 4 righe');
 });
+
+test('the replay editor: header lines, fields and what it sends', async () => {
+  const { T, host, sandbox } = domSandbox();
+  assert.deepEqual(JSON.parse(JSON.stringify(T.parseHeaderLines('Content-Type: application/json\n\nbroken line\n: no name\nX-Sig:  a:b \r\n'))), [['Content-Type', 'application/json'], ['X-Sig', 'a:b']]);
+  const detail = {
+    seq: 7, method: 'POST', path: '/hook', websocket: false, replayable: true, state: 'done', status: 500,
+    requestHeaders: [['Host', 'x.trycloudflare.com'], ['Content-Type', 'application/json'], ['Content-Length', '7']],
+    requestBody: { size: 7, text: '{"a":1}', truncated: false, binary: false },
+  };
+  const box = element('div');
+  box.append(...T.buildReplayEditor(detail));
+  assert.equal(box.querySelector('#edit-method').attrs.value, 'POST');
+  assert.equal(box.querySelector('#edit-path').attrs.value, '/hook');
+  assert.equal(box.querySelector('#edit-headers').textContent, 'Host: x.trycloudflare.com\nContent-Type: application/json');
+  assert.equal(box.querySelector('#edit-body').textContent, '{"a":1}');
+  const binary = element('div');
+  binary.append(...T.buildReplayEditor({ ...detail, requestBody: { size: 4, binary: true } }));
+  assert.equal(binary.querySelector('#edit-body').attrs.disabled, '');
+  assert.match(textOf(binary), /binario/);
+
+  T.renderPhase(host, { present: true, version: 'test', platform: 'linux' });
+  const posts = [];
+  T.request = (method, url, body) => { posts.push({ method, url, body }); return Promise.resolve({ request: { seq: 8 } }); };
+  sandbox.fetch = (url) => Promise.resolve({ ok: true, json: () => Promise.resolve(/requests\/\d+$/.test(url) ? { request: detail } : { version: 1, total: 1, requests: [{ seq: 7, method: 'POST', path: '/hook', status: 500, state: 'done' }] }) });
+  const view = T.createRequestView();
+  view.update({ id: 's1', origin: 'http://127.0.0.1:3000', inspect: { enabled: true, count: 1, version: 1 } });
+  view.setActive(true);
+  await view.select(7);
+  assert.equal(view.startEdit(), true);
+  assert.ok(host.querySelector('#edit-body'));
+  host.querySelector('#edit-method').value = 'put';
+  host.querySelector('#edit-path').value = '/hook?again=1';
+  host.querySelector('#edit-headers').value = 'Content-Type: text/plain';
+  host.querySelector('#edit-body').value = 'hi';
+  await view.sendEdited();
+  assert.deepEqual(JSON.parse(JSON.stringify(posts[0])), { method: 'POST', url: '/api/sessions/s1/requests/7/replay', body: { method: 'PUT', path: '/hook?again=1', headers: [['Content-Type', 'text/plain']], body: 'hi' } });
+  assert.equal(view.editing(), false);
+  await new Promise((r) => setTimeout(r, 0));   // the new request's details load
+  assert.equal(view.startEdit(), true);
+  assert.equal(view.closeDetail(), true);
+  assert.equal(view.editing(), false);
+});

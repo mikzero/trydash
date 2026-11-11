@@ -68,6 +68,7 @@ Every tunnel to a local origin goes through a small proxy that trydash runs on `
 - **Errors** for `4xx`, `5xx` and failed requests only, and a filter by path, method or status;
 - for each request, the headers and the body of both the request and the response. JSON is indented, and `gzip`, `br` and `deflate` bodies are decompressed for display;
 - **Replay**, which sends the same request to your origin again, for example a payment webhook after you fix the handler. The new request appears at the top with ↻ and a link to the original;
+- **✎ Edit and replay**, which opens the request in an editor first: method, path, headers (one `Name: value` per line) and body. The new request shows ↻✎. `Content-Length` is computed again; a signature made on the original body (Stripe, GitHub…) no longer matches once you change it. A body too large to keep can be written anew here and sent;
 - **Copy as curl**, the same request as a `curl` command against your local origin. The headers Cloudflare adds (`Cf-*`) are left out.
 
 trydash keeps the first 256 KB of each request body and the first 64 KB of each response body. A request with a larger body is shown cut and can’t be replayed. Everything stays in memory: **Clear** empties the list, and removing the tunnel deletes it.
@@ -269,7 +270,7 @@ The frontend uses a small JSON API, also handy for scripts. Every call needs the
 | `GET` | `/api/sessions/:id/entries/:index` | a single log line |
 | `GET` | `/api/sessions/:id/requests?version=` | the inspected requests, newest first; with the current `version` the answer is just `{ "unchanged": true }` |
 | `GET` | `/api/sessions/:id/requests/:seq` | one request with headers and bodies |
-| `POST` | `/api/sessions/:id/requests/:seq/replay` | send the request to the origin again; returns the new one |
+| `POST` | `/api/sessions/:id/requests/:seq/replay` | send the request to the origin again; returns the new one. An optional body `{ "method", "path", "headers": [["Name", "value"]], "body" }` changes it first |
 | `DELETE` | `/api/sessions/:id/requests` | clear the list |
 
 `options` is optional:

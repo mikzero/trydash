@@ -225,5 +225,16 @@
     'ui.remain.minutes': '{m} min',
     'ui.side.expired': 'scaduto · {lines}',
     'ui.toast.expired': 'Tunnel scaduto: si è fermato da solo',
+    'inspect.replayInvalid': 'Modifica non valida per la richiesta da rimandare: {field}',
+    'ui.edit.binaryNote': 'Il body è binario: viene rimandato così com’è.',
+    'ui.edit.body': 'Body',
+    'ui.edit.cancel': 'Annulla',
+    'ui.edit.headers': 'Header, uno per riga (Nome: valore)',
+    'ui.edit.lengthNote': 'Content-Length viene ricalcolato. Una firma (Stripe, GitHub…) calcolata sul body originale non vale più se lo cambi.',
+    'ui.edit.method': 'Metodo',
+    'ui.edit.path': 'Percorso',
+    'ui.edit.title': 'Modifica la richiesta #{n}',
+    'ui.edit.truncatedNote': 'Il body originale era troppo grande per tenerlo: scrivine uno.',
+    'ui.req.edit': '✎ Modifica e rimanda',
   };
 })(globalThis);

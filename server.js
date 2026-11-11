@@ -505,9 +505,22 @@ export function createApp(options = {}) {
         }
         try {
           if (req.method === 'GET' && !replay) return sendJson(res, 200, { request: inspector.get(id, seq) });
-          if (req.method === 'POST' && replay) return sendJson(res, 201, { request: await inspector.replay(id, seq) });
+          if (req.method === 'POST' && replay) {
+            // An optional body edits the request before it goes: { method, path, headers, body }.
+            let edits = null;
+            const text = await readBody(req);
+            if (text.trim()) {
+              try {
+                edits = JSON.parse(text);
+              } catch {
+                return sendError(res, req, 400, 'request.badJson');
+              }
+              if (!edits || typeof edits !== 'object' || Array.isArray(edits)) return sendError(res, req, 400, 'request.badJson');
+            }
+            return sendJson(res, 201, { request: await inspector.replay(id, seq, edits) });
+          }
         } catch (error) {
-          const status = error.code === 'NOT_FOUND' ? 404 : error.code === 'CONFLICT' ? 409 : 500;
+          const status = error.status || (error.code === 'NOT_FOUND' ? 404 : error.code === 'CONFLICT' ? 409 : error.code === 'BAD_REQUEST' ? 400 : 500);
           return sendError(res, req, status, error);
         }
         return sendError(res, req, 405, 'request.methodNotAllowed');
