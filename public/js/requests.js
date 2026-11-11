@@ -499,7 +499,7 @@
       clear: clear,
       curl: function () {
         if (!detail || !session) return '';
-        return curlFor(detail, session.origin || '');
+        return curlFor(detail, session.origin || (session.inspect && session.inspect.target) || '');
       },
       detail: function () { return detail; },
     };

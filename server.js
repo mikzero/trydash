@@ -7,6 +7,7 @@ import { loadDashboard } from './src/load-dashboard.js';
 import { spawnForSession, stopProcess } from './src/runtime.js';
 import { createTrafficSampler } from './src/traffic.js';
 import { createInspector } from './src/inspector.js';
+import { resolveFolder } from './src/static.js';
 import { readAsset } from './src/assets.js';
 
 
@@ -87,7 +88,7 @@ function sendJson(res, code, body) {
 // Why a tunnel has no inspector: Hello World, HTTP/2 origin, or turned off at creation.
 function inspectState(session, inspector) {
   const info = inspector ? inspector.info(session.id) : null;
-  if (info) return { enabled: true, count: info.count, total: info.total, version: info.version };
+  if (info) return { enabled: true, count: info.count, total: info.total, version: info.version, target: info.target };
   const options = session.options || {};
   const reason = session.mode === 'hello' ? 'hello' : options.http2Origin ? 'http2' : 'off';
   return { enabled: false, reason };
@@ -299,7 +300,10 @@ export function createApp(options = {}) {
         }
         let session;
         try {
-          session = store.create(payload.origin, payload.options);
+          const wanted = payload.options && typeof payload.options === 'object' ? payload.options : {};
+          // A folder must exist now; the stored path is absolute, with `~` and symlinks resolved.
+          const options = wanted.mode === 'folder' ? { ...wanted, folder: resolveFolder(wanted.folder) } : wanted;
+          session = store.create(payload.origin, options);
         } catch (error) {
           const code = error.code === 'BAD_ORIGIN' || error.code === 'BAD_OPTIONS' ? 400 : 500;
           sendError(res, req, code, error);

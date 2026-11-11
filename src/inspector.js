@@ -8,6 +8,8 @@ import https from 'node:https';
 import net from 'node:net';
 import zlib from 'node:zlib';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import { planStatic } from './static.js';
 
 export const KEEP = 200;
 export const REQUEST_BODY_CAP = 256 * 1024;
@@ -293,7 +295,50 @@ export function createInspector({
     req.pipe(upstream);
   }
 
+  // A folder tunnel: trydash itself answers, from the files in the folder.
+  function onFolderRequest(entry, req, res) {
+    const rec = startRecord(entry, req);
+    req.on('data', (chunk) => take(rec.requestBody, chunk));
+    req.on('end', () => {
+      planStatic(entry.folder, req).then((plan) => {
+        rec.status = plan.status;
+        rec.statusText = http.STATUS_CODES[plan.status] || null;
+        rec.responseHeaders = Object.entries(plan.headers);
+        bump(entry);
+        res.writeHead(plan.status, plan.headers);
+        if (req.method === 'HEAD' || !plan.file) {
+          if (req.method !== 'HEAD' && plan.body) take(rec.responseBody, plan.body);
+          res.end(req.method === 'HEAD' ? undefined : plan.body);
+          finish(entry, rec, 'done');
+          return;
+        }
+        const stream = fs.createReadStream(plan.file, { start: plan.start, end: plan.end });
+        stream.on('data', (chunk) => take(rec.responseBody, chunk));
+        stream.on('error', (error) => {
+          finish(entry, rec, 'error', error.code || error.message);
+          res.destroy();
+        });
+        res.on('finish', () => finish(entry, rec, 'done'));
+        res.on('close', () => {
+          if (res.writableFinished) return;
+          stream.destroy();
+          finish(entry, rec, 'aborted', 'client');
+        });
+        stream.pipe(res);
+      }, (error) => {
+        rec.status = 500;
+        finish(entry, rec, 'error', error.code || error.message);
+        if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Errore del server.\n');
+      });
+    });
+  }
+
   function onUpgrade(entry, req, socket, head) {
+    if (entry.folder) {
+      socket.end('HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
+      return;
+    }
     const rec = startRecord(entry, req, { websocket: true });
     const { lib, options } = upstreamOptions(entry, req, rec.forward);
     const upstream = lib.request(options);
@@ -339,10 +384,12 @@ export function createInspector({
 
   async function open(session) {
     if (proxies.has(session.id)) return proxies.get(session.id).target;
-    const originUrl = new URL(session.origin);
+    const folder = session.mode === 'folder' ? session.options.folder : null;
+    const originUrl = folder ? null : new URL(session.origin);
     const entry = {
       id: session.id,
       origin: session.origin,
+      folder,
       originUrl,
       noTlsVerify: !!session.options.noTlsVerify,
       records: [],
@@ -357,7 +404,7 @@ export function createInspector({
       target: '',
       port: 0,
     };
-    const server = http.createServer((req, res) => onRequest(entry, req, res));
+    const server = http.createServer((req, res) => (folder ? onFolderRequest : onRequest)(entry, req, res));
     server.on('upgrade', (req, socket, head) => onUpgrade(entry, req, socket, head));
     server.on('connection', (socket) => {
       entry.sockets.add(socket);
@@ -376,7 +423,7 @@ export function createInspector({
     entry.server = server;
     entry.port = server.address().port;
     // The origin's path and query stay on the target, so cloudflared builds the same request paths.
-    const rest = session.origin.slice(`${originUrl.protocol}//${originUrl.host}`.length);
+    const rest = folder ? '' : session.origin.slice(`${originUrl.protocol}//${originUrl.host}`.length);
     entry.target = `http://127.0.0.1:${entry.port}${rest}`;
     proxies.set(session.id, entry);
     return entry.target;
@@ -461,7 +508,7 @@ export function createInspector({
     info(id) {
       const entry = proxies.get(id);
       if (!entry) return null;
-      return { count: entry.records.length, total: entry.total, version: entry.version, port: entry.port };
+      return { count: entry.records.length, total: entry.total, version: entry.version, port: entry.port, target: entry.target };
     },
     list(id) {
       const entry = entryFor(id);

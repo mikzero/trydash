@@ -66,21 +66,41 @@
     return seen;
   }
 
+  // A path, not an origin: `/srv/site`, `~/site`, `./dist`, `C:\\site`, `\\\\server\\share`.
+  var FOLDER_RE = /^(\/|~(?:[\\/]|$)|\.{1,2}(?:[\\/]|$)|[A-Za-z]:[\\/]|\\\\)/;
+
+  function looksLikeFolder(value) {
+    return FOLDER_RE.test(String(value == null ? '' : value).trim());
+  }
+
+  function folderPath(value) {
+    var folder = String(value == null ? '' : value).trim();
+    if (!folder) badOptions('folder.empty');
+    if (folder.indexOf('\0') >= 0 || folder.length > 4096) badOptions('folder.invalid');
+    return folder;
+  }
+
   function normalizeTunnelOptions(raw) {
     var input = raw || {};
     var hello = input.mode === 'hello';
-    var hostHeader = hello ? '' : String(input.hostHeader == null ? '' : input.hostHeader).trim();
+    var folder = !hello && input.mode === 'folder';
+    // Hello World and a folder have no origin, so the origin options do not apply.
+    var noOrigin = hello || folder;
+    var hostHeader = noOrigin ? '' : String(input.hostHeader == null ? '' : input.hostHeader).trim();
     if (hostHeader && !HOST_HEADER_RE.test(hostHeader)) badOptions('options.hostHeaderInvalid', { value: hostHeader });
-    var http2Origin = !hello && input.http2Origin === true;
-    return {
-      mode: hello ? 'hello' : 'origin',
+    var http2Origin = !noOrigin && input.http2Origin === true;
+    var options = {
+      mode: hello ? 'hello' : folder ? 'folder' : 'origin',
       allowedMail: mailList(input.allowedMail),
       hostHeader: hostHeader,
-      noTlsVerify: !hello && input.noTlsVerify === true,
+      noTlsVerify: !noOrigin && input.noTlsVerify === true,
       http2Origin: http2Origin,
       // The inspector's proxy speaks HTTP/1.1 only, so an HTTP/2 origin skips it.
-      inspect: !hello && !http2Origin && input.inspect !== false,
+      // A folder is always served by trydash, so its requests are always recorded.
+      inspect: folder || (!hello && !http2Origin && input.inspect !== false),
     };
+    if (folder) options.folder = folderPath(input.folder);
+    return options;
   }
 
   function isMailEntry(value) {
@@ -100,9 +120,11 @@
   // origin, while `equivalent` keeps the command a user would run without trydash.
   function buildQuickTunnelCommand(originInput, rawOptions, target) {
     var options = normalizeTunnelOptions(rawOptions);
-    var origin = options.mode === 'hello' ? null : normalizeOrigin(originInput);
-    var source = origin == null ? ['--hello-world'] : ['--url', origin];
-    var spawned = origin != null && target ? ['--url', target] : source;
+    var origin = options.mode === 'origin' ? normalizeOrigin(originInput) : null;
+    var source = options.mode === 'hello' ? ['--hello-world']
+      : options.mode === 'folder' ? ['--url', target || 'http://127.0.0.1:0']
+        : ['--url', origin];
+    var spawned = options.mode === 'origin' && target ? ['--url', target] : source;
     var chosen = [];
     options.allowedMail.forEach(function (mail) { chosen.push('--allowed-mail', mail); });
     if (options.hostHeader) chosen.push('--http-host-header', options.hostHeader);
@@ -113,7 +135,7 @@
       bin: 'cloudflared',
       args: args,
       origin: origin,
-      target: origin != null && target ? target : null,
+      target: options.mode !== 'hello' && target ? target : null,
       mode: options.mode,
       options: options,
       equivalent: ['cloudflared', 'tunnel'].concat(source, chosen).map(shellWord).join(' '),
@@ -125,4 +147,5 @@
   api.isMailEntry = isMailEntry;
   api.buildQuickTunnelCommand = buildQuickTunnelCommand;
   api.shellWord = shellWord;
+  api.looksLikeFolder = looksLikeFolder;
 })(globalThis);

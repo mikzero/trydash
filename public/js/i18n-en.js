@@ -33,5 +33,9 @@
     'inspect.replayTruncated': 'The request body is too large to replay',
     'inspect.replayFailed': 'The replayed request did not reach the origin',
     'client.requestsUnavailable': 'Requests unavailable',
+    'folder.empty': 'Type the path of a folder',
+    'folder.invalid': 'Invalid folder path',
+    'folder.notFound': 'Folder not found: {path}',
+    'folder.notDirectory': 'Not a folder: {path}',
   };
 })(globalThis);

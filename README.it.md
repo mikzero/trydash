@@ -28,12 +28,25 @@
 
 - **più tunnel insieme**, ciascuno con stato (in avvio, attivo, fermato, terminato), URL e numero di errori;
 - **un clic** per creare, fermare, riavviare o rimuovere un tunnel. Per crearne uno basta scrivere la porta: `3000` diventa `http://127.0.0.1:3000`;
+- **una cartella online in un passo**: scrivi un percorso al posto della porta e trydash la serve, senza bisogno di un server locale;
 - **ogni richiesta sotto gli occhi**: header e body di ciò che arriva al tuo servizio dal tunnel, da rimandare con un clic. Comodo per i webhook;
 - **log leggibili**: livelli colorati, filtri, ricerca con evidenziazione, scorrimento continuo e modalità “segui la coda”;
 - **i tunnel fermati restano consultabili**: puoi rileggerne i log e riavviarli. L’URL cambia a ogni avvio, ed è un limite dei quick tunnel;
 - tema **chiaro e scuro**, layout per **mobile**, scorciatoie da tastiera.
 
 ## Funzioni
+
+### Cartella statica
+
+Scrivi il percorso di una cartella al posto della porta, per esempio `~/sito/dist`, `./build` o `C:\sito`, e premi **Crea**. trydash serve la cartella da solo, con un piccolo web server locale dedicato a quel tunnel, e `cloudflared` la pubblica. È il modo più rapido per condividere una build statica, un prototipo o qualche file.
+
+- `/` e ogni sottocartella rispondono con il loro `index.html`. Una cartella che non ce l’ha mostra l’elenco dei file;
+- il `Content-Type` giusto per pagine, stili, script, immagini, font, video e audio, con `ETag` e richieste `Range`, così nei video si può saltare avanti;
+- **i file nascosti non vengono mai serviti**: un percorso con una parte che inizia con `.` (`.env`, `.git/`…) risponde `404` e non compare negli elenchi;
+- niente fuori dalla cartella è raggiungibile, nemmeno con i link simbolici;
+- solo `GET` e `HEAD`: gli altri metodi ricevono `405`.
+
+`~` è la tua cartella home, e un percorso relativo parte dalla cartella da cui avvii trydash. La cartella deve esistere quando crei il tunnel. Le sue richieste compaiono sempre nella scheda **Richieste**, e nella sidebar si vedono 📁 e il nome della cartella. Le opzioni dell’origine non valgono per una cartella.
 
 ### Ispettore delle richieste
 
@@ -147,7 +160,7 @@ cd trydash
 bun start            # oppure: bun server.js
 ```
 
-Apri l’indirizzo stampato, di solito <http://127.0.0.1:8787>, scrivi la porta del tuo servizio e premi **Crea**.
+Apri l’indirizzo stampato, di solito <http://127.0.0.1:8787>, scrivi la porta del tuo servizio, o il percorso di una cartella da pubblicare, e premi **Crea**.
 
 ### Variabili d’ambiente
 
@@ -192,6 +205,7 @@ I quick tunnel sono pensati per **test e sviluppo**. Dalla [documentazione Cloud
 - **Un tunnel rende pubblico il servizio che esponi**: chiunque abbia l’URL può raggiungerlo. Per limitarlo a persone precise usa l’accesso via email. Comunque non esporre servizi con dati reali o pannelli di amministrazione senza protezione.
 - trydash non chiede né salva credenziali, token o account. I log e le richieste ispezionate restano in memoria e spariscono quando chiudi il server. Le richieste ispezionate possono contenere cookie e token mandati al tuo servizio: non lasciano mai il tuo computer, e **Svuota** le cancella.
 - Il proxy dell’ispettore ascolta solo su `127.0.0.1`, su una porta casuale, e inoltra solo verso l’origine del suo tunnel.
+- Un tunnel cartella rende pubblici tutti i file di quella cartella, tranne quelli nascosti. Scegli la cartella della build, non tutto il progetto o la tua home.
 - Le origini con credenziali nell’URL (`http://user:pass@…`) vengono rifiutate.
 
 ## API
@@ -226,7 +240,7 @@ Il frontend usa una piccola API JSON, utile anche per script:
 }
 ```
 
-Con `"mode": "hello"` l’origine viene ignorata e il tunnel serve la pagina Hello World. Ogni sessione in `/api/state` ha un campo `inspect`: `{ "enabled": true, "count": 12, "total": 40, "version": 85 }`, oppure `{ "enabled": false, "reason": "hello" | "http2" | "off" }`. Gli endpoint delle richieste rispondono `409` con la chiave `inspect.disabled` quando l’ispettore è spento. Le risposte d’errore hanno la forma `{ "error": "…", "key": "options.mailInvalid", "params": { … } }`.
+Con `"mode": "hello"` l’origine viene ignorata e il tunnel serve la pagina Hello World. Con `"mode": "folder"` e `"folder": "~/sito"` il tunnel serve quella cartella: se la cartella non esiste la risposta è `400` con la chiave `folder.notFound`. Ogni sessione in `/api/state` ha un campo `inspect`: `{ "enabled": true, "count": 12, "total": 40, "version": 85, "target": "http://127.0.0.1:41733" }`, oppure `{ "enabled": false, "reason": "hello" | "http2" | "off" }`. Gli endpoint delle richieste rispondono `409` con la chiave `inspect.disabled` quando l’ispettore è spento. Le risposte d’errore hanno la forma `{ "error": "…", "key": "options.mailInvalid", "params": { … } }`.
 
 ## Build locale
 
@@ -343,6 +357,7 @@ src/assets.js        lettura dei file del progetto (dal disco o incorporati nel 
 src/runtime.js       avvio/arresto di cloudflared e lettura dello stream
 src/traffic.js       lettura periodica delle metriche di cloudflared
 src/inspector.js     ispettore delle richieste: proxy locale, richieste registrate, replay
+src/static.js        file di un tunnel cartella
 src/load-dashboard.js carica le librerie condivise nel server
 scripts/build.js     build degli eseguibili autonomi
 scripts/release-notes.js bozza delle note di release dai commit

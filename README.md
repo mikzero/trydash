@@ -28,6 +28,7 @@
 
 - **many tunnels at once**, each with its status (starting, live, stopped, exited), URL and error count;
 - **one click** to create, stop, restart or remove a tunnel. To create one, just type the port: `3000` becomes `http://127.0.0.1:3000`;
+- **a folder online in one step**: type a path instead of a port and trydash serves it, no local server needed;
 - **every request in view**: headers and bodies of what reaches your service through the tunnel, with one-click replay. Handy for webhooks;
 - **readable logs**: colored levels, filters, highlighted search, infinite scrolling and a “follow the tail” mode;
 - **stopped tunnels stay readable**: you can go back to their logs and restart them. The URL changes on every start, which is a limit of quick tunnels;
@@ -36,6 +37,18 @@
 The interface is in Italian. Error messages are in English or Italian, following your browser (see [Error language](#error-language)). Below, Italian labels are followed by their translation.
 
 ## Features
+
+### Static folder
+
+Type the path of a folder instead of a port, for example `~/site/dist`, `./build` or `C:\site`, and press **Crea**. trydash serves the folder itself, on a local web server for that tunnel only, and `cloudflared` publishes it. It’s the quickest way to share a static build, a prototype or a few files.
+
+- `/` and every subfolder answer with their `index.html`. A folder without one shows the list of its files;
+- the right `Content-Type` for pages, styles, scripts, images, fonts, video and audio, with `ETag` and `Range` requests, so videos can be seeked;
+- **hidden files are never served**: a path with a part that starts with `.` (`.env`, `.git/`…) answers `404` and doesn’t appear in lists;
+- nothing outside the folder is reachable, symbolic links included;
+- only `GET` and `HEAD`: other methods get `405`.
+
+`~` is your home folder, and a relative path starts from the folder trydash runs in. The folder must exist when you create the tunnel. Its requests always appear in the **Richieste** tab, and the sidebar shows 📁 and the folder name. The origin options don’t apply to a folder.
 
 ### Request inspector
 
@@ -149,7 +162,7 @@ cd trydash
 bun start            # or: bun server.js
 ```
 
-Open the printed address, usually <http://127.0.0.1:8787>, type your service’s port and press **Crea** (Create).
+Open the printed address, usually <http://127.0.0.1:8787>, type your service’s port, or the path of a folder to publish, and press **Crea** (Create).
 
 ### Environment variables
 
@@ -194,6 +207,7 @@ Quick tunnels are meant for **testing and development**. From the [Cloudflare do
 - **A tunnel makes the service you expose public**: anyone with the URL can reach it. To limit it to specific people, use email access. Either way, don’t expose services with real data or admin panels without protection.
 - trydash doesn’t ask for or store credentials, tokens or accounts. Logs and inspected requests stay in memory and disappear when you close the server. Inspected requests can contain cookies and tokens sent to your service: they never leave your machine, and **Svuota** clears them.
 - The inspector’s proxy listens on `127.0.0.1` only, on a random port, and forwards only to the origin of its tunnel.
+- A folder tunnel makes every file in that folder public, except hidden ones. Pick the build folder, not your whole project or your home.
 - Origins with credentials in the URL (`http://user:pass@…`) are refused.
 
 ## API
@@ -228,7 +242,7 @@ The frontend uses a small JSON API, also handy for scripts:
 }
 ```
 
-With `"mode": "hello"` the origin is ignored and the tunnel serves the Hello World page. Every session in `/api/state` has an `inspect` field: `{ "enabled": true, "count": 12, "total": 40, "version": 85 }`, or `{ "enabled": false, "reason": "hello" | "http2" | "off" }`. The request endpoints answer `409` with the key `inspect.disabled` when the inspector is off. Error responses look like `{ "error": "…", "key": "options.mailInvalid", "params": { … } }`.
+With `"mode": "hello"` the origin is ignored and the tunnel serves the Hello World page. With `"mode": "folder"` and `"folder": "~/site"` the tunnel serves that folder: a missing folder gets `400` with the key `folder.notFound`. Every session in `/api/state` has an `inspect` field: `{ "enabled": true, "count": 12, "total": 40, "version": 85, "target": "http://127.0.0.1:41733" }`, or `{ "enabled": false, "reason": "hello" | "http2" | "off" }`. The request endpoints answer `409` with the key `inspect.disabled` when the inspector is off. Error responses look like `{ "error": "…", "key": "options.mailInvalid", "params": { … } }`.
 
 ## Local build
 
@@ -345,6 +359,7 @@ src/assets.js        reads project files (from disk or embedded in the binary)
 src/runtime.js       starts/stops cloudflared and reads its stream
 src/traffic.js       polls the cloudflared metrics
 src/inspector.js     request inspector: local proxy, recorded requests, replay
+src/static.js        files of a folder tunnel
 src/load-dashboard.js loads the shared libraries in the server
 scripts/build.js     builds the standalone executables
 scripts/release-notes.js drafts release notes from the commits

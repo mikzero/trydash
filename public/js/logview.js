@@ -506,7 +506,10 @@
         var when = session.active
           ? 'avviato ' + relativeTime(session.startedAt)
           : 'fermato ' + relativeTime(session.stoppedAt || session.startedAt);
-        sub.textContent = (session.mode === 'hello' ? 'Hello World' : hostOf(session.origin)) + ' · ' + when;
+        var source = session.mode === 'hello' ? 'Hello World'
+          : session.mode === 'folder' ? '📁 ' + (session.options && session.options.folder)
+            : hostOf(session.origin);
+        sub.textContent = source + ' · ' + when;
       }
       var cmd = el('tunnel-cmd');
       if (cmd) {

@@ -60,7 +60,7 @@
           id: 'origin',
           type: 'text',
           className: 'input mono',
-          placeholder: '3000 o http://127.0.0.1:3000',
+          placeholder: '3000, http://127.0.0.1:3000 o ~/cartella',
           'aria-label': 'Origine locale',
           'aria-describedby': 'origin-preview',
           autocomplete: 'off',
@@ -179,6 +179,11 @@
       preview.className = 'origin-preview mono';
       return;
     }
+    if (api.looksLikeFolder(originValue)) {
+      preview.textContent = '→ cartella ' + String(originValue).trim() + ' · la serve trydash, senza file nascosti';
+      preview.className = 'origin-preview mono';
+      return;
+    }
     try {
       preview.textContent = '→ ' + api.buildQuickTunnelCommand(originValue, options).equivalent;
       preview.className = 'origin-preview mono';
@@ -231,8 +236,21 @@
     ]);
   }
 
+  function folderName(folder) {
+    var parts = String(folder || '').split(/[\\/]/).filter(Boolean);
+    return parts.length ? parts[parts.length - 1] : String(folder || '/');
+  }
+
   function originLabel(session) {
-    return session.mode === 'hello' ? 'Hello World' : shortOrigin(session.origin);
+    if (session.mode === 'hello') return 'Hello World';
+    if (session.mode === 'folder') return '📁 ' + folderName(session.options && session.options.folder);
+    return shortOrigin(session.origin);
+  }
+
+  function originTitle(session) {
+    if (session.mode === 'hello') return 'Hello World';
+    if (session.mode === 'folder') return session.options && session.options.folder;
+    return session.origin;
   }
 
   function hasLoadBar(session) {
@@ -268,7 +286,7 @@
         className: 'tunnel-btn',
         dataset: { session: session.id },
         'aria-current': selected ? 'true' : null,
-        title: session.mode === 'hello' ? 'Hello World' : session.origin,
+        title: originTitle(session),
       }, [
         h('span', { className: 'dot st-' + session.status, 'aria-hidden': 'true' }),
         h('span', { className: 'tunnel-text' }, [
@@ -320,6 +338,8 @@
 
   api.shortOrigin = shortOrigin;
   api.originLabel = originLabel;
+  api.originTitle = originTitle;
+  api.folderName = folderName;
   api.statusText = statusText;
   api.pickCurrentId = pickCurrentId;
   api.readHash = readHash;

@@ -33,5 +33,9 @@
     'inspect.replayTruncated': 'Il body della richiesta è troppo grande per rimandarla',
     'inspect.replayFailed': 'La richiesta rimandata non è arrivata all’origine',
     'client.requestsUnavailable': 'Richieste non disponibili',
+    'folder.empty': 'Scrivi il percorso di una cartella',
+    'folder.invalid': 'Percorso della cartella non valido',
+    'folder.notFound': 'Cartella non trovata: {path}',
+    'folder.notDirectory': 'Non è una cartella: {path}',
   };
 })(globalThis);

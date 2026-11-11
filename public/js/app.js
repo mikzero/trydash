@@ -68,7 +68,7 @@
         h('h2', { className: 'hero-title', text: 'Esponi un servizio locale' }),
         h('p', { className: 'hero-lead', text: 'Crea un quick tunnel su trycloudflare.com e segui i suoi log qui.' }),
         h('div', { id: 'hero-slot', className: 'hero-slot' }),
-        h('p', { className: 'hero-hint', text: 'Basta la porta. Accetta anche un URL completo http/https.' }),
+        h('p', { className: 'hero-hint', text: 'Basta la porta. Accetta anche un URL completo http/https, o il percorso di una cartella da pubblicare così com’è.' }),
       ]),
     ]);
   }
@@ -323,7 +323,13 @@
     if (submit) submit.disabled = true;
     try {
       var options = api.readCreateOptions(form);
-      var data = await api_('POST', '/api/sessions', { origin: input ? input.value : '', options: options });
+      var origin = input ? input.value : '';
+      if (api.looksLikeFolder(origin)) {
+        options.mode = 'folder';
+        options.folder = origin.trim();
+        origin = '';
+      }
+      var data = await api_('POST', '/api/sessions', { origin: origin, options: options });
       api.rememberMail(data.session.options ? data.session.options.allowedMail : []);
       resetCreateForm(form);
       await selectCreated(data.session, 'Tunnel creato');

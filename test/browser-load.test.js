@@ -445,6 +445,21 @@ test('create form options, preview and recent mail', () => {
   assert.equal(form.querySelector('#inspect').disabled, true);
 });
 
+test('a folder path is recognized in the form and labelled in the sidebar', () => {
+  const { T, host } = domSandbox();
+  T.renderPhase(host, { present: true, version: 'test', platform: 'linux' });
+  for (const value of ['/srv/site', '~/site', './dist', 'C:\\site']) assert.equal(T.looksLikeFolder(value), true, value);
+  for (const value of ['3000', 'localhost:5173', 'https://x.dev', 'site']) assert.equal(T.looksLikeFolder(value), false, value);
+  T.previewCommand('~/site/dist', {});
+  assert.equal(host.querySelector('#origin-preview').textContent, '→ cartella ~/site/dist · la serve trydash, senza file nascosti');
+  const folder = { mode: 'folder', origin: null, options: { folder: '/home/me/my-site' } };
+  assert.equal(T.originLabel(folder), '📁 my-site');
+  assert.equal(T.originTitle(folder), '/home/me/my-site');
+  assert.equal(T.folderName('C:\\work\\site\\'), 'site');
+  assert.equal(T.folderName('/'), '/');
+  assert.match(textOf(host), /percorso di una cartella/);
+});
+
 test('requests tab: helpers, curl, detail and the view against a fake API', async () => {
   const { T, host, sandbox } = domSandbox();
   assert.equal(T.formatBytes(512), '512 B');
