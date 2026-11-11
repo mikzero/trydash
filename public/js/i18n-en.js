@@ -20,6 +20,7 @@
     'request.methodNotAllowed': 'Method not allowed',
     'request.forbidden': 'Request not allowed: it comes from another origin',
     'cloudflared.unavailable': 'cloudflared is not available',
+    'server.closing': 'trydash is shutting down',
     'server.error': 'Server error: {detail}',
     'client.failed': 'Operation failed',
     'client.copyFailed': 'Copy failed',

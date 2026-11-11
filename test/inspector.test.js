@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import net from 'node:net';
 import zlib from 'node:zlib';
 import { EventEmitter } from 'node:events';
 import { Readable } from 'node:stream';
@@ -407,5 +408,75 @@ test('an edited replay sends the changes, and nothing can split the request', as
   } finally {
     await inspector.closeAll();
     await origin.close();
+  }
+});
+
+test('a short origin response does not leave the client waiting', async () => {
+  const origin = net.createServer((socket) => {
+    socket.once('data', () => {
+      socket.write('HTTP/1.1 200 OK\r\nContent-Length: 100\r\nConnection: close\r\n\r\nx');
+      setTimeout(() => socket.destroy(), 20);
+    });
+  });
+  await new Promise((resolve) => origin.listen(0, '127.0.0.1', resolve));
+  const store = dash.createSessionStore();
+  const inspector = createInspector({ store });
+  try {
+    const session = sessionFor(store, `http://127.0.0.1:${origin.address().port}`);
+    const target = await inspector.open(session);
+    const settled = await Promise.race([
+      new Promise((resolve) => {
+        const url = new URL(target);
+        const req = http.request({ hostname: url.hostname, port: url.port, path: '/hang', agent: false }, (res) => {
+          res.on('end', () => resolve({ kind: 'end' }));
+          res.on('aborted', () => resolve({ kind: 'aborted' }));
+          res.on('error', (error) => resolve({ kind: 'error', code: error.code }));
+          res.on('close', () => resolve({ kind: 'close', complete: res.complete }));
+        });
+        req.on('error', (error) => resolve({ kind: 'req-error', code: error.code }));
+        req.end();
+      }),
+      new Promise((resolve) => setTimeout(() => resolve({ kind: 'hang' }), 1000)),
+    ]);
+    assert.notEqual(settled.kind, 'hang', JSON.stringify(settled));
+    const row = await until(() => inspector.list(session.id).requests.find((item) => item.state !== 'pending'));
+    assert.equal(row.state, 'error');
+  } finally {
+    await inspector.closeAll();
+    await new Promise((resolve) => origin.close(resolve));
+  }
+});
+
+test('a refused upgrade does not advertise chunked encoding for a decoded body', async () => {
+  const origin = net.createServer((socket) => {
+    socket.once('data', (buf) => {
+      if (!/upgrade\s*:/i.test(buf.toString('utf8'))) {
+        socket.end('HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n');
+        return;
+      }
+      socket.end('HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n5\r\nhello\r\n0\r\n\r\n');
+    });
+  });
+  await new Promise((resolve) => origin.listen(0, '127.0.0.1', resolve));
+  const store = dash.createSessionStore();
+  const inspector = createInspector({ store });
+  try {
+    const session = sessionFor(store, `http://127.0.0.1:${origin.address().port}`);
+    const target = new URL(await inspector.open(session));
+    const raw = await new Promise((resolve, reject) => {
+      const chunks = [];
+      const client = net.connect(Number(target.port), target.hostname, () => {
+        client.write('GET /ws HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n');
+      });
+      client.on('data', (chunk) => chunks.push(chunk));
+      client.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+      client.on('error', reject);
+    });
+    const body = raw.split('\r\n\r\n')[1];
+    if (/transfer-encoding:\s*chunked/i.test(raw)) assert.equal(body, '5\r\nhello\r\n0\r\n\r\n');
+    else assert.equal(body, 'hello');
+  } finally {
+    await inspector.closeAll();
+    await new Promise((resolve) => origin.close(resolve));
   }
 });

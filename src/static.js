@@ -165,17 +165,30 @@ export async function planStatic(root, req) {
   if (stat.isDirectory()) {
     if (!urlPath.endsWith('/')) {
       const query = String(req.url || '').includes('?') ? String(req.url).slice(String(req.url).indexOf('?')) : '';
-      return { status: 301, headers: { Location: urlPath + '/' + query, 'Content-Length': '0' }, body: Buffer.alloc(0) };
+      // Built from the decoded segments, so a path like `//host` cannot become a protocol-relative redirect.
+      const location = `/${segments.map((segment) => encodeURIComponent(segment)).join('/')}/${query}`;
+      return { status: 301, headers: { Location: location, 'Content-Length': '0' }, body: Buffer.alloc(0) };
     }
     const index = path.join(real, 'index.html');
     try {
-      const indexStat = await fsp.stat(index);
-      if (!indexStat.isFile()) throw new Error('not a file');
-      file = index;
-      stat = indexStat;
+      await fsp.lstat(index);
     } catch {
       return listing(real, urlPath);
     }
+    // `stat` follows the link. The real path has to pass the same checks as any other file,
+    // and the stream opens that path, not the link.
+    let indexReal;
+    let indexStat;
+    try {
+      indexReal = await fsp.realpath(index);
+      indexStat = await fsp.stat(indexReal);
+    } catch {
+      return textPlan(404, 'Not found.\n');
+    }
+    const indexHidden = path.relative(root, indexReal).split(path.sep).some((segment) => segment.startsWith('.'));
+    if (!indexStat.isFile() || !inside(root, indexReal) || indexHidden) return textPlan(404, 'Not found.\n');
+    file = indexReal;
+    stat = indexStat;
   }
   if (!stat.isFile()) return textPlan(404, 'Not found.\n');
 

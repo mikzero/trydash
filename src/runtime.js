@@ -69,6 +69,13 @@ export function bindProcess(store, sessionId, proc, isCurrent = () => true) {
 // mean the tunnel is gone, not that it was asked to go.
 export const KILL_AFTER_MS = 5000;
 
+// Used when a second shutdown signal must not wait out the SIGTERM grace period.
+export function signalProcess(proc, name) {
+  if (!proc || proc.killed) return;
+  if (proc.exitCode != null || proc.signalCode != null) return;
+  signal(proc, name);
+}
+
 function signal(proc, name) {
   // Real children run in their own process group (detached), so the whole group goes.
   if (typeof proc.kill === 'function' && proc.pid && proc.spawnfile) {

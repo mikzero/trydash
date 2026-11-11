@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
+import net from 'node:net';
 import { EventEmitter } from 'node:events';
 import { Readable } from 'node:stream';
 import { loadDashboard } from '../src/load-dashboard.js';
@@ -185,6 +186,55 @@ test('HTTP API: a folder tunnel needs an existing folder and points cloudflared 
     assert.equal(spawned[1][spawned[1].indexOf('--url') + 1], target);
   } finally {
     await app.close();
+    site.cleanup();
+  }
+});
+
+function rawPath(target, requestPath) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(target);
+    const socket = net.connect(Number(url.port), url.hostname, () => {
+      socket.write(`GET ${requestPath} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n`);
+    });
+    const chunks = [];
+    socket.on('data', (chunk) => chunks.push(chunk));
+    socket.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    socket.on('error', reject);
+  });
+}
+
+test('index.html cannot point outside the folder or at a hidden file', async () => {
+  const site = makeSite();
+  const store = dash.createSessionStore();
+  const inspector = createInspector({ store });
+  try {
+    fs.unlinkSync(path.join(site.root, 'index.html'));
+    fs.symlinkSync(path.join(site.base, 'outside.txt'), path.join(site.root, 'index.html'));
+    const session = store.create('', { mode: 'folder', folder: fs.realpathSync(site.root) });
+    const target = await inspector.open(session);
+    const outside = await get(target, '/');
+    assert.equal(outside.status, 404);
+    assert.doesNotMatch(outside.body, /fuori/);
+
+    fs.unlinkSync(path.join(site.root, 'index.html'));
+    fs.symlinkSync(path.join(site.root, '.env'), path.join(site.root, 'index.html'));
+    const hidden = await get(target, '/');
+    assert.equal(hidden.status, 404);
+    assert.doesNotMatch(hidden.body, /SECRET/);
+
+    fs.unlinkSync(path.join(site.root, 'index.html'));
+    fs.symlinkSync(path.join(site.root, 'app.js'), path.join(site.root, 'index.html'));
+    const inside = await get(target, '/');
+    assert.equal(inside.status, 200);
+    assert.equal(inside.body, 'console.log(1)');
+
+    fs.mkdirSync(path.join(site.root, 'evil.example'));
+    const redirect = await rawPath(target, '//evil.example');
+    assert.match(redirect, /^HTTP\/1\.1 301/);
+    assert.match(redirect, /Location: \/evil\.example\//);
+    assert.doesNotMatch(redirect, /Location: \/\/evil\.example/);
+  } finally {
+    await inspector.closeAll();
     site.cleanup();
   }
 });

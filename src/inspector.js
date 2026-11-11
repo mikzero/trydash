@@ -174,6 +174,14 @@ function writeHead(socket, statusCode, statusMessage, rawHeaders) {
   socket.write(head + '\r\n');
 }
 
+function flatHeaders(headers) {
+  const list = [];
+  for (const [name, value] of Object.entries(headers)) {
+    for (const item of [].concat(value)) list.push(name, String(item));
+  }
+  return list;
+}
+
 export function createInspector({
   store,
   keep = KEEP,
@@ -291,7 +299,16 @@ export function createInspector({
         take(rec.responseBody, chunk);
       });
       pres.on('end', () => finish(entry, rec, 'done'));
-      pres.on('error', () => finish(entry, rec, 'error', 'response'));
+      // A short body (Content-Length still outstanding) never emits 'end'. Drop the client too.
+      const drop = () => {
+        finish(entry, rec, 'error', 'response');
+        if (!res.writableEnded) res.destroy();
+      };
+      pres.on('error', drop);
+      pres.on('aborted', drop);
+      pres.on('close', () => {
+        if (!pres.complete) drop();
+      });
       pres.pipe(res);
     });
     upstream.on('error', (error) => {
@@ -397,9 +414,21 @@ export function createInspector({
       rec.status = pres.statusCode;
       rec.statusText = pres.statusMessage || null;
       rec.responseHeaders = pairs(pres.rawHeaders);
-      writeHead(socket, pres.statusCode, pres.statusMessage, pres.rawHeaders);
+      // The stream is already decoded, so the origin's chunked framing must not be copied through.
+      const headers = forwardHeaders(pres.headers);
+      headers.connection = 'close';
+      writeHead(socket, pres.statusCode, pres.statusMessage, flatHeaders(headers));
+      const drop = () => {
+        finish(entry, rec, 'error', 'response');
+        socket.destroy();
+      };
       pres.on('data', (chunk) => take(rec.responseBody, chunk));
       pres.on('end', () => { finish(entry, rec, 'done'); socket.end(); });
+      pres.on('error', drop);
+      pres.on('aborted', drop);
+      pres.on('close', () => {
+        if (!pres.complete) drop();
+      });
       pres.pipe(socket, { end: false });
     });
     upstream.on('error', (error) => {

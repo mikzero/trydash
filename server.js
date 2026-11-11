@@ -5,7 +5,7 @@ import path from 'node:path';
 import { execFile, spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadDashboard } from './src/load-dashboard.js';
-import { spawnForSession, stopProcess, KILL_AFTER_MS } from './src/runtime.js';
+import { spawnForSession, stopProcess, signalProcess, KILL_AFTER_MS } from './src/runtime.js';
 import { createTrafficSampler } from './src/traffic.js';
 import { createInspector } from './src/inspector.js';
 import { resolveFolder } from './src/static.js';
@@ -193,6 +193,9 @@ export function createApp(options = {}) {
   const store = options.store || dash.createSessionStore();
   const spawnImpl = options.spawn || spawn;
   const processes = new Map();
+  let shuttingDown = false;
+  let closePromise = null;
+  const trackedChildren = [];
   // A stopped tunnel's proxy turns traffic away at once, even before cloudflared has exited.
   const inspector = options.inspector || createInspector({ store, isLive: (id) => !!(store.get(id) && store.get(id).active) });
   const sampler = createTrafficSampler({
@@ -336,7 +339,13 @@ export function createApp(options = {}) {
   }
 
   // Restarts a stopped or exited tunnel; a restored one gets its inspector here.
+  function stillUp(id) {
+    const current = store.get(id);
+    return !shuttingDown && current && current.active;
+  }
+
   async function restartTunnel(id) {
+    if (shuttingDown) throw withStatus(dash.appError('UNAVAILABLE', 'server.closing'), 503);
     if (!store.get(id)) throw withStatus(dash.appError('NOT_FOUND', 'session.notFound'), 404);
     let session;
     try {
@@ -345,12 +354,25 @@ export function createApp(options = {}) {
       throw withStatus(error, error.code === 'CONFLICT' ? 409 : 500);
     }
     let spawned;
+    let openedInspector = false;
     try {
-      if (session.options.inspect && !inspector.has(id)) store.setTarget(id, await inspector.open(session));
+      // Stop or delete can win while the inspector is opening. Nothing may spawn after that.
+      if (session.options.inspect && !inspector.has(id)) {
+        const target = await inspector.open(session);
+        openedInspector = true;
+        if (!stillUp(id)) throw withStatus(dash.appError('CONFLICT', 'session.notFound'), 409);
+        store.setTarget(id, target);
+      }
+      if (!stillUp(id)) throw withStatus(dash.appError('CONFLICT', 'session.notFound'), 409);
       spawned = spawnForSession(store, session, spawnImpl, isCurrent);
+      if (!stillUp(id)) {
+        stopProcess(spawned.proc).catch(() => {});
+        throw withStatus(dash.appError('CONFLICT', 'session.notFound'), 409);
+      }
     } catch (error) {
-      store.markExited(id, null);
-      throw withStatus(error, 500);
+      if (openedInspector && !stillUp(id)) await inspector.close(id);
+      if (store.get(id)?.active) store.markExited(id, null);
+      throw error.status ? error : withStatus(error, 500);
     }
     attach(id, spawned.proc, spawned.done);
     return session;
@@ -359,7 +381,9 @@ export function createApp(options = {}) {
   // Creates and starts a tunnel: from POST /api/sessions and from the command line.
   // Errors carry the HTTP status they map to.
   async function openTunnel(origin, rawOptions) {
+    if (shuttingDown) throw withStatus(dash.appError('UNAVAILABLE', 'server.closing'), 503);
     const probe = await readProbe();
+    if (shuttingDown) throw withStatus(dash.appError('UNAVAILABLE', 'server.closing'), 503);
     if (dash.viewForProbe(probe).phase !== 'workspace') {
       throw withStatus(dash.appError('UNAVAILABLE', 'cloudflared.unavailable'), 409, { phase: 'install' });
     }
@@ -375,12 +399,21 @@ export function createApp(options = {}) {
     }
     let spawned;
     try {
-      if (session.options.inspect) store.setTarget(session.id, await inspector.open(session));
+      if (session.options.inspect) {
+        const target = await inspector.open(session);
+        if (shuttingDown || !store.get(session.id)) throw withStatus(dash.appError('UNAVAILABLE', 'server.closing'), 503);
+        store.setTarget(session.id, target);
+      }
+      if (shuttingDown || !store.get(session.id)) throw withStatus(dash.appError('UNAVAILABLE', 'server.closing'), 503);
       spawned = spawnForSession(store, session, spawnImpl, isCurrent);
+      if (shuttingDown || !store.get(session.id)) {
+        stopProcess(spawned.proc).catch(() => {});
+        throw withStatus(dash.appError('UNAVAILABLE', 'server.closing'), 503);
+      }
     } catch (error) {
       await inspector.close(session.id);
-      store.remove(session.id);
-      throw withStatus(error, 500);
+      if (store.get(session.id)) store.remove(session.id);
+      throw error.status ? error : withStatus(error, 500);
     }
     attach(session.id, spawned.proc, spawned.done);
     saveTunnels();
@@ -641,23 +674,44 @@ export function createApp(options = {}) {
     },
     expireDue,
     async close() {
-      sampler.stop();
-      clearInterval(expiryTimer);
-      // Real children get their SIGTERM, then SIGKILL; the dashboard waits for them, within a limit.
-      const exits = Array.from(processes.values()).map((proc) => {
-        const done = stopProcess(proc);
-        return proc.spawnfile ? done : Promise.resolve();
-      });
-      processes.clear();
-      let limit;
-      await Promise.race([
-        Promise.all(exits),
-        new Promise((resolve) => { limit = setTimeout(resolve, KILL_AFTER_MS + 1000); }),
-      ]);
-      clearTimeout(limit);
-      await inspector.closeAll();
-      if (!server.listening) return;
-      await new Promise((resolve) => server.close(resolve));
+      // A second call must not resolve early: it kills the children now and waits for the same shutdown.
+      if (closePromise) {
+        for (const proc of trackedChildren) {
+          if (proc.exitCode == null && proc.signalCode == null && !proc.killed) signalProcess(proc, 'SIGKILL');
+        }
+        for (const proc of processes.values()) {
+          if (proc.exitCode == null && proc.signalCode == null && !proc.killed) signalProcess(proc, 'SIGKILL');
+        }
+        return closePromise;
+      }
+      shuttingDown = true;
+      trackedChildren.push(...processes.values());
+      closePromise = (async () => {
+        sampler.stop();
+        clearInterval(expiryTimer);
+        const waitFor = (list) => {
+          const exits = list.map((proc) => {
+            const done = stopProcess(proc);
+            return proc.spawnfile ? done : Promise.resolve();
+          });
+          let limit;
+          return Promise.race([
+            Promise.all(exits),
+            new Promise((resolve) => { limit = setTimeout(resolve, KILL_AFTER_MS + 1000); }),
+          ]).finally(() => clearTimeout(limit));
+        };
+        const first = trackedChildren.slice();
+        processes.clear();
+        await waitFor(first);
+        const late = Array.from(processes.values());
+        processes.clear();
+        trackedChildren.push(...late);
+        if (late.length) await waitFor(late);
+        await inspector.closeAll();
+        if (!server.listening) return;
+        await new Promise((resolve) => server.close(resolve));
+      })();
+      return closePromise;
     },
   };
 }

@@ -220,3 +220,117 @@ test('the Windows command is safe in both cmd.exe and PowerShell', () => {
   assert.equal(dash.commandFor(c), c.equivalent);
   delete dash.platform;
 });
+
+function stubbornProcess({ dieOnTerm = false } = {}) {
+  const proc = new EventEmitter();
+  proc.stdout = Readable.from([]);
+  proc.stderr = Readable.from([]);
+  proc.pid = 0;
+  proc.spawnfile = 'cloudflared';
+  proc.exitCode = null;
+  proc.signalCode = null;
+  proc.signals = [];
+  proc.kill = (name) => {
+    proc.signals.push(name);
+    if (name === 'SIGKILL' || dieOnTerm) {
+      proc.signalCode = name === 'SIGKILL' ? 'SIGKILL' : null;
+      proc.exitCode = name === 'SIGKILL' ? null : 0;
+      proc.emit('exit', proc.exitCode, proc.signalCode);
+    }
+  };
+  return proc;
+}
+
+function stillRunning(proc) {
+  return proc.signals.length === 0 && proc.exitCode == null && proc.signalCode == null;
+}
+
+test('a second close kills a child that ignored SIGTERM', async () => {
+  const proc = stubbornProcess();
+  const app = createApp({
+    probe: async () => ({ present: true, version: 'test' }),
+    spawn: () => proc,
+  });
+  await app.listen(0, '127.0.0.1');
+  await app.openTunnel('3000', { inspect: false });
+  const first = app.close();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  const started = Date.now();
+  await app.close();
+  assert.ok(Date.now() - started < 1000);
+  assert.deepEqual(proc.signals, ['SIGTERM', 'SIGKILL']);
+  await first;
+});
+
+test('a tunnel that starts while trydash is closing is not left running', async () => {
+  let release;
+  const procs = [];
+  const app = createApp({
+    probe: () => new Promise((resolve) => {
+      release = () => resolve({ present: true, version: 'test' });
+    }),
+    spawn() {
+      const proc = stubbornProcess({ dieOnTerm: true });
+      procs.push(proc);
+      return proc;
+    },
+  });
+  await app.listen(0, '127.0.0.1');
+  const opening = app.openTunnel('3000', { inspect: false });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const closing = app.close();
+  release();
+  await opening.then(() => {}, () => {});
+  await closing;
+  assert.equal(procs.filter(stillRunning).length, 0);
+});
+
+test('a stop during restart is the last word', async () => {
+  const store = dash.createSessionStore();
+  const real = createInspector({ store, isLive: (id) => !!(store.get(id) && store.get(id).active) });
+  let hold = null;
+  const inspector = {
+    ...real,
+    open(session) {
+      const pending = real.open(session);
+      if (!hold) return pending;
+      return new Promise((resolve, reject) => {
+        hold.release = () => pending.then(resolve, reject);
+      });
+    },
+  };
+  const procs = [];
+  const app = createApp({
+    store,
+    inspector,
+    probe: async () => ({ present: true, version: 'test' }),
+    spawn() {
+      const proc = stubbornProcess({ dieOnTerm: true });
+      procs.push(proc);
+      return proc;
+    },
+  });
+  await app.listen(0, '127.0.0.1');
+  try {
+    const [session] = app.restoreTunnels([{ origin: '3000', options: {} }]);
+    hold = {};
+    const restarting = app.restartTunnel(session.id);
+    await new Promise((resolve, reject) => {
+      const started = Date.now();
+      const tick = () => {
+        if (hold.release) return resolve();
+        if (Date.now() - started > 1000) return reject(new Error('inspector open did not start'));
+        setTimeout(tick, 10);
+      };
+      tick();
+    });
+    const stopped = await fetch(`${app.url}/api/sessions/${session.id}/stop`, { method: 'POST' });
+    assert.equal(stopped.status, 200);
+    hold.release();
+    await restarting.then(() => {}, () => {});
+    assert.equal(store.get(session.id).active, false);
+    assert.equal(procs.filter(stillRunning).length, 0);
+  } finally {
+    await app.close();
+  }
+});
