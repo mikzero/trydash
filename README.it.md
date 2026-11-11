@@ -14,10 +14,7 @@
 </p>
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="site/images/screenshot-dark.png">
-    <img src="site/images/screenshot-light.png" alt="trydash: elenco dei tunnel a sinistra, richieste del tunnel selezionato al centro, header e body di una richiesta a destra" width="880">
-  </picture>
+  <img src="site/images/demo-it.gif" alt="trydash 2.0 in 25 secondi: avvio con ./trydash 3000, URL copiato e mostrato come QR code, un webhook fallito aperto e rimandato, log e traffico, poi una cartella pubblicata" width="720">
 </p>
 
 ---
@@ -35,6 +32,13 @@
 - tema **chiaro e scuro**, layout per **mobile**, scorciatoie da tastiera, interfaccia in **italiano e inglese**.
 
 ## Funzioni
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="site/images/screenshot-dark.png">
+    <img src="site/images/screenshot-light.png" alt="trydash: elenco dei tunnel a sinistra, richieste del tunnel selezionato al centro, header e body di una richiesta a destra" width="880">
+  </picture>
+</p>
 
 ### QR code
 

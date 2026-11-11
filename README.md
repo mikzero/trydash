@@ -14,10 +14,7 @@
 </p>
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="site/images/screenshot-dark.png">
-    <img src="site/images/screenshot-light.png" alt="trydash: the tunnel list on the left, the requests of the selected tunnel in the middle, the headers and body of one request on the right" width="880">
-  </picture>
+  <img src="site/images/demo-en.gif" alt="trydash 2.0 in 25 seconds: started with ./trydash 3000, the URL copied and shown as a QR code, a failed webhook opened and replayed, logs and traffic, then a folder published" width="720">
 </p>
 
 ---
@@ -37,6 +34,13 @@
 The interface is in English and Italian: it follows your browser, and the **EN**/**IT** button in the sidebar switches it (see [Language](#language)).
 
 ## Features
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="site/images/screenshot-dark.png">
+    <img src="site/images/screenshot-light.png" alt="trydash: the tunnel list on the left, the requests of the selected tunnel in the middle, the headers and body of one request on the right" width="880">
+  </picture>
+</p>
 
 ### QR code
 
