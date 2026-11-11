@@ -160,22 +160,48 @@ cd trydash
 bun start            # oppure: bun server.js
 ```
 
-Apri l’indirizzo stampato, di solito `http://127.0.0.1:8787/?token=…`, scrivi la porta del tuo servizio, o il percorso di una cartella da pubblicare, e premi **Crea**.
+Avviato da un terminale, trydash apre la dashboard nel browser, già con il token. Altrimenti apri l’indirizzo stampato, di solito `http://127.0.0.1:8787/?token=…`. Scrivi la porta del tuo servizio, o il percorso di una cartella da pubblicare, e premi **Crea**.
+
+### Riga di comando
+
+Con un argomento, trydash apre anche un tunnel all’avvio e ne stampa l’URL appena `cloudflared` lo ha. Comodo in uno script di `package.json`, come `"share": "trydash 5173"`.
+
+```sh
+trydash                          # solo la dashboard
+trydash 3000                     # tunnel verso http://127.0.0.1:3000
+trydash ./dist                   # pubblica una cartella
+trydash 3000 --mail '*@azienda.it' --expires 2h
+trydash https://localhost:8443 --no-tls-verify
+```
+
+| Opzione | A cosa serve |
+|---|---|
+| `-p`, `--port <n>` | porta della dashboard |
+| `--open`, `--no-open` | apre la dashboard nel browser; di default solo quando trydash gira in un terminale |
+| `--hello` | un tunnel Hello World |
+| `--mail <elenco>` | accesso via email, come nel modulo |
+| `--host-header <h>`, `--no-tls-verify`, `--http2-origin` | le opzioni dell’origine |
+| `--no-inspect` | non registra le richieste |
+| `--expires <tempo>` | ferma il tunnel dopo `30m`, `2h`, `1d`… |
+| `-v`, `--version` · `-h`, `--help` | versione · aiuto |
 
 ### Variabili d’ambiente
 
 | Variabile | Default | A cosa serve |
 |---|---|---|
-| `PORT` | `8787` | Porta della dashboard, che ascolta solo su `127.0.0.1`. |
+| `TRYDASH_PORT` | `8787` | Porta della dashboard, che ascolta solo su `127.0.0.1`. `--port` ha la precedenza. |
 | `TRYDASH_TOKEN` | casuale | Token di accesso della dashboard e dell’API. Di default trydash ne sceglie uno nuovo a ogni avvio e lo stampa nell’indirizzo. |
-| `DASHBOARD_SEED` | — | Con `1` carica una sessione d’esempio dai log e dalle richieste in `test/fixtures/`. Utile per provare l’interfaccia senza aprire tunnel. |
-| `DASHBOARD_PROBE` | `auto` | `present` o `missing` simulano la presenza o l’assenza di `cloudflared`, senza eseguirlo. |
-| `DASHBOARD_PROBE_VERSION` | — | Testo della versione mostrato quando `DASHBOARD_PROBE=present`. |
+| `TRYDASH_OPEN` | — | Con `0` il browser non si apre mai. |
+| `TRYDASH_SEED` | — | Con `1` carica una sessione d’esempio dai log e dalle richieste in `test/fixtures/`. Utile per provare l’interfaccia senza aprire tunnel. |
+| `TRYDASH_PROBE` | `auto` | `present` o `missing` simulano la presenza o l’assenza di `cloudflared`, senza eseguirlo. |
+| `TRYDASH_PROBE_VERSION` | — | Testo della versione mostrato quando `TRYDASH_PROBE=present`. |
+
+I nomi della 1.x funzionano ancora: `PORT`, e `DASHBOARD_SEED`, `DASHBOARD_PROBE` e `DASHBOARD_PROBE_VERSION`, che stampano un avviso.
 
 Per provare la dashboard senza toccare la rete:
 
 ```sh
-DASHBOARD_SEED=1 DASHBOARD_PROBE=present bun server.js
+TRYDASH_SEED=1 TRYDASH_PROBE=present bun server.js
 ```
 
 ## Scorciatoie

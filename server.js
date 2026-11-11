@@ -9,6 +9,7 @@ import { spawnForSession, stopProcess, KILL_AFTER_MS } from './src/runtime.js';
 import { createTrafficSampler } from './src/traffic.js';
 import { createInspector } from './src/inspector.js';
 import { resolveFolder } from './src/static.js';
+import { parseArgs, helpText, envValue, openBrowser, announceUrl } from './src/cli.js';
 import { readAsset } from './src/assets.js';
 
 
@@ -253,6 +254,42 @@ export function createApp(options = {}) {
     done.catch(() => {});
   }
 
+  function withStatus(error, status, extra) {
+    return Object.assign(error, { status, extra });
+  }
+
+  // Creates and starts a tunnel: from POST /api/sessions and from the command line.
+  // Errors carry the HTTP status they map to.
+  async function openTunnel(origin, rawOptions) {
+    const probe = await readProbe();
+    if (dash.viewForProbe(probe).phase !== 'workspace') {
+      throw withStatus(dash.appError('UNAVAILABLE', 'cloudflared.unavailable'), 409, { phase: 'install' });
+    }
+    if (store.list().length >= MAX_SESSIONS) {
+      throw withStatus(dash.appError('LIMIT', 'session.tooMany', { max: MAX_SESSIONS }), 429);
+    }
+    let session;
+    try {
+      const wanted = rawOptions && typeof rawOptions === 'object' ? rawOptions : {};
+      // A folder must exist now; the stored path is absolute, with `~` and symlinks resolved.
+      const options = wanted.mode === 'folder' ? { ...wanted, folder: resolveFolder(wanted.folder) } : wanted;
+      session = store.create(origin, options);
+    } catch (error) {
+      throw withStatus(error, error.code === 'BAD_ORIGIN' || error.code === 'BAD_OPTIONS' ? 400 : 500);
+    }
+    let spawned;
+    try {
+      if (session.options.inspect) store.setTarget(session.id, await inspector.open(session));
+      spawned = spawnForSession(store, session, spawnImpl, isCurrent);
+    } catch (error) {
+      await inspector.close(session.id);
+      store.remove(session.id);
+      throw withStatus(error, 500);
+    }
+    attach(session.id, spawned.proc, spawned.done);
+    return session;
+  }
+
   async function probeOnce() {
     if (options.probe) {
       const result = await options.probe();
@@ -263,14 +300,15 @@ export function createApp(options = {}) {
         ...result,
       };
     }
-    if (process.env.DASHBOARD_PROBE === 'missing') {
+    const fakeProbe = envValue(process.env, 'TRYDASH_PROBE');
+    if (fakeProbe === 'missing') {
       return { present: false, binary: 'cloudflared', platform: process.platform, arch: process.arch };
     }
-    if (process.env.DASHBOARD_PROBE === 'present') {
+    if (fakeProbe === 'present') {
       return {
         present: true,
         binary: 'cloudflared',
-        version: process.env.DASHBOARD_PROBE_VERSION || 'cloudflared present',
+        version: envValue(process.env, 'TRYDASH_PROBE_VERSION') || 'cloudflared present',
         platform: process.platform,
         arch: process.arch,
       };
@@ -356,11 +394,6 @@ export function createApp(options = {}) {
       }
 
       if (req.method === 'POST' && url.pathname === '/api/sessions') {
-        const probe = await readProbe();
-        if (dash.viewForProbe(probe).phase !== 'workspace') {
-          sendError(res, req, 409, 'cloudflared.unavailable', {}, { phase: 'install' });
-          return;
-        }
         let payload;
         let body;
         try {
@@ -375,33 +408,12 @@ export function createApp(options = {}) {
           sendError(res, req, 400, 'request.badJson');
           return;
         }
-        if (store.list().length >= MAX_SESSIONS) {
-          sendError(res, req, 429, 'session.tooMany', { max: MAX_SESSIONS });
-          return;
-        }
-        let session;
         try {
-          const wanted = payload.options && typeof payload.options === 'object' ? payload.options : {};
-          // A folder must exist now; the stored path is absolute, with `~` and symlinks resolved.
-          const options = wanted.mode === 'folder' ? { ...wanted, folder: resolveFolder(wanted.folder) } : wanted;
-          session = store.create(payload.origin, options);
+          const session = await openTunnel(payload.origin, payload.options);
+          sendJson(res, 201, { session: summary(session, inspector) });
         } catch (error) {
-          const code = error.code === 'BAD_ORIGIN' || error.code === 'BAD_OPTIONS' ? 400 : 500;
-          sendError(res, req, code, error);
-          return;
+          sendError(res, req, error.status || 500, error, null, error.extra);
         }
-        let spawned;
-        try {
-          if (session.options.inspect) store.setTarget(session.id, await inspector.open(session));
-          spawned = spawnForSession(store, session, spawnImpl, isCurrent);
-        } catch (error) {
-          await inspector.close(session.id);
-          store.remove(session.id);
-          sendError(res, req, 500, error);
-          return;
-        }
-        attach(session.id, spawned.proc, spawned.done);
-        sendJson(res, 201, { session: summary(session, inspector) });
         return;
       }
 
@@ -499,6 +511,7 @@ export function createApp(options = {}) {
     server,
     store,
     inspector,
+    openTunnel,
     dashboard: dash,
     url: '',
     async listen(port = 0, host = '127.0.0.1') {
@@ -551,24 +564,47 @@ export function appVersion() {
   return globalThis.__TRYDASH_VERSION__ || 'dev';
 }
 
-export async function main() {
-  if (process.argv.includes('--version')) {
+export async function main(argv = process.argv.slice(2), env = process.env) {
+  let args;
+  try {
+    args = parseArgs(argv);
+  } catch (error) {
+    console.error(`trydash: ${error.message}\n\n${helpText()}`);
+    process.exitCode = 2;
+    return null;
+  }
+  if (args.version) {
     console.log(`trydash ${appVersion()}`);
     return null;
   }
-  const token = process.env.TRYDASH_TOKEN || newToken();
+  if (args.help) {
+    console.log(helpText());
+    return null;
+  }
+  const token = env.TRYDASH_TOKEN || newToken();
   const app = createApp({ token });
-  if (process.env.DASHBOARD_SEED === '1') await seedInspector(app.inspector, seedFixture(app.store));
-  const port = Number(process.env.PORT || 8787);
+  if (envValue(env, 'TRYDASH_SEED') === '1') await seedInspector(app.inspector, seedFixture(app.store));
+  const port = args.port != null ? args.port : Number(envValue(env, 'TRYDASH_PORT') || 8787);
   const url = await app.listen(port, '127.0.0.1');
-  const probe = process.env.DASHBOARD_PROBE || 'auto';
-  console.log(`trydash ${appVersion()}  ${url}/?token=${token}`);
-  console.log(`probe ${probe}`);
+  const link = `${url}/?token=${token}`;
+  console.log(`trydash ${appVersion()}  ${link}`);
+  console.log(`probe ${envValue(env, 'TRYDASH_PROBE') || 'auto'}`);
   const shutdown = () => {
     app.close().then(() => process.exit(0));
   };
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
+  if (args.target) {
+    try {
+      const session = await app.openTunnel(args.target.origin, args.target.options);
+      announceUrl(app.store, session.id);
+    } catch (error) {
+      console.error(`trydash: ${error.message}`);
+    }
+  }
+  // Only for a person at a terminal: CI and tests never get a browser window.
+  const open = args.open != null ? args.open : !!process.stdout.isTTY && envValue(env, 'TRYDASH_OPEN') !== '0';
+  if (open) openBrowser(link);
   return app;
 }
 

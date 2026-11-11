@@ -42,7 +42,7 @@ test('the compiled binary runs from another folder', { timeout: 120000 }, async 
     const version = spawnSync(binary, ['--version'], { cwd: elsewhere });
     assert.equal(version.stdout.toString(), 'trydash 9.9.9-test\n');
 
-    proc = spawn(binary, [], { cwd: elsewhere, env: { ...process.env, PORT: '0', DASHBOARD_PROBE: 'present', TRYDASH_TOKEN: 'build-test-token' } });
+    proc = spawn(binary, [], { cwd: elsewhere, env: { ...process.env, TRYDASH_PORT: '0', TRYDASH_PROBE: 'present', TRYDASH_TOKEN: 'build-test-token' } });
     const url = await waitForUrl(proc);
     assert.match(await (await fetch(`${url}/`)).text(), /<title>trydash<\/title>/);
     assert.equal((await fetch(`${url}/js/parse.js`)).status, 200);
