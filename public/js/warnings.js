@@ -26,6 +26,17 @@
         actions: ['restart', 'hello'],
       });
     }
+    // The site sends visitors to its local address: rewriting fixes it.
+    var local = summary.localRedirect;
+    var options = summary.options || {};
+    if (local && options.inspect && !options.rewrite && summary.mode !== 'folder') {
+      list.push({
+        id: 'local-redirect',
+        kind: 'warn',
+        text: api.t(local.kind === 'host' ? 'ui.warn.localHost' : local.kind === 'links' ? 'ui.warn.localLinks' : 'ui.warn.localRedirect', { location: local.location }),
+        actions: ['rewrite'],
+      });
+    }
     var traffic = summary.traffic;
     if (traffic && traffic.ok !== false && typeof traffic.inflight === 'number' && traffic.inflight >= NEAR_LIMIT) {
       list.push({

@@ -150,6 +150,10 @@
             h('span', { className: 'ico', 'aria-hidden': 'true', text: '▦' }),
             h('span', { className: 'lbl', text: 'QR' }),
           ]),
+          h('button', { type: 'button', id: 'preview-button', className: 'btn', 'aria-label': api.t('ui.preview.button'), title: api.t('ui.preview.buttonTitle'), 'aria-haspopup': 'dialog', 'aria-controls': 'preview-pop', dataset: { action: 'preview' } }, [
+            h('span', { className: 'ico', 'aria-hidden': 'true', text: '◎' }),
+            h('span', { className: 'lbl', text: api.t('ui.preview.button') }),
+          ]),
           h('a', { id: 'open-url', className: 'btn', target: '_blank', rel: 'noopener', 'aria-label': api.t('ui.head.openUrl'), dataset: { action: 'open' } }, [
             h('span', { className: 'lbl', text: api.t('ui.head.open') }),
             h('span', { className: 'ico', 'aria-hidden': 'true', text: '↗' }),
@@ -169,6 +173,7 @@
         ]),
       ]),
       h('div', { id: 'qr-pop', className: 'qr-pop', role: 'dialog', 'aria-label': api.t('ui.qr.button'), hidden: true }),
+      h('div', { id: 'preview-pop', className: 'qr-pop preview-pop', role: 'dialog', 'aria-label': api.t('ui.preview.title'), hidden: true }),
       h('div', { id: 'tunnel-warnings', className: 'tunnel-warnings', role: 'status' }),
       h('div', { className: 'tabs', role: 'tablist', 'aria-label': api.t('ui.tabs.label') }, [
         h('button', { type: 'button', id: 'tab-log', className: 'tab is-on', role: 'tab', 'aria-selected': 'true', 'aria-controls': 'pane-log', dataset: { action: 'tab', tab: 'log' } }, [
@@ -283,6 +288,44 @@
     return true;
   }
 
+  // The client-preview panel of a running tunnel: changes apply without a new URL.
+  function openPreview(session) {
+    var pop = el('preview-pop');
+    if (!pop || !session || !(session.options && session.options.inspect)) return false;
+    var h = api.h;
+    var fields = api.buildPreviewFields('pv-', session.options);
+    if (session.mode === 'folder') {
+      // A folder has no local URLs to rewrite.
+      var rewrite = fields.querySelector('#pv-rewrite');
+      if (rewrite && rewrite.closest) rewrite.closest('label').hidden = true;
+    }
+    pop.dataset.session = session.id;
+    pop.replaceChildren(
+      h('div', { className: 'detail-head' }, [
+        h('p', { className: 'k', text: api.t('ui.preview.title') }),
+        h('button', { type: 'button', className: 'link-btn', 'aria-label': api.t('ui.qr.close'), text: '✕', dataset: { action: 'preview-close' } }),
+      ]),
+      h('p', { className: 'quick-note', text: api.t('ui.preview.live') }),
+      fields,
+      h('div', { className: 'req-actions' }, [
+        h('button', { type: 'button', className: 'btn inv', text: api.t('ui.preview.apply'), dataset: { action: 'preview-apply' } }),
+      ])
+    );
+    pop.hidden = false;
+    var first = pop.querySelector('input');
+    if (first && first.focus) first.focus();
+    return true;
+  }
+
+  function closePreview() {
+    var pop = el('preview-pop');
+    if (!pop || pop.hidden) return false;
+    pop.hidden = true;
+    pop.replaceChildren();
+    pop.dataset.session = '';
+    return true;
+  }
+
   // "1 h 12 min", "3 min", "<1 min": coarse on purpose, the header repaints every second.
   function formatRemaining(ms) {
     if (!(ms > 60000)) return api.t('ui.remain.lessMinute');
@@ -306,12 +349,17 @@
     if (options.noTlsVerify) {
       badges.push(h('span', { className: 'badge-tls', text: api.t('ui.badge.tls') }));
     }
+    if (options.rewrite) badges.push(h('span', { className: 'badge-preview', title: api.t('ui.preview.rewriteTitle'), text: api.t('ui.badge.rewrite') }));
+    var blocked = options.blocked || [];
+    if (blocked.length) badges.push(h('span', { className: 'badge-preview', title: blocked.join(', '), text: api.tn('ui.badge.blocked', blocked.length) }));
+    if (options.badge) badges.push(h('span', { className: 'badge-preview', text: api.t('ui.badge.label') }));
+    if (options.inspect && options.noindex === false) badges.push(h('span', { className: 'badge-tls', text: api.t('ui.badge.indexable') }));
     var remaining = null;
     if (summary.active && summary.expiresAt) {
       remaining = formatRemaining(Date.parse(summary.expiresAt) - (nowMs == null ? Date.now() : nowMs));
       badges.push(h('span', { className: 'badge-expires', title: summary.expiresAt, text: api.t('ui.badge.expires', { time: remaining }) }));
     }
-    var sig = JSON.stringify([mails, !!options.noTlsVerify, remaining]);
+    var sig = JSON.stringify([mails, !!options.noTlsVerify, remaining, !!options.rewrite, blocked, !!options.badge, options.noindex]);
     if (box.dataset.sig === sig) return;
     box.dataset.sig = sig;
     box.replaceChildren.apply(box, badges);
@@ -360,6 +408,9 @@
           : null,
         warning.actions.indexOf('hello') >= 0
           ? h('button', { type: 'button', className: 'btn', text: api.t('ui.hello'), dataset: { action: 'hello' } })
+          : null,
+        warning.actions.indexOf('rewrite') >= 0
+          ? h('button', { type: 'button', className: 'btn inv', text: api.t('ui.warn.rewriteAction'), dataset: { action: 'enable-rewrite' } })
           : null,
       ]);
     }));
@@ -582,6 +633,10 @@
       if (copy) copy.disabled = !session.url;
       var qrButton = el('qr-button');
       if (qrButton) qrButton.disabled = !session.url;
+      var previewButton = el('preview-button');
+      if (previewButton) previewButton.hidden = !(session.options && session.options.inspect);
+      var previewPop = el('preview-pop');
+      if (previewPop && !previewPop.hidden && previewPop.dataset.session !== session.id) closePreview();
       var pop = el('qr-pop');
       // A QR for an old URL is worse than none: it closes when the URL changes.
       if (pop && !pop.hidden && pop.dataset.url !== (session.url || '')) closeQr();
@@ -783,6 +838,8 @@
   api.showTab = showTab;
   api.openQr = openQr;
   api.closeQr = closeQr;
+  api.openPreview = openPreview;
+  api.closePreview = closePreview;
   api.buildDetail = buildDetail;
   api.followAfterScroll = followAfterScroll;
   api.createLogView = createLogView;

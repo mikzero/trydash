@@ -79,6 +79,19 @@ Type the path of a folder instead of a port, for example `~/site/dist`, `./build
 
 `~` is your home folder, and a relative path starts from the folder trydash runs in. A name without `./`, like `site` or `site/dist`, is a folder too when one with that name exists there; otherwise it's a host name, as before (`site` → `http://site`). The preview under the field says which. The folder must exist when you create the tunnel, and it can’t be the root of the disk or your whole home folder. Its requests always appear in the **Requests** tab, and the sidebar shows 📁 and the folder name. The origin options don’t apply to a folder.
 
+### Client preview
+
+To show a client a site that is still on your computer, like a WordPress in Docker, a Laravel app or a Vite dev server, open **Client preview** in the form, or **◎ Preview** in the header of a running tunnel. The changes apply from the next request and the URL stays the same.
+
+- **Rewrite localhost URLs.** Many sites know only their local address: WordPress sends visitors to `http://localhost:8080`, pages link styles and images there, Vite refuses an unknown `Host`. With this on, trydash's proxy talks to the origin with the site's own `Host` (learned from its first redirect) and turns `http://localhost:8080`, `127.0.0.1:8080`, `ws://…` and their `\/\/`-escaped and URL-encoded forms into the public `https://` URL: in `Location`, `Link`, `Set-Cookie` (a `Domain=localhost` is dropped), CSP and other headers, and in pages, styles, scripts, JSON, XML and SVG up to 8 MB, `gzip` and `br` included. The other way round, the public URL becomes the local one again in `Origin`, `Referer`, the query string and small form or JSON bodies, like WordPress' `redirect_to`. Images, fonts, video and `206` answers pass untouched. Nothing changes in WordPress' settings or database.
+- **Hide from search engines**, on by default: every answer gets `X-Robots-Tag: noindex, nofollow`.
+- **“Preview” label**: a small badge at the bottom left of HTML pages (“Anteprima” for visitors who read Italian). It's markup added before `</body>`, so a strict CSP can leave it unstyled.
+- **Blocked paths**: visitors get a `403` “Not available in this preview” page, and the origin never sees the request. `/wp-admin` also covers `/wp-admin/…`; case, `//`, `..`, `%2e` and other encodings don't get around it. **WordPress**, **Laravel** and **Django** add their usual private paths. The **Requests** tab shows blocked requests with ⛔, and **Replay** from the dashboard still reaches the origin.
+
+Without rewriting, trydash watches for the usual signs (a redirect to localhost, pages that link to it, a dev server refusing the public host) and shows a banner with **Rewrite local URLs**. The **Requests** tab always shows what the origin really sent, before rewriting.
+
+Rewriting, the label and blocked paths live in the inspector's proxy, so they turn the inspector on and don't work with an HTTP/2 origin. A folder tunnel takes the label, noindex and blocked paths. On the command line: `trydash 8080 --rewrite --block /wp-admin,/wp-login.php --badge`.
+
 ### Expiry
 
 **Stop after** in the form stops the tunnel by itself after 30 minutes, 1, 2 or 8 hours, or a day, so a preview for a client doesn’t stay online by mistake. The header shows the time left (“⏱ stops in 1 h 12 min”). When it’s up, the tunnel stops like with **Stop**, the logs say “tunnel expired after 120 min”, and the sidebar shows “expired”. **Restart** starts the clock again. From the command line: `--expires 2h`; from the API: `"expiresIn": 120`, in minutes, up to a week.
@@ -139,6 +152,8 @@ The **Try with Hello World** button runs `cloudflared tunnel --hello-world`, whi
 |---|---|
 | the origin doesn’t answer (in the last 60 s) | a “Your server on :3000 isn’t responding — is it running?” banner with **Restart** and **Try with Hello World** |
 | 150 or more requests in flight | a banner about the 200 limit: extra requests get `429` |
+| a redirect or links to localhost, or a dev server refusing the public host | a banner with **Rewrite local URLs** |
+| client preview on | labels for rewritten URLs, blocked paths and the “Preview” label |
 | `--no-tls-verify` on | an “Origin certificate not verified” label and ⚠ in the sidebar |
 | protected tunnel | a label with the allowed addresses and 🔒 in the sidebar |
 | Restart | the first click shows “New URL — confirm”: a restarted quick tunnel changes URL |
@@ -219,6 +234,7 @@ trydash https://localhost:8443 --no-tls-verify
 | `--mail <list>` | email access, as in the form |
 | `--host-header <h>`, `--no-tls-verify`, `--http2-origin` | the origin options |
 | `--no-inspect` | don’t record requests |
+| `--rewrite` · `--block <paths>` · `--badge` · `--index` | client preview: rewrite localhost URLs, `403` for these paths, the “Preview” label, let search engines index it |
 | `--no-save` | don’t save or restore tunnels |
 | `--expires <time>` | stop the tunnel after `30m`, `2h`, `1d`… |
 | `-v`, `--version` · `-h`, `--help` | version · help |
@@ -275,6 +291,7 @@ Quick tunnels are meant for **testing and development**. From the [Cloudflare do
 - **A tunnel makes the service you expose public**: anyone with the URL can reach it. To limit it to specific people, use email access. Either way, don’t expose services with real data or admin panels without protection.
 - trydash doesn’t ask for or store credentials, tokens or accounts. Logs and inspected requests stay in memory and disappear when you close the server. Inspected requests can contain cookies and tokens sent to your service: they never leave your machine, and **Clear** clears them.
 - The inspector’s proxy listens on `127.0.0.1` only, on a random port, and forwards only to the origin of its tunnel.
+- **Blocked paths are a courtesy, not a lock.** They keep clients and crawlers out of `/wp-admin` and the like, but the rest of the site is as public as the URL. A real admin login still needs its password, or use email access.
 - A folder tunnel makes every file in that folder public, except hidden ones. Pick the build folder, not your whole project or your home.
 - Origins with credentials in the URL (`http://user:pass@…`) are refused.
 
@@ -289,6 +306,7 @@ The frontend uses a small JSON API, also handy for scripts. Every call needs the
 | `GET` | `/api/ports` | development servers listening on this computer, with `busy` when a live tunnel already uses them |
 | `POST` | `/api/sessions` | create a tunnel, body `{ "origin": "3000", "options": { … } }` (see below) |
 | `POST` | `/api/sessions/:id/stop` | stop the tunnel |
+| `PATCH` | `/api/sessions/:id/options` | change the client preview of a tunnel, same URL: `{ "rewrite": true, "blocked": "/wp-admin", "badge": true, "noindex": true }` |
 | `POST` | `/api/sessions/:id/restart` | restart a stopped or exited tunnel |
 | `DELETE` | `/api/sessions/:id` | stop and remove the session |
 | `GET` | `/api/sessions/:id/logs?offset=&limit=&levels=error,warn&q=text` | a page of logs, filtered (at most 200 lines) |
@@ -315,7 +333,11 @@ The frontend uses a small JSON API, also handy for scripts. Every call needs the
   "noTlsVerify": false,
   "http2Origin": false,
   "inspect": true,
-  "expiresIn": 120
+  "expiresIn": 120,
+  "rewrite": false,
+  "blocked": ["/wp-admin", "/wp-login.php"],
+  "badge": false,
+  "noindex": true
 }
 ```
 

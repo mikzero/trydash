@@ -246,6 +246,7 @@
         field(api.t('ui.timeLabel'), h('p', { className: 'v mono', text: clock(detail.startedAt) })),
         detail.remote ? field(api.t('ui.req.from'), h('p', { className: 'v mono', text: detail.remote })) : null,
       ]),
+      detail.blocked ? h('p', { className: 'replay-note', text: api.t('ui.req.blockedNote', { path: detail.blocked }) }) : null,
       detail.replayOf != null ? h('p', { className: 'replay-note' }, [
         api.t('ui.req.replayOf') + ' ',
         h('button', { type: 'button', className: 'link-btn', text: api.t('ui.req.requestN', { n: detail.replayOf }), dataset: { req: String(detail.replayOf) } }),
@@ -341,6 +342,7 @@
     function rowNode(row) {
       var isSelected = row.seq === selected;
       var path = h('span', { className: 'req-path' });
+      if (row.blocked) path.append(h('span', { className: 'req-tag', title: api.t('ui.req.blockedTag', { path: row.blocked }), text: '⛔' }));
       if (row.saved) path.append(h('span', { className: 'req-tag', title: api.t('ui.req.savedTag', { name: row.saved }), text: '☆' }));
       if (row.replayOf != null) path.append(h('span', { className: 'req-tag', title: api.t('ui.req.replayTag', { n: row.replayOf }), text: row.edited ? '↻✎' : '↻' }));
       if (row.websocket) path.append(h('span', { className: 'req-tag', text: 'WS' }));

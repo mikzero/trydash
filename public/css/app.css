@@ -1046,6 +1046,14 @@ mark { background: var(--mark); color: var(--mark-t); border-radius: 2px; paddin
 .badge-protected { background: var(--i-bg); color: var(--i); }
 .badge-tls { background: var(--w-bg); color: var(--w); }
 .badge-expires { padding: 2px 8px; border-radius: 999px; font-size: 11.5px; background: var(--d-bg); color: var(--d); }
+.badge-preview { padding: 2px 8px; border-radius: 999px; font-size: 11.5px; background: var(--i-bg); color: var(--i); }
+
+.preview-pop { width: 320px; }
+.preview-fields { display: grid; gap: 8px; }
+.preview-fields .checks { display: grid; gap: 6px; }
+.preview-pop .check { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+.preview-pop .field { gap: 4px; font-size: 12px; color: var(--muted); }
+.preset-row { margin-top: 0; }
 
 .head-traffic { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 6px; font-size: 11.5px; color: var(--muted); }
 .head-traffic[hidden], .head-traffic [hidden] { display: none; }
@@ -1152,4 +1160,5 @@ mark { background: var(--mark); color: var(--mark-t); border-radius: 2px; paddin
   .toasts { left: 16px; right: 16px; justify-items: stretch; }
 
   .qr-pop { top: 56px; right: 16px; left: 16px; width: auto; max-width: 320px; margin-left: auto; }
+  .preview-pop { max-width: 360px; }
 }

@@ -372,6 +372,17 @@ test('warnings and recent mail', () => {
   assert.equal(T.warningsFor({ ...busy(150), lastOriginError: { at, message: 'x' } }, base)[0].id, 'origin-down');
   assert.equal(T.warningsFor({ ...busy(180), active: false }, base).length, 0);
 
+  // A site that sends visitors to localhost: the banner offers to rewrite.
+  const local = { origin: 'http://127.0.0.1:8080', mode: 'origin', active: true, options: { inspect: true, rewrite: false },
+    localRedirect: { at, location: 'http://localhost:8080/', kind: 'redirect' } };
+  const redirect = T.warningsFor(local, base);
+  assert.equal(redirect[0].id, 'local-redirect');
+  assert.equal(redirect[0].text, 'Il sito rimanda i visitatori a http://localhost:8080/: chi apre il link pubblico finisce su localhost.');
+  assert.deepEqual(Array.from(redirect[0].actions), ['rewrite']);
+  assert.match(T.warningsFor({ ...local, localRedirect: { at, location: '/', kind: 'host' } }, base)[0].text, /controllo dell’host/);
+  assert.equal(T.warningsFor({ ...local, options: { inspect: true, rewrite: true } }, base).length, 0);
+  assert.equal(T.warningsFor({ ...local, options: { inspect: false } }, base).length, 0);
+
   assert.equal(T.loadLevel(149), '');
   assert.equal(T.loadLevel(150), 'warn');
   assert.equal(T.loadLevel(200), 'danger');
@@ -426,7 +437,24 @@ test('create form options, preview and recent mail', () => {
   form.querySelector('#no-tls-verify').checked = true;
   form.querySelector('#http2-origin').checked = false;
   assert.equal(form.querySelector('#inspect').checked, true);
-  assert.deepEqual({ ...T.readCreateOptions(form) }, { expiresIn: null, allowedMail: 'a@b.it, *@x.it', hostHeader: 'app.local', noTlsVerify: true, http2Origin: false, inspect: true });
+  assert.deepEqual({ ...T.readCreateOptions(form) }, {
+    expiresIn: null, allowedMail: 'a@b.it, *@x.it', hostHeader: 'app.local', noTlsVerify: true, http2Origin: false, inspect: true,
+    rewrite: false, noindex: true, badge: false, blocked: '',
+  });
+  // Client preview: presets add their paths once; the summary counts what is on.
+  const blocked = form.querySelector('#blocked');
+  blocked.value = '/private';
+  T.addPreset(blocked, 'wordpress');
+  T.addPreset(blocked, 'wordpress');
+  assert.equal(blocked.value, '/private, /wp-admin, /wp-login.php, /xmlrpc.php');
+  form.querySelector('#rewrite').checked = true;
+  T.refreshCreateForm(form);
+  assert.equal(form.querySelector('#preview-summary').textContent, 'Anteprima per il cliente · 2');
+  const withPreview = T.readCreateOptions(form);
+  assert.equal(withPreview.rewrite, true);
+  assert.deepEqual(JSON.parse(JSON.stringify(T.normalizeTunnelOptions(withPreview).blocked)), ['/private', '/wp-admin', '/wp-login.php', '/xmlrpc.php']);
+  form.querySelector('#rewrite').checked = false;
+  blocked.value = '';
   form.querySelector('#inspect').checked = false;
   assert.equal(T.readCreateOptions(form).inspect, false);
   form.querySelector('#inspect').checked = true;
@@ -445,6 +473,8 @@ test('create form options, preview and recent mail', () => {
   T.refreshCreateForm(form);
   assert.equal(form.querySelector('#origin-summary').textContent, 'Opzioni origine · 1 · senza ispettore');
   assert.equal(form.querySelector('#inspect').disabled, true);
+  assert.equal(form.querySelector('#preview-summary').textContent, 'Anteprima per il cliente · non con HTTP/2');
+  assert.equal(form.querySelector('#rewrite').disabled, true);
 });
 
 test('a folder path is recognized in the form and labelled in the sidebar', () => {

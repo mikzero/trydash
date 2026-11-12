@@ -56,6 +56,77 @@
     { value: '1440', label: 'ui.expires.d1' },
   ];
 
+  // The client-preview controls, in the form (prefix '') and in the tunnel's panel ('pv-').
+  function buildPreviewFields(prefix, options) {
+    var h = api.h;
+    var o = options || {};
+    var id = function (name) { return prefix + name; };
+    var check = function (name, checked, label, title) {
+      return h('label', { className: 'check', title: title || '' }, [
+        h('input', { id: id(name), name: name, type: 'checkbox', checked: !!checked }),
+        h('span', { text: label }),
+      ]);
+    };
+    return h('div', { className: 'preview-fields' }, [
+      h('div', { className: 'checks' }, [
+        check('rewrite', o.rewrite, api.t('ui.preview.rewrite'), api.t('ui.preview.rewriteTitle')),
+        check('noindex', o.noindex !== false, api.t('ui.preview.noindex')),
+        check('badge', o.badge, api.t('ui.preview.badge')),
+      ]),
+      h('label', { className: 'field' }, [
+        h('span', { text: api.t('ui.preview.blocked') }),
+        h('input', {
+          id: id('blocked'),
+          name: 'blocked',
+          type: 'text',
+          className: 'input mono',
+          placeholder: '/wp-admin, /wp-login.php',
+          value: (o.blocked || []).join(', '),
+          autocomplete: 'off',
+          spellcheck: 'false',
+        }),
+      ]),
+      h('div', { className: 'recent-mail preset-row' }, [h('span', { className: 'recent-label', text: api.t('ui.preview.presets') })].concat(
+        Object.keys(api.BLOCK_PRESETS).map(function (name) {
+          return h('button', {
+            type: 'button',
+            className: 'chip',
+            title: api.BLOCK_PRESETS[name].join(', '),
+            text: PRESET_LABELS[name] || name,
+            dataset: { action: 'block-preset', preset: name, target: id('blocked') },
+          });
+        })
+      )),
+    ]);
+  }
+
+  var PRESET_LABELS = { wordpress: 'WordPress', laravel: 'Laravel', django: 'Django' };
+
+  function readPreviewFields(root, prefix) {
+    var get = function (name) { return root && root.querySelector ? root.querySelector('#' + prefix + name) : null; };
+    var rewrite = get('rewrite');
+    var noindex = get('noindex');
+    var badge = get('badge');
+    var blocked = get('blocked');
+    return {
+      rewrite: !!(rewrite && rewrite.checked),
+      noindex: !noindex || !!noindex.checked,
+      badge: !!(badge && badge.checked),
+      blocked: blocked ? String(blocked.value || '') : '',
+    };
+  }
+
+  // A preset adds its paths to the field, without repeating the ones already there.
+  function addPreset(input, name) {
+    var paths = api.BLOCK_PRESETS[name];
+    if (!input || !paths) return;
+    var have = String(input.value || '').split(/[\s,;]+/).filter(Boolean);
+    paths.forEach(function (item) {
+      if (have.map(function (v) { return v.toLowerCase().replace(/\/+$/, ''); }).indexOf(item) < 0) have.push(item);
+    });
+    input.value = have.join(', ');
+  }
+
   function buildCreateForm() {
     var form = createFormMarkup();
     paintRecentMail(form);
@@ -121,6 +192,11 @@
           ]),
         ]),
       ]),
+      h('details', { id: 'preview-details', className: 'create-more' }, [
+        h('summary', { id: 'preview-summary', text: api.t('ui.preview.title') }),
+        h('p', { className: 'quick-note', text: api.t('ui.preview.intro') }),
+        buildPreviewFields('', { noindex: true }),
+      ]),
       h('p', { className: 'quick-note', text: api.t('ui.form.note') }),
       h('div', { className: 'hello-row' }, [
         h('span', { className: 'hello-or', text: api.t('ui.form.or') }),
@@ -140,6 +216,7 @@
     var h2 = field(form, 'http2-origin');
     var inspect = field(form, 'inspect');
     var expires = field(form, 'expires');
+    var preview = readPreviewFields(form, '');
     return {
       expiresIn: expires && expires.value ? Number(expires.value) : null,
       allowedMail: mail ? String(mail.value || '') : '',
@@ -147,6 +224,10 @@
       noTlsVerify: !!(tls && tls.checked),
       http2Origin: !!(h2 && h2.checked),
       inspect: !inspect || !!inspect.checked,
+      rewrite: preview.rewrite,
+      noindex: preview.noindex,
+      badge: preview.badge,
+      blocked: preview.blocked,
     };
   }
 
@@ -184,6 +265,16 @@
     var inspectLabel = field(form, 'inspect-label');
     if (inspect) inspect.disabled = !!options.http2Origin;
     if (inspectLabel) inspectLabel.textContent = options.http2Origin ? api.t('ui.form.inspectNoH2') : api.t('ui.form.inspect');
+    // The preview lives in trydash's proxy: not with HTTP/2 to the origin.
+    var previewSummary = field(form, 'preview-summary');
+    var on = (options.rewrite ? 1 : 0) + (options.badge ? 1 : 0) + (String(options.blocked || '').trim() ? 1 : 0);
+    if (previewSummary) {
+      previewSummary.textContent = api.t('ui.preview.title') + (options.http2Origin ? ' · ' + api.t('ui.preview.offH2') : on ? ' · ' + on : '');
+    }
+    ['rewrite', 'noindex', 'badge', 'blocked'].forEach(function (name) {
+      var node = field(form, name);
+      if (node) node.disabled = !!options.http2Origin;
+    });
   }
 
   function hasOptions(options) {
@@ -431,6 +522,9 @@
   api.paintSidebar = paintSidebar;
   api.buildCreateForm = buildCreateForm;
   api.readCreateOptions = readCreateOptions;
+  api.buildPreviewFields = buildPreviewFields;
+  api.readPreviewFields = readPreviewFields;
+  api.addPreset = addPreset;
   api.paintRecentMail = paintRecentMail;
   api.previewCommand = previewCommand;
   api.refreshCreateForm = refreshCreateForm;

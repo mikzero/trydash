@@ -417,12 +417,30 @@
     if (inspect) inspect.checked = true;
     var expires = form.querySelector('#expires');
     if (expires) expires.value = '';
-    ['mail-details', 'origin-details'].forEach(function (id) {
+    ['rewrite', 'badge'].forEach(function (id) {
+      var node = form.querySelector('#' + id);
+      if (node) node.checked = false;
+    });
+    var noindex = form.querySelector('#noindex');
+    if (noindex) noindex.checked = true;
+    var blocked = form.querySelector('#blocked');
+    if (blocked) blocked.value = '';
+    ['mail-details', 'origin-details', 'preview-details'].forEach(function (id) {
       var node = form.querySelector('#' + id);
       if (node) node.open = false;
     });
     api.paintRecentMail(form);
     api.refreshCreateForm(form);
+  }
+
+  // Preview options change on the running tunnel: same URL, effect from the next request.
+  async function updatePreview(patch, message) {
+    var session = currentSession();
+    if (!session) return;
+    await api_('PATCH', '/api/sessions/' + encodeURIComponent(session.id) + '/options', patch);
+    api.closePreview();
+    notify(message);
+    await refresh();
   }
 
   async function selectCreated(session, message) {
@@ -683,6 +701,29 @@
       api.closeQr();
       return;
     }
+    if (action === 'block-preset') {
+      api.addPreset(document.getElementById(node.dataset.target), node.dataset.preset);
+      api.refreshCreateForm(document.getElementById('create-form'));
+      return;
+    }
+    if (action === 'preview') {
+      var forPreview = currentSession();
+      if (!api.closePreview() && forPreview) {
+        api.closeQr();
+        api.openPreview(forPreview);
+      }
+      return;
+    }
+    if (action === 'preview-close') {
+      api.closePreview();
+      return;
+    }
+    if (action === 'preview-apply' || action === 'enable-rewrite') {
+      var pop = document.getElementById('preview-pop');
+      var patch = action === 'enable-rewrite' ? { rewrite: true } : api.readPreviewFields(pop, 'pv-');
+      updatePreview(patch, action === 'enable-rewrite' ? api.t('ui.toast.rewriteOn') : api.t('ui.toast.previewSaved')).catch(fail);
+      return;
+    }
     if (action === 'copy-cmd') {
       var current = currentSession();
       if (current) copyText(api.commandFor(current), api.platform === 'win32' ? api.t('ui.toast.commandCopiedWindows') : api.t('ui.toast.commandCopied'));
@@ -720,6 +761,7 @@
       if (node.dataset.session !== state.currentId) {
         state.currentId = node.dataset.session;
         api.closeQr();
+        api.closePreview();
         resetView();
         writeHash(state.currentId);
         paintShell();
@@ -853,7 +895,7 @@
     var target = event.target || {};
     var typing = target.matches && target.matches('input, textarea, select');
     if (event.key === 'Escape') {
-      if (api.closeQr()) {
+      if (api.closeQr() || api.closePreview()) {
         event.preventDefault();
         return;
       }
