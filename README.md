@@ -485,6 +485,12 @@ bun test
 
 The tests use fake processes and never start `cloudflared`. The build test compiles an executable for the current system and runs it from another folder: it takes a couple of seconds.
 
+```sh
+npm run test:e2e
+```
+
+An optional end-to-end check of the client preview, on macOS and Linux. It needs Playwright with Chromium (`npm i -D playwright && npx playwright install chromium`) and `openssl`. trydash starts from the command line with a fake `cloudflared`, stand-ins for WordPress, Vite and Laravel run on ports 18090, 15173 and 18000, and a local HTTPS server plays Cloudflare's edge, so a real Chromium opens `https://….trycloudflare.com` like a client would: redirects, cookies, logins, gzip, the REST API, Vite's WebSocket, blocked paths and the label. Any request the client makes to `localhost` counts as a failure. Screenshots go to a temporary folder, or to `E2E_SHOTS`.
+
 ## Support
 
 trydash is free and made in my spare time. If it saves you time, you can buy me a coffee on Ko-fi:
