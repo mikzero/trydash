@@ -178,6 +178,10 @@
           h('span', { text: api.t('ui.tabs.requests') }),
           h('span', { id: 'tab-requests-count', className: 'tab-count', hidden: true }),
         ]),
+        h('button', { type: 'button', id: 'tab-saved', className: 'tab', role: 'tab', 'aria-selected': 'false', 'aria-controls': 'pane-saved', dataset: { action: 'tab', tab: 'saved' } }, [
+          h('span', { text: api.t('ui.tabs.saved') }),
+          h('span', { id: 'tab-saved-count', className: 'tab-count', hidden: true }),
+        ]),
       ]),
       h('div', { id: 'pane-log', className: 'tab-pane', role: 'tabpanel', 'aria-labelledby': 'tab-log' }, [
         h('div', { className: 'log-toolbar' }, [
@@ -210,12 +214,13 @@
         ]),
       ]),
       api.buildRequestsPane ? api.buildRequestsPane() : null,
+      api.buildSavedPane ? api.buildSavedPane() : null,
     ]);
   }
 
   // Shows one of the two panes; the hidden one keeps its state.
   function showTab(tab) {
-    ['log', 'requests'].forEach(function (name) {
+    ['log', 'requests', 'saved'].forEach(function (name) {
       var on = name === tab;
       var button = el('tab-' + name);
       var pane = el('pane-' + name);

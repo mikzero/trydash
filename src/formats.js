@@ -1,3 +1,4 @@
+// Warnings are { key, params }: the server words them in the caller's language.
 // Requests in and out of trydash: Postman collections (v2.0 and v2.1), HAR 1.2
 // and pasted curl commands come in as saved requests; saved and captured
 // requests go out as Postman or HAR. A request here is only method, path,
@@ -134,7 +135,7 @@ function applyAuth(auth, request, vars, missing, warnings) {
       request.headers.push([key, value]);
     }
   } else {
-    warnings.push(`auth "${auth.type}" not converted: ${request.name}`);
+    warnings.push({ key: 'import.authSkipped', params: { type: auth.type, name: request.name } });
   }
 }
 
@@ -174,7 +175,7 @@ function postmanBody(body, request, vars, missing, warnings) {
   } else if (body.mode === 'formdata') {
     const fields = (body.formdata || []).filter((f) => f && !f.disabled && f.key != null);
     const files = fields.filter((f) => f.type === 'file');
-    if (files.length) warnings.push(`${files.length} file field(s) left out: ${request.name}`);
+    if (files.length) warnings.push({ key: 'import.fileFields', params: { n: files.length, name: request.name } });
     const boundary = `----trydash${Buffer.from(request.name).toString('hex').slice(0, 16)}`;
     const parts = fields.filter((f) => f.type !== 'file').map((f) => `--${boundary}\r\nContent-Disposition: form-data; name="${substitute(f.key, vars, missing).replace(/"/g, '%22')}"\r\n\r\n${substitute(f.value, vars, missing)}\r\n`);
     request.body = `${parts.join('')}--${boundary}--\r\n`;
@@ -186,7 +187,7 @@ function postmanBody(body, request, vars, missing, warnings) {
     request.body = JSON.stringify({ query: substitute(graphql.query, vars, missing), variables });
     setType('application/json');
   } else {
-    warnings.push(`body "${body.mode}" left out: ${request.name}`);
+    warnings.push({ key: 'import.bodySkipped', params: { mode: body.mode, name: request.name } });
   }
 }
 
@@ -231,8 +232,8 @@ export function parsePostman(data) {
     }
   };
   walk(data.item, '', data.auth || null);
-  if (scripts) warnings.push(`${scripts} Postman script(s) not run`);
-  if (missing.size) warnings.push(`variables without a value: ${Array.from(missing).sort().join(', ')}`);
+  if (scripts) warnings.push({ key: 'import.scripts', params: { n: scripts } });
+  if (missing.size) warnings.push({ key: 'import.missingVars', params: { names: Array.from(missing).sort().join(', ') } });
   return { requests: out, warnings };
 }
 
@@ -335,6 +336,7 @@ export function parseCurl(text) {
     const headers = [];
     const data = [];
     let get = false;
+    let form = false;
     for (let i = 0; i < args.length; i += 1) {
       const arg = args[i];
       const [flag, inline] = arg.startsWith('--') && arg.includes('=') ? [arg.slice(0, arg.indexOf('=')), arg.slice(arg.indexOf('=') + 1)] : [arg, null];
@@ -352,7 +354,7 @@ export function parseCurl(text) {
           const eq = d.indexOf('=');
           d = eq < 0 ? encodeURIComponent(d) : `${d.slice(0, eq + 1)}${encodeURIComponent(d.slice(eq + 1))}`;
         }
-        if (d.startsWith('@')) warnings.push(`file body ${d} left out`);
+        if (d.startsWith('@')) warnings.push({ key: 'import.fileBody', params: { file: d.slice(1) } });
         else data.push(d);
       } else if (flag === '--json') {
         data.push(String(value() || ''));
@@ -366,7 +368,12 @@ export function parseCurl(text) {
       else if (flag === '-A' || flag === '--user-agent') headers.push(['User-Agent', String(value() || '')]);
       else if (flag === '-b' || flag === '--cookie') headers.push(['Cookie', String(value() || '')]);
       else if (flag === '-e' || flag === '--referer') headers.push(['Referer', String(value() || '')]);
-      else if (flag === '-F' || flag === '--form') { value(); warnings.push('-F form fields left out'); }
+      else if (flag === '-F' || flag === '--form') {
+        // curl sends a form as a POST; the fields themselves stay out.
+        value();
+        form = true;
+        if (!warnings.some((w) => w.key === 'import.formSkipped')) warnings.push({ key: 'import.formSkipped', params: {} });
+      }
       else if (CURL_WITH_VALUE.has(flag)) value();
       else if (!arg.startsWith('-') && url == null) url = arg;
     }
@@ -377,7 +384,7 @@ export function parseCurl(text) {
       body = null;
     }
     if (body != null && !hasHeader(headers, 'content-type')) headers.push(['Content-Type', 'application/x-www-form-urlencoded']);
-    const m = method || (body != null ? 'POST' : 'GET');
+    const m = method || (body != null || form ? 'POST' : 'GET');
     return { name: `${m} ${path}`, method: m, path, headers: cleanHeaders(headers), body };
   });
   return { requests, warnings };
@@ -405,13 +412,13 @@ export function parseImport(text, format = 'auto') {
   const warnings = parsed.warnings.slice();
   for (const raw of parsed.requests) {
     if (requests.length >= MAX_IMPORT) {
-      warnings.push(`only the first ${MAX_IMPORT} requests imported`);
+      warnings.push({ key: 'import.tooMany', params: { max: MAX_IMPORT } });
       break;
     }
     try {
       requests.push(checkRequest(raw));
     } catch (error) {
-      warnings.push(`skipped ${raw.name || raw.path}: ${error.params.field}`);
+      warnings.push({ key: 'import.skipped', params: { name: raw.name || raw.path, field: error.params.field } });
     }
   }
   return { format: kind, requests, warnings };

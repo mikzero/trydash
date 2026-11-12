@@ -132,6 +132,7 @@
     timer: 0,
     tab: 'log',
     requests: null,
+    saved: null,
     reqSearchTimer: 0,
   };
 
@@ -217,12 +218,14 @@
     state.wasEmpty = isEmpty;
     if (state.view) state.view.update(session);
     if (state.requests) state.requests.update(session);
+    if (state.saved) state.saved.update(session);
   }
 
   function setTab(tab) {
-    state.tab = tab === 'requests' ? 'requests' : 'log';
+    state.tab = tab === 'requests' || tab === 'saved' ? tab : 'log';
     api.showTab(state.tab);
     if (state.requests) state.requests.setActive(state.tab === 'requests');
+    if (state.saved) state.saved.setActive(state.tab === 'saved');
     if (state.tab === 'log' && state.view) state.view.render();
   }
 
@@ -330,6 +333,7 @@
       api.renderPhase(state.app, data.probe);
       state.view = nextPhase === 'workspace' ? api.createLogView() : null;
       state.requests = nextPhase === 'workspace' ? api.createRequestView() : null;
+      state.saved = nextPhase === 'workspace' ? api.createSavedView() : null;
       if (state.requests) api.showTab(state.tab);
       if (state.requests) state.requests.setActive(state.tab === 'requests');
     }
@@ -565,6 +569,18 @@
     var target = event.target;
     if (!target) return;
     if (target.closest && target.closest('#create-form')) api.refreshCreateForm(document.getElementById('create-form'));
+    if (target.id === 'saved-search' && state.saved) {
+      state.saved.setQuery(target.value);
+    }
+    // A file picked for import lands in the text box, to look at before importing.
+    if (target.id === 'saved-import-file' && event.type === 'change' && target.files && target.files[0] && typeof FileReader === 'function') {
+      var reader = new FileReader();
+      reader.onload = function () {
+        var area = document.getElementById('saved-import-text');
+        if (area) area.value = String(reader.result || '');
+      };
+      reader.readAsText(target.files[0]);
+    }
     if (target.id === 'req-search' && state.requests) {
       clearTimeout(state.reqSearchTimer);
       state.reqSearchTimer = setTimeout(function () {
@@ -584,7 +600,7 @@
   }
 
   function onClick(event) {
-    var node = event.target.closest ? event.target.closest('[data-action], [data-index], [data-session], [data-req]') : null;
+    var node = event.target.closest ? event.target.closest('[data-action], [data-index], [data-session], [data-req], [data-saved]') : null;
     if (!node) return;
     var action = node.dataset.action;
     if (action === 'hello') {
@@ -681,6 +697,7 @@
       return;
     }
     if (state.requests && requestAction(action, node)) return;
+    if (state.saved && savedAction(action, node)) return;
     if (!state.view) return;
     if (action === 'chip') {
       state.view.toggleLevel(node.dataset.group || '');
@@ -715,6 +732,58 @@
     }
   }
 
+  function sentToast(row) {
+    var result = row.status == null ? (row.error || api.t('ui.toast.noResponse')) : row.status;
+    notify(api.t('ui.toast.sent', { result: result }), api.isProblemRequest(row) ? 'error' : 'info');
+  }
+
+  // Clicks inside the Saved tab; true when handled.
+  function savedAction(action, node) {
+    var view = state.saved;
+    if (action === 'saved-import-open') {
+      view.openImport();
+      return true;
+    }
+    if (action === 'saved-close') {
+      view.close();
+      return true;
+    }
+    if (action === 'saved-import-go') {
+      var area = document.getElementById('saved-import-text');
+      var text = area ? String(area.value || '') : '';
+      if (!text.trim()) return true;
+      node.disabled = true;
+      view.importText(text).then(function (data) {
+        notify(api.t('ui.saved.imported', { n: data.added, format: data.format }));
+      }, fail);
+      return true;
+    }
+    if (action === 'saved-save') {
+      view.save().then(function () { notify(api.t('ui.toast.saved')); }, fail);
+      return true;
+    }
+    if (action === 'saved-send') {
+      node.disabled = true;
+      view.send().then(function (row) {
+        node.disabled = false;
+        if (row) sentToast(row);
+      }, function (err) {
+        node.disabled = false;
+        fail(err);
+      });
+      return true;
+    }
+    if (action === 'saved-delete') {
+      view.remove(node).then(function (gone) { if (gone) notify(api.t('ui.toast.savedRemoved')); }, fail);
+      return true;
+    }
+    if (!action && node.dataset.saved) {
+      view.select(node.dataset.saved);
+      return true;
+    }
+    return false;
+  }
+
   // Clicks inside the Requests tab; true when handled.
   function requestAction(action, node) {
     var view = state.requests;
@@ -733,6 +802,16 @@
     if (action === 'copy-curl') {
       var curl = view.curl();
       if (curl) copyText(curl, api.t('ui.toast.curlCopied'));
+      return true;
+    }
+    if (action === 'save-request') {
+      var current = view.detail();
+      var sid = view.sessionId();
+      if (!current || !sid) return true;
+      api.request('POST', '/api/collection', { session: sid, seq: current.seq }).then(function () {
+        notify(api.t('ui.toast.saved'));
+        if (state.saved) state.saved.reload();
+      }, fail);
       return true;
     }
     if (action === 'edit-replay') {
@@ -784,6 +863,10 @@
         return;
       }
       if (state.tab === 'requests' && state.requests && state.requests.closeDetail()) {
+        event.preventDefault();
+        return;
+      }
+      if (state.tab === 'saved' && state.saved && state.saved.close()) {
         event.preventDefault();
         return;
       }

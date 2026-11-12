@@ -47,10 +47,11 @@ test('Postman v2.1: folders, variables, inherited auth, bodies, and scripts left
   assert.doesNotMatch(byName.Form.body, /passwd/);
   assert.equal(byName.GQL.path, '/graphql');
   assert.deepEqual(JSON.parse(byName.GQL.body), { query: '{ me { id } }', variables: { a: 1 } });
-  assert.ok(out.warnings.includes('2 Postman script(s) not run'));
-  assert.ok(out.warnings.some((w) => /file field\(s\) left out: Form/.test(w)));
-  assert.ok(out.warnings.some((w) => w === 'variables without a value: other, sku'));
-  assert.ok(out.warnings.some((w) => /skipped Bad header: headers/.test(w)));
+  const warned = (key) => out.warnings.find((w) => w.key === key);
+  assert.deepEqual(warned('import.scripts').params, { n: 2 });
+  assert.deepEqual(warned('import.fileFields').params, { n: 1, name: 'Form' });
+  assert.deepEqual(warned('import.missingVars').params, { names: 'other, sku' });
+  assert.deepEqual(warned('import.skipped').params, { name: 'Bad header', field: 'headers' });
 
   // v2.0 keeps auth fields as an object, and a collection may be wrapped.
   const v20 = parseImport(JSON.stringify({ collection: { info: { name: 'x', schema: 'https://schema.getpostman.com/json/collection/v2.0.0/collection.json' }, item: [{ name: 'A', request: { method: 'GET', url: 'http://h/a', auth: { type: 'bearer', bearer: { token: 't0' } } } }] } }));
@@ -116,7 +117,7 @@ test('checkRequest refuses what could split a request', () => {
   const many = { info: { schema: 'postman' }, item: Array.from({ length: MAX_IMPORT + 3 }, (_, i) => ({ name: `r${i}`, request: { method: 'GET', url: `/r${i}` } })) };
   const out = parseImport(JSON.stringify(many));
   assert.equal(out.requests.length, MAX_IMPORT);
-  assert.ok(out.warnings.includes(`only the first ${MAX_IMPORT} requests imported`));
+  assert.deepEqual(out.warnings.find((w) => w.key === 'import.tooMany').params, { max: MAX_IMPORT });
 });
 
 test('Postman export points every URL at {{baseUrl}} and leaves Cloudflare headers out; HAR keeps the responses', () => {
@@ -238,6 +239,8 @@ test('HTTP: save a captured request, send it again, import, export, edit and del
     await call('POST', `/api/sessions/${session.id}/stop`);
     assert.equal((await call('POST', `/api/collection/${id}/send`, { session: session.id })).status, 201);
 
+    const worded = await call('POST', '/api/collection/import', { text: 'curl -F f=@x https://h.test/u' }, { 'Accept-Language': 'it' });
+    assert.deepEqual(worded.json.warnings, ['Campi -F lasciati fuori']);
     const imported = await call('POST', '/api/collection/import', { text: "curl -X PUT 'https://elsewhere.test/items/7?force=1' -H 'X-Key: k' -d 'a=1'" });
     assert.equal(imported.status, 201);
     assert.equal(imported.json.format, 'curl');
@@ -254,7 +257,7 @@ test('HTTP: save a captured request, send it again, import, export, edit and del
     assert.equal((await call('POST', '/api/collection/import', { text: 'nothing here' })).json.key, 'collection.unknownFormat');
 
     const list = (await call('GET', '/api/collection')).json.requests;
-    assert.deepEqual(list.map((r) => r.name), ['Stripe paid', 'PUT /items/7?force=1']);
+    assert.deepEqual(list.map((r) => r.name), ['Stripe paid', 'POST /u', 'PUT /items/7?force=1']);
     assert.equal(list[0].bodySize, 14);
 
     const edited = await call('PATCH', `/api/collection/${curlId}`, { name: 'Force put', method: 'post' });
@@ -266,7 +269,7 @@ test('HTTP: save a captured request, send it again, import, export, edit and del
     assert.equal(postman.status, 200);
     assert.match(postman.headers.get('content-disposition'), /attachment; filename="trydash\.postman_collection\.json"/);
     assert.equal(postman.json.variable[0].value, `${originUrl}`);
-    assert.deepEqual(postman.json.item.map((i) => i.name), ['Stripe paid', 'Force put']);
+    assert.deepEqual(postman.json.item.map((i) => i.name), ['Stripe paid', 'POST /u', 'Force put']);
 
     const har = await call('GET', `/api/sessions/${session.id}/requests/export?format=har`);
     assert.match(har.headers.get('content-disposition'), /\.har"/);

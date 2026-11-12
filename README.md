@@ -59,6 +59,14 @@ When your server doesn’t answer, the proxy replies `502`, writes the error in 
 
 The inspector is on by default. To turn it off, clear **Inspect requests** under **Origin options**. It’s also off for Hello World tunnels and with an HTTP/2 origin, because the proxy speaks HTTP/1.1 only. The equivalent `cloudflared` command shown in the header stays the one you would run without trydash.
 
+### Saved requests and Postman
+
+**☆ Save** in a request's details keeps it in the **Saved** tab, with a name you can change. From there you edit method, path, headers and body, and **↻ Send to this tunnel** sends it to the origin of the tunnel on screen. It shows up in the Requests tab with ☆. Saved requests stay between runs in `~/.config/trydash/requests.json`, next to the saved tunnels and readable only by you, because they can contain tokens and signatures; with `--no-save` they last until trydash closes.
+
+**Import** takes a Postman collection (v2.0 or v2.1), a HAR file or one or more `curl` commands, pasted or picked as a file. Postman folders become names (`Orders / List`), `{{variables}}` are filled in from the collection, bearer, basic and API key auth become headers, and raw, form and GraphQL bodies come along. Postman scripts are never run, and file fields are left out; the result lists what was skipped. **Export Postman** downloads the saved requests as a Postman v2.1 collection, with every URL on `{{baseUrl}}` set to the tunnel URL. The Requests tab exports its requests as **Postman** or **HAR**, responses included.
+
+A saved or imported request only ever goes to the origin of a tunnel: of `https://api.example.com/v1/orders` trydash keeps `/v1/orders`. trydash is a test bench for your own service, not an HTTP client for any host.
+
 ### Static folder
 
 Type the path of a folder instead of a port, for example `~/site/dist`, `./build` or `C:\site`, and press **Create**. trydash serves the folder itself, on a local web server for that tunnel only, and `cloudflared` publishes it. It’s the quickest way to share a static build, a prototype or a few files.
@@ -289,6 +297,13 @@ The frontend uses a small JSON API, also handy for scripts. Every call needs the
 | `GET` | `/api/sessions/:id/requests/:seq` | one request with headers and bodies |
 | `POST` | `/api/sessions/:id/requests/:seq/replay` | send the request to the origin again; returns the new one. An optional body `{ "method", "path", "headers": [["Name", "value"]], "body" }` changes it first |
 | `DELETE` | `/api/sessions/:id/requests` | clear the list |
+| `GET` | `/api/sessions/:id/requests/export?format=postman\|har` | the tunnel's requests as a download |
+| `GET` | `/api/collection` | saved requests |
+| `POST` | `/api/collection` | save one: `{ "request": { "name", "method", "path", "headers", "body" } }`, or `{ "session": "s1", "seq": 3 }` for a captured one |
+| `POST` | `/api/collection/import` | `{ "text": "…" }`: Postman, HAR or curl; returns how many were added and the warnings |
+| `GET` | `/api/collection/export?format=postman&session=s1` | the saved requests as a Postman collection |
+| `GET`, `PATCH`, `DELETE` | `/api/collection/:id` | one saved request: read, change, delete |
+| `POST` | `/api/collection/:id/send` | `{ "session": "s1" }`: send it to that tunnel's origin |
 
 `options` is optional:
 
@@ -424,6 +439,8 @@ src/runtime.js       starts/stops cloudflared and reads its stream
 src/cli.js           command line, TRYDASH_* variables, opening the browser
 src/config.js        saved tunnels (~/.config/trydash/tunnels.json)
 src/ports.js         development servers listening on this computer
+src/collection.js    saved requests (~/.config/trydash/requests.json)
+src/formats.js       Postman, HAR and curl import and export
 src/traffic.js       polls the cloudflared metrics
 src/inspector.js     request inspector: local proxy, recorded requests, replay
 src/static.js        files of a folder tunnel
@@ -433,7 +450,7 @@ scripts/release-notes.js drafts release notes from the commits
 site/                landing page (GitHub Pages) in English, site/it/ in Italian
 .github/workflows/   automatic release on v* tags and website publishing
 public/js/           shared libraries (parse, sessions, window, i18n…) and the interface:
-                     requests.js the Requests tab, qr.js the QR codes, notify.js the notifications
+                     requests.js the Requests tab, saved.js the Saved tab, qr.js the QR codes, notify.js the notifications
 public/css/app.css   light/dark "Paper" theme
 test/                tests with bun test
 ```

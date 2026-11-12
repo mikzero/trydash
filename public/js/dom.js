@@ -16,6 +16,7 @@
       else {
         if (key === 'id') node.id = String(value);
         if (key === 'checked') node.checked = true;
+        if (key === 'disabled') node.disabled = true;
         node.setAttribute(key, value === true ? '' : String(value));
       }
     });

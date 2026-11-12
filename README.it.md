@@ -57,6 +57,14 @@ Se il tuo server non risponde, il proxy risponde `502`, scrive l’errore nei lo
 
 L’ispettore è attivo di default. Per spegnerlo togli la spunta da **Ispeziona richieste** in **Opzioni origine**. È spento anche per i tunnel Hello World e con un’origine HTTP/2, perché il proxy parla solo HTTP/1.1. Il comando `cloudflared` equivalente mostrato nell’intestazione resta quello che useresti senza trydash.
 
+### Richieste salvate e Postman
+
+**☆ Salva** nel dettaglio di una richiesta la mette nella scheda **Salvate**, con un nome che puoi cambiare. Da lì ne modifichi metodo, percorso, header e body, e **↻ Invia a questo tunnel** la manda all’origine del tunnel aperto. Compare nella scheda Richieste con ☆. Le richieste salvate restano tra un avvio e l’altro in `~/.config/trydash/requests.json`, accanto ai tunnel salvati e leggibile solo da te, perché possono contenere token e firme; con `--no-save` durano finché trydash resta aperto.
+
+**Importa** accetta una collection Postman (v2.0 o v2.1), un file HAR o uno o più comandi `curl`, incollati o scelti come file. Le cartelle di Postman diventano nomi (`Ordini / Elenco`), le `{{variabili}}` vengono riempite dalla collection, l’autenticazione bearer, basic e API key diventa un header, e i body raw, form e GraphQL vengono importati. Gli script di Postman non vengono mai eseguiti e i campi file restano fuori; il risultato elenca cosa è stato saltato. **Esporta Postman** scarica le richieste salvate come collection Postman v2.1, con ogni URL su `{{baseUrl}}` impostato all’URL del tunnel. La scheda Richieste esporta le sue richieste come **Postman** o **HAR**, risposte comprese.
+
+Una richiesta salvata o importata va sempre e solo all’origine di un tunnel: di `https://api.esempio.com/v1/ordini` trydash tiene `/v1/ordini`. trydash è un banco di prova per il tuo servizio, non un client HTTP verso host qualsiasi.
+
 ### Cartella statica
 
 Scrivi il percorso di una cartella al posto della porta, per esempio `~/sito/dist`, `./build` o `C:\sito`, e premi **Crea**. trydash serve la cartella da solo, con un piccolo web server locale dedicato a quel tunnel, e `cloudflared` la pubblica. È il modo più rapido per condividere una build statica, un prototipo o qualche file.
@@ -287,6 +295,13 @@ Il frontend usa una piccola API JSON, utile anche per script. Ogni chiamata rich
 | `GET` | `/api/sessions/:id/requests/:seq` | una richiesta con header e body |
 | `POST` | `/api/sessions/:id/requests/:seq/replay` | rimanda la richiesta all’origine; restituisce quella nuova. Un body facoltativo `{ "method", "path", "headers": [["Nome", "valore"]], "body" }` la modifica prima |
 | `DELETE` | `/api/sessions/:id/requests` | svuota l’elenco |
+| `GET` | `/api/sessions/:id/requests/export?format=postman\|har` | le richieste del tunnel da scaricare |
+| `GET` | `/api/collection` | le richieste salvate |
+| `POST` | `/api/collection` | ne salva una: `{ "request": { "name", "method", "path", "headers", "body" } }`, oppure `{ "session": "s1", "seq": 3 }` per una catturata |
+| `POST` | `/api/collection/import` | `{ "text": "…" }`: Postman, HAR o curl; restituisce quante ne ha aggiunte e gli avvisi |
+| `GET` | `/api/collection/export?format=postman&session=s1` | le richieste salvate come collection Postman |
+| `GET`, `PATCH`, `DELETE` | `/api/collection/:id` | una richiesta salvata: leggi, modifica, elimina |
+| `POST` | `/api/collection/:id/send` | `{ "session": "s1" }`: la manda all’origine di quel tunnel |
 
 `options` è facoltativo:
 
@@ -422,6 +437,8 @@ src/runtime.js       avvio/arresto di cloudflared e lettura dello stream
 src/cli.js           riga di comando, variabili TRYDASH_*, apertura del browser
 src/config.js        tunnel salvati (~/.config/trydash/tunnels.json)
 src/ports.js         server di sviluppo in ascolto su questo computer
+src/collection.js    richieste salvate (~/.config/trydash/requests.json)
+src/formats.js       import ed export Postman, HAR e curl
 src/traffic.js       lettura periodica delle metriche di cloudflared
 src/inspector.js     ispettore delle richieste: proxy locale, richieste registrate, replay
 src/static.js        file di un tunnel cartella
@@ -431,7 +448,7 @@ scripts/release-notes.js bozza delle note di release dai commit
 site/                landing page (GitHub Pages) in inglese, site/it/ in italiano
 .github/workflows/   release automatica sui tag v* e pubblicazione del sito
 public/js/           librerie condivise (parse, sessions, window, i18n…) e interfaccia:
-                     requests.js la scheda Richieste, qr.js i QR code, notify.js le notifiche
+                     requests.js la scheda Richieste, saved.js la scheda Salvate, qr.js i QR code, notify.js le notifiche
 public/css/app.css   tema "Paper" chiaro/scuro
 test/                test con bun test
 ```

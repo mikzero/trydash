@@ -545,9 +545,11 @@ export function createApp(options = {}) {
         if (req.method !== 'POST') return sendError(res, req, 405, 'request.methodNotAllowed');
         const data = await readJson(req, 5_000_000);
         const parsed = parseImport(data.text, data.format || 'auto');
-        if (!parsed.requests.length) return sendError(res, req, 400, 'collection.empty', {}, { warnings: parsed.warnings });
+        const lang = dash.pickLang(req.headers['accept-language']);
+        const warnings = parsed.warnings.map((w) => dash.t(w.key, w.params, lang));
+        if (!parsed.requests.length) return sendError(res, req, 400, 'collection.empty', {}, { warnings });
         const added = collection.addMany(parsed.requests, parsed.format);
-        return sendJson(res, 201, { format: parsed.format, added: added.length, warnings: parsed.warnings, requests: added.map(savedSummary) });
+        return sendJson(res, 201, { format: parsed.format, added: added.length, warnings, requests: added.map(savedSummary) });
       }
       if (url.pathname === '/api/collection/export') {
         if (req.method !== 'GET') return sendError(res, req, 405, 'request.methodNotAllowed');

@@ -937,6 +937,27 @@ mark { background: var(--mark); color: var(--mark-t); border-radius: 2px; paddin
 
 .req-empty { margin: 0; padding: 18px 16px; color: var(--muted); max-width: 60ch; }
 
+/* ── Saved requests and exports ──────────────────────── */
+.chip-link { display: inline-flex; align-items: center; text-decoration: none; }
+
+.chip-link[aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
+
+.req-export { display: inline-flex; align-items: center; gap: 6px; }
+
+.saved-row { grid-template-columns: 56px minmax(0, 1.2fr) minmax(0, 1fr) 80px; }
+
+.saved-name-cell { overflow: hidden; text-overflow: ellipsis; font-family: var(--sans); font-weight: 600; }
+
+.saved-name { flex: 1; min-width: 0; height: 30px; font-weight: 600; }
+
+.saved-import { width: 100%; min-height: 180px; resize: vertical; padding: 8px; font-size: 12px; }
+
+.saved-file { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+
+.saved-result { display: grid; gap: 4px; }
+
+.saved-warnings { margin: 0; padding-left: 18px; color: var(--w); font-size: 11.5px; }
+
 .req-detail { width: min(460px, 46vw); }
 
 .req-title { margin: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1109,6 +1130,10 @@ mark { background: var(--mark); color: var(--mark-t); border-radius: 2px; paddin
   .req-row { grid-template-columns: 48px 40px minmax(0, 1fr) 52px; gap: 8px; padding: 0 12px; }
 
   .req-row .ts, .req-row .req-size { display: none; }
+
+  .saved-row { grid-template-columns: 48px minmax(0, 1fr); }
+
+  .saved-row .req-path, .saved-row .req-num { display: none; }
 
   .log-body { grid-template-columns: minmax(0, 1fr); }
 

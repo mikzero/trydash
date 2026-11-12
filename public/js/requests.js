@@ -113,6 +113,11 @@
         h('div', { id: 'req-chips', className: 'chips', role: 'group', 'aria-label': api.t('ui.req.filterGroup') }),
         h('span', { id: 'req-count', className: 'log-count' }),
         h('button', { type: 'button', id: 'req-clear', className: 'chip', text: api.t('ui.req.clear'), dataset: { action: 'clear-requests' } }),
+        h('span', { className: 'req-export' }, [
+          h('span', { className: 'log-count', text: api.t('ui.req.export') }),
+          h('a', { id: 'req-export-postman', className: 'chip chip-link', href: '#', download: 'trydash.postman_collection.json', text: 'Postman' }),
+          h('a', { id: 'req-export-har', className: 'chip chip-link', href: '#', download: 'trydash.har', text: 'HAR' }),
+        ]),
         h('label', { className: 'search' }, [
           h('span', { className: 'search-ico', 'aria-hidden': 'true', text: '⌕' }),
           h('input', {
@@ -249,6 +254,7 @@
       h('div', { className: 'req-actions' }, [
         h('button', { type: 'button', className: 'btn inv', text: api.t('ui.req.replay'), title: replayTitle, disabled: !detail.replayable, dataset: { action: 'replay' } }),
         h('button', { type: 'button', className: 'btn', text: api.t('ui.req.edit'), disabled: !!detail.websocket, dataset: { action: 'edit-replay' } }),
+        h('button', { type: 'button', className: 'btn', text: api.t('ui.req.save'), disabled: !detail.replayable, dataset: { action: 'save-request' } }),
         h('button', { type: 'button', className: 'btn', text: api.t('ui.req.copyCurl'), dataset: { action: 'copy-curl' } }),
       ]),
       h('section', { className: 'req-side' }, [
@@ -322,11 +328,20 @@
       }
       var clear = el('req-clear');
       if (clear) clear.disabled = !rows.length;
+      // The exports are plain links: the browser downloads them with the dashboard's cookie.
+      ['postman', 'har'].forEach(function (format) {
+        var link = el('req-export-' + format);
+        if (!link || !session) return;
+        var href = '/api/sessions/' + encodeURIComponent(session.id) + '/requests/export?format=' + format;
+        link.setAttribute('href', href);
+        link.setAttribute('aria-disabled', rows.length && enabled() ? 'false' : 'true');
+      });
     }
 
     function rowNode(row) {
       var isSelected = row.seq === selected;
       var path = h('span', { className: 'req-path' });
+      if (row.saved) path.append(h('span', { className: 'req-tag', title: api.t('ui.req.savedTag', { name: row.saved }), text: '☆' }));
       if (row.replayOf != null) path.append(h('span', { className: 'req-tag', title: api.t('ui.req.replayTag', { n: row.replayOf }), text: row.edited ? '↻✎' : '↻' }));
       if (row.websocket) path.append(h('span', { className: 'req-tag', text: 'WS' }));
       api.highlightParts(row.path, q).forEach(function (part) {
@@ -586,6 +601,7 @@
         return curlFor(detail, session.origin || (session.inspect && session.inspect.target) || '');
       },
       detail: function () { return detail; },
+      sessionId: function () { return session ? session.id : null; },
     };
   }
 

@@ -898,3 +898,69 @@ test('the form preview says a plain name may be a folder or a host', () => {
   T.previewCommand('./site', {});
   assert.match(host.querySelector('#origin-preview').textContent, /^→ cartella \.\/site/);
 });
+
+test('the Saved tab: list, editor, send, import and the Save button', async () => {
+  const { T, host, sandbox } = domSandbox();
+  T.renderPhase(host, { present: true, version: 'test', platform: 'linux' });
+  assert.ok(host.querySelector('#tab-saved'));
+  T.showTab('saved');
+  assert.equal(host.querySelector('#pane-saved').hidden, false);
+  assert.equal(host.querySelector('#pane-requests').hidden, true);
+
+  const items = [
+    { id: 'q1', name: 'Stripe paid', method: 'POST', path: '/webhooks/stripe', source: 'captured' },
+    { id: 'q2', name: 'Health', method: 'GET', path: '/health', source: 'postman' },
+  ];
+  sandbox.fetch = (url) => Promise.resolve({ ok: true, json: () => Promise.resolve(
+    url === '/api/collection' ? { requests: items }
+      : { request: { ...items[0], headers: [['Content-Type', 'application/json']], body: null, bodyBase64: 'AAEC' } }) });
+  const calls = [];
+  T.request = (method, url, body) => {
+    calls.push({ method, url, body: JSON.parse(JSON.stringify(body || null)) });
+    if (/\/import$/.test(url)) return Promise.resolve({ added: 2, format: 'postman', warnings: ['2 script di Postman non eseguiti'] });
+    if (/\/send$/.test(url)) return Promise.resolve({ request: { seq: 9, status: 200, state: 'done' } });
+    return Promise.resolve({ request: { ...items[0], headers: body.headers, body: null, bodyBase64: 'AAEC', name: body.name } });
+  };
+  const view = T.createSavedView();
+  view.update({ id: 's1', origin: 'http://127.0.0.1:3000', inspect: { enabled: true } });
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(host.querySelector('#saved-rows').children.length, 2);
+  assert.equal(host.querySelector('#tab-saved-count').textContent, '2');
+  assert.equal(host.querySelector('#saved-export').attrs.href, '/api/collection/export?format=postman&session=s1');
+  view.setQuery('health');
+  assert.equal(host.querySelector('#saved-rows').children.length, 1);
+  view.setQuery('');
+  assert.equal(T.savedMatches(items[0], 'STRIPE'), true);
+
+  await view.select('q1');
+  assert.equal(host.querySelector('#saved-name').attrs.value, 'Stripe paid');
+  assert.equal(host.querySelector('#saved-body').attrs.disabled, '', 'a binary body is not editable');
+  assert.match(textOf(host.querySelector('#saved-detail')), /catturata · va solo all’origine del tunnel aperto/);
+  host.querySelector('#saved-name').value = 'Paid';
+  host.querySelector('#saved-method').value = 'post';
+  host.querySelector('#saved-path').value = '/webhooks/stripe';
+  host.querySelector('#saved-headers').value = 'X-Sig: v1';
+  const row = await view.send();
+  assert.equal(row.status, 200);
+  assert.deepEqual(calls.map((c) => [c.method, c.url]), [['PATCH', '/api/collection/q1'], ['POST', '/api/collection/q1/send']]);
+  assert.deepEqual(calls[0].body, { name: 'Paid', method: 'POST', path: '/webhooks/stripe', headers: [['X-Sig', 'v1']] });
+  assert.deepEqual(calls[1].body, { session: 's1' });
+
+  // On a Hello World tunnel there is no origin to send to.
+  view.update({ id: 's2', mode: 'hello', inspect: { enabled: false, reason: 'hello' } });
+  assert.equal(walkAll(host.querySelector('#saved-detail')).find((n) => n.dataset && n.dataset.action === 'saved-send').attrs.disabled, '');
+
+  view.openImport();
+  host.querySelector('#saved-import-text').value = '{"item":[]}';
+  await view.importText('{"item":[]}');
+  assert.match(textOf(host.querySelector('#saved-detail')), /Importate 2 richieste \(postman\)/);
+  assert.match(textOf(host.querySelector('#saved-detail')), /2 script di Postman non eseguiti/);
+  assert.equal(view.close(), true);
+  assert.equal(host.querySelector('#saved-detail').hidden, true);
+
+  const detail = T.buildRequestDetail({ seq: 3, method: 'POST', path: '/x', status: 200, state: 'done', replayable: true, websocket: false, requestHeaders: [], responseHeaders: [], requestBody: { size: 0 }, responseBody: { size: 0 } });
+  const box = element('div');
+  box.append(...detail);
+  const save = walkAll(box).find((n) => n.dataset && n.dataset.action === 'save-request');
+  assert.equal(save.textContent, '☆ Salva');
+});

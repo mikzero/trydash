@@ -23,6 +23,7 @@ export const browserScripts = [
   'public/js/recent-mail.js',
   'public/js/qr.js',
   'public/js/requests.js',
+  'public/js/saved.js',
   'public/js/logview.js',
   'public/js/app.js',
 ];
