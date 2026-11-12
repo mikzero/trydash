@@ -297,5 +297,8 @@
     'import.formSkipped': '-F form fields left out',
     'import.tooMany': 'Only the first {max} requests imported',
     'import.skipped': 'Skipped {name}: invalid {field}',
+    'options.blockedInvalid': 'Invalid path to block: {value}. It must start with / and have no spaces',
+    'options.blockedTooMany': 'At most {max} blocked paths',
+    'options.needsInspector': 'This option needs the tunnel to go through the inspector: create it again with “Inspect requests” on',
   };
 })(globalThis);

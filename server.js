@@ -158,6 +158,7 @@ function summary(session, inspector) {
     traffic: session.traffic,
     lastOriginError: session.lastOriginError,
     expiresAt: session.expiresAt,
+    localRedirect: session.localRedirect,
     expired: session.expired,
     inspect: inspectState(session, inspector),
   };
@@ -756,6 +757,26 @@ export function createApp(options = {}) {
           return sendError(res, req, status, error);
         }
         return sendError(res, req, 405, 'request.methodNotAllowed');
+      }
+
+      const optionsMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/options$/);
+      if (optionsMatch) {
+        if (req.method !== 'PATCH') return sendError(res, req, 405, 'request.methodNotAllowed');
+        const id = decodeURIComponent(optionsMatch[1]);
+        if (!store.get(id)) return sendError(res, req, 404, 'session.notFound');
+        let patch;
+        try {
+          patch = await readJson(req);
+        } catch (error) {
+          return sendError(res, req, statusFor(error), error);
+        }
+        try {
+          const session = store.updatePreview(id, patch);
+          saveTunnels();
+          return sendJson(res, 200, { session: summary(session, inspector) });
+        } catch (error) {
+          return sendError(res, req, error.code === 'CONFLICT' ? 409 : error.code === 'BAD_OPTIONS' ? 400 : 500, error);
+        }
       }
 
       const restartMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/restart$/);

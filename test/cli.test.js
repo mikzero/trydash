@@ -19,6 +19,8 @@ test('arguments: a port, a URL or a folder opens a tunnel; options follow cloudf
   assert.equal(full.open, false);
   assert.deepEqual(full.target, { origin: 'https://localhost:8443', options: { noTlsVerify: true, hostHeader: 'app.local', inspect: false, expiresIn: 120 } });
   assert.equal(parseArgs(['--port=0']).port, 0);
+  assert.deepEqual(parseArgs(['8080', '--rewrite', '--block', '/wp-admin,/wp-login.php', '--badge', '--index']).target,
+    { origin: '8080', options: { rewrite: true, blocked: '/wp-admin,/wp-login.php', badge: true, noindex: false } });
   assert.equal(parseArgs(['-v']).version, true);
   assert.equal(parseArgs(['--help']).help, true);
   assert.equal(parseArgs(['--open']).open, true);

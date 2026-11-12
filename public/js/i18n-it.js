@@ -297,5 +297,8 @@
     'import.formSkipped': 'Campi -F lasciati fuori',
     'import.tooMany': 'Importate solo le prime {max} richieste',
     'import.skipped': 'Saltata {name}: {field} non valido',
+    'options.blockedInvalid': 'Percorso da bloccare non valido: {value}. Deve iniziare con / e non contenere spazi',
+    'options.blockedTooMany': 'Al massimo {max} percorsi bloccati',
+    'options.needsInspector': 'Per questa opzione il tunnel deve passare dall’ispettore: ricrealo con «Ispeziona richieste» attivo',
   };
 })(globalThis);

@@ -22,6 +22,10 @@ Options:
       --no-tls-verify      accept a self-signed origin certificate
       --http2-origin       talk HTTP/2 to the origin (turns the inspector off)
       --no-inspect         don't record requests
+      --rewrite            rewrite localhost URLs to the public one (WordPress, Vite, Laravel…)
+      --block <paths>      paths visitors get a 403 for: /wp-admin,/wp-login.php
+      --badge              a small "Preview" label on HTML pages
+      --index              let search engines index the preview (noindex by default)
       --expires <time>     stop the tunnel after a while: 30m, 2h, 1d
   -v, --version            print the version
   -h, --help               this help
@@ -99,6 +103,10 @@ export function parseArgs(argv) {
       case '--no-tls-verify': options.noTlsVerify = true; break;
       case '--http2-origin': options.http2Origin = true; break;
       case '--no-inspect': options.inspect = false; break;
+      case '--rewrite': options.rewrite = true; break;
+      case '--block': options.blocked = value(); break;
+      case '--badge': options.badge = true; break;
+      case '--index': options.noindex = false; break;
       case '--expires': {
         const minutes = parseDuration(value());
         if (!minutes) throw usage('--expires takes a time like 30m, 2h or 1d');

@@ -10,6 +10,10 @@ import zlib from 'node:zlib';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { planStatic } from './static.js';
+import {
+  MODIFY_CAP, NOINDEX, REWRITE_TYPE, HTML_TYPE, createRewriter, localHostOf, localLinkIn, hostCheckIn,
+  blockedBy, blockedPage, injectBadge, publicCookie,
+} from './preview.js';
 
 export const KEEP = 200;
 export const REQUEST_BODY_CAP = 256 * 1024;
@@ -76,8 +80,8 @@ function take(body, chunk) {
 const TEXT_TYPE = /^(text\/|application\/([\w.+-]*\+)?(json|xml|javascript|ecmascript|x-www-form-urlencoded|graphql|x-ndjson|yaml|x-yaml)\b)|^image\/svg\+xml/i;
 const BINARY_TYPE = /^(image|audio|video|font)\/|^application\/(octet-stream|pdf|zip|gzip|x-protobuf|protobuf|wasm|grpc)/i;
 
-function decompress(buffer, encoding) {
-  const opts = { maxOutputLength: DECODED_CAP };
+function decompress(buffer, encoding, cap = DECODED_CAP) {
+  const opts = { maxOutputLength: cap };
   if (encoding === 'gzip' || encoding === 'x-gzip') return zlib.gunzipSync(buffer, opts);
   if (encoding === 'br') return zlib.brotliDecompressSync(buffer, opts);
   if (encoding === 'deflate') {
@@ -145,6 +149,7 @@ function summaryOf(rec) {
     replayOf: rec.replayOf,
     edited: !!rec.edited,
     saved: rec.saved || null,
+    blocked: rec.blocked || null,
     websocket: rec.websocket,
     requestSize: rec.requestBody.size,
     responseSize: rec.responseBody.size,
@@ -261,7 +266,7 @@ export function createInspector({
     if (store.get(entry.id)) store.recordOriginError(entry.id, `Unable to reach the origin ${entry.origin}: ${reason}`);
   }
 
-  function upstreamOptions(entry, req, headers) {
+  function upstreamOptions(entry, req, headers, path = req.url) {
     const url = entry.originUrl;
     const secure = url.protocol === 'https:';
     const hostname = hostnameFor(url);
@@ -272,7 +277,7 @@ export function createInspector({
         hostname,
         port: url.port || (secure ? 443 : 80),
         method: req.method,
-        path: req.url,
+        path,
         headers,
         agent: secure ? entry.httpsAgent : entry.httpAgent,
         ...(secure ? {
@@ -289,22 +294,130 @@ export function createInspector({
     res.end(body);
   }
 
+  // The preview options, read on every request: they change on a running tunnel.
+  function previewOf(entry) {
+    const session = store.get(entry.id);
+    const o = (session && session.options) || {};
+    const prefs = { rewriter: null, blocked: o.blocked || [], badge: !!o.badge, noindex: !!o.noindex, watch: false };
+    if (entry.folder) return prefs;
+    if (o.rewrite && session.url) {
+      const key = `${session.url} ${entry.siteHost || ''}`;
+      if (entry.rewriterKey !== key) {
+        entry.rewriter = createRewriter({ originUrl: entry.originUrl, hostHeader: entry.hostHeader, publicUrl: session.url, siteHost: entry.siteHost });
+        entry.rewriterKey = key;
+      }
+      prefs.rewriter = entry.rewriter;
+    }
+    // Without rewriting, look out for a site that sends visitors to localhost (once is enough).
+    prefs.watch = !o.rewrite && !session.localRedirect;
+    return prefs;
+  }
+
+  function noticeLocal(entry, location, kind) {
+    const session = store.get(entry.id);
+    if (session && !session.localRedirect && !session.options.rewrite) store.recordLocalRedirect(entry.id, location, kind);
+  }
+
+  // A blocked path: the visitor gets a 403 page, the dashboard a record of it. Replays go through.
+  function refuseBlocked(entry, req, res, prefs) {
+    if (isReplay(req)) return false;
+    const hit = blockedBy(req.url, prefs.blocked);
+    if (!hit) return false;
+    const rec = startRecord(entry, req);
+    rec.blocked = hit;
+    const body = Buffer.from(blockedPage(req.headers['accept-language']));
+    const headers = { 'Content-Type': 'text/html; charset=utf-8', 'Content-Length': String(body.length), 'Cache-Control': 'no-store', 'X-Robots-Tag': NOINDEX };
+    rec.status = 403;
+    rec.statusText = 'Forbidden';
+    rec.responseHeaders = Object.entries(headers);
+    take(rec.responseBody, body);
+    req.on('data', (chunk) => take(rec.requestBody, chunk));
+    req.resume();
+    res.writeHead(403, headers);
+    res.end(req.method === 'HEAD' ? undefined : body);
+    finish(entry, rec, 'done');
+    return true;
+  }
+
+  // What goes to the origin when rewriting: its own Host, Origin and Referer, and the
+  // public URL turned back into the local one in the query. Plain bodies, so they can be rewritten.
+  function requestFor(entry, req, rec, prefs) {
+    const headers = { ...rec.forward };
+    let path = req.url;
+    const r = prefs.rewriter;
+    if (r) {
+      headers.host = r.localHost;
+      for (const name of ['origin', 'referer']) if (headers[name]) headers[name] = r.toLocal(headers[name]);
+      path = r.toLocal(path);
+    }
+    if (r || prefs.badge) {
+      delete headers['accept-encoding'];
+      // A copy cached before the change must not come back as a 304.
+      delete headers['if-none-match'];
+      delete headers['if-modified-since'];
+    }
+    return { headers, path };
+  }
+
+  function responseHeaders(pres, prefs) {
+    const headers = forwardHeaders(pres.headers);
+    const r = prefs.rewriter;
+    if (r) {
+      for (const [name, value] of Object.entries(headers)) {
+        if (name === 'set-cookie') headers[name] = [].concat(value).map((v) => publicCookie(v, r));
+        else headers[name] = Array.isArray(value) ? value.map((v) => r.toPublic(v)) : r.toPublic(value);
+      }
+    }
+    if (prefs.noindex) headers['x-robots-tag'] = NOINDEX;
+    return headers;
+  }
+
+  function wantsChange(req, pres, prefs) {
+    if (req.method === 'HEAD' || [204, 206, 304].includes(pres.statusCode) || pres.statusCode < 200) return false;
+    const type = String(pres.headers['content-type'] || '');
+    if (!(prefs.rewriter && REWRITE_TYPE.test(type)) && !(prefs.badge && HTML_TYPE.test(type))) return false;
+    const length = Number(pres.headers['content-length']);
+    return !(length > MODIFY_CAP);
+  }
+
+  // Rewritten or labelled body. Bytes are read as latin1, so any charset comes back as it was.
+  function changedBody(raw, pres, prefs, req) {
+    const encoding = String(pres.headers['content-encoding'] || '').trim().toLowerCase();
+    let buffer = raw;
+    if (encoding && encoding !== 'identity') {
+      buffer = null;
+      try { buffer = decompress(raw, encoding, MODIFY_CAP); } catch { buffer = null; }
+      if (!buffer) return null;
+    }
+    let text = buffer.toString('latin1');
+    if (prefs.rewriter) text = prefs.rewriter.toPublic(text);
+    if (prefs.badge && HTML_TYPE.test(String(pres.headers['content-type'] || '')) && pres.statusCode < 300) {
+      text = injectBadge(text, req.headers['accept-language']);
+    }
+    return Buffer.from(text, 'latin1');
+  }
+
   function onRequest(entry, req, res) {
     if (refuseStopped(entry, req)) return refuse(res);
+    const prefs = previewOf(entry);
+    if (refuseBlocked(entry, req, res, prefs)) return;
     const rec = startRecord(entry, req);
-    const { lib, options } = upstreamOptions(entry, req, rec.forward);
+    const sent = requestFor(entry, req, rec, prefs);
+    const { lib, options } = upstreamOptions(entry, req, sent.headers, sent.path);
     const upstream = lib.request(options);
     upstream.on('response', (pres) => {
       rec.status = pres.statusCode;
       rec.statusText = pres.statusMessage || null;
       rec.responseHeaders = pairs(pres.rawHeaders);
       bump(entry);
-      res.writeHead(pres.statusCode, pres.statusMessage, forwardHeaders(pres.headers));
-      pres.on('data', (chunk) => {
-        take(rec.responseBody, chunk);
-      });
-      pres.on('end', () => finish(entry, rec, 'done'));
-      // A short body (Content-Length still outstanding) never emits 'end'. Drop the client too.
+      const location = pres.headers.location;
+      if (location) {
+        // The site's own address, learned from its redirects: the next requests carry it as Host.
+        const host = localHostOf(location, entry.originUrl, entry.hostHeader);
+        if (host && prefs.rewriter && host !== prefs.rewriter.localHost) entry.siteHost = host;
+        if (host && prefs.watch) noticeLocal(entry, location, 'redirect');
+      }
+      const headers = responseHeaders(pres, prefs);
       const drop = () => {
         finish(entry, rec, 'error', 'response');
         if (!res.writableEnded) res.destroy();
@@ -314,7 +427,46 @@ export function createInspector({
       pres.on('close', () => {
         if (!pres.complete) drop();
       });
-      pres.pipe(res);
+      pres.on('end', () => {
+        finish(entry, rec, 'done');
+        if (prefs.watch) watchBody(entry, rec);
+      });
+      if (!wantsChange(req, pres, prefs)) {
+        res.writeHead(pres.statusCode, pres.statusMessage, headers);
+        pres.on('data', (chunk) => take(rec.responseBody, chunk));
+        pres.pipe(res);
+        return;
+      }
+      // Buffered, changed, then sent with its new length. Past MODIFY_CAP it goes out as it came.
+      const chunks = [];
+      let size = 0;
+      let streaming = false;
+      pres.on('data', (chunk) => {
+        take(rec.responseBody, chunk);
+        if (streaming) return;
+        chunks.push(chunk);
+        size += chunk.length;
+        if (size <= MODIFY_CAP) return;
+        streaming = true;
+        res.writeHead(pres.statusCode, pres.statusMessage, headers);
+        for (const part of chunks) res.write(part);
+        chunks.length = 0;
+        pres.pipe(res);
+      });
+      pres.on('end', () => {
+        if (streaming) return;
+        const raw = Buffer.concat(chunks);
+        const body = changedBody(raw, pres, prefs, req);
+        if (!body) {
+          res.writeHead(pres.statusCode, pres.statusMessage, headers);
+          res.end(raw);
+          return;
+        }
+        for (const name of ['content-encoding', 'etag', 'last-modified', 'content-md5', 'digest']) delete headers[name];
+        headers['content-length'] = String(body.length);
+        res.writeHead(pres.statusCode, pres.statusMessage, headers);
+        res.end(body);
+      });
     });
     upstream.on('error', (error) => {
       if (res.headersSent) {
@@ -337,16 +489,61 @@ export function createInspector({
       }
     });
     req.on('data', (chunk) => take(rec.requestBody, chunk));
+    if (prefs.rewriter && rewritableRequest(req)) {
+      // A small form or JSON body may carry the public URL (WordPress' redirect_to): back to local.
+      const chunks = [];
+      req.on('data', (chunk) => chunks.push(chunk));
+      req.on('end', () => {
+        const body = Buffer.from(prefs.rewriter.toLocal(Buffer.concat(chunks).toString('latin1')), 'latin1');
+        upstream.setHeader('content-length', String(body.length));
+        upstream.end(body);
+      });
+      return;
+    }
     req.pipe(upstream);
+  }
+
+  function rewritableRequest(req) {
+    const length = Number(req.headers['content-length']);
+    const type = String(req.headers['content-type'] || '');
+    return Number.isFinite(length) && length > 0 && length <= requestBodyCap && !req.headers['transfer-encoding']
+      && /^(application\/(x-www-form-urlencoded|json|[\w.+-]*\+json)|text\/plain)\b/i.test(type);
+  }
+
+  // Local links in a page, or a dev server refusing the public Host: a hint for the dashboard.
+  function watchBody(entry, rec) {
+    const type = headerValue(rec.responseHeaders, 'content-type');
+    if (!HTML_TYPE.test(type) && !/^text\/plain/i.test(type)) return;
+    const view = describeBody(rec.responseBody, rec.responseHeaders);
+    if (!view.text) return;
+    if (rec.status === 403 && hostCheckIn(view.text)) return noticeLocal(entry, rec.path, 'host');
+    if (!HTML_TYPE.test(type)) return;
+    const link = localLinkIn(view.text, entry.originUrl, entry.hostHeader);
+    if (link) noticeLocal(entry, link, 'links');
   }
 
   // A folder tunnel: trydash itself answers, from the files in the folder.
   function onFolderRequest(entry, req, res) {
     if (refuseStopped(entry, req)) return refuse(res);
+    const prefs = previewOf(entry);
+    if (refuseBlocked(entry, req, res, prefs)) return;
     const rec = startRecord(entry, req);
+    // The label changes the page, so a copy cached without it must not come back as a 304.
+    if (prefs.badge) delete req.headers['if-none-match'];
     req.on('data', (chunk) => take(rec.requestBody, chunk));
     req.on('end', () => {
-      planStatic(entry.folder, req).then((plan) => {
+      planStatic(entry.folder, req).then(async (plan) => {
+        if (prefs.noindex) plan.headers['X-Robots-Tag'] = NOINDEX;
+        if (prefs.badge && req.method === 'GET' && plan.status === 200 && plan.file && HTML_TYPE.test(plan.headers['Content-Type'] || '')
+          && Number(plan.headers['Content-Length']) <= MODIFY_CAP) {
+          const html = injectBadge((await fs.promises.readFile(plan.file)).toString('latin1'), req.headers['accept-language']);
+          plan.body = Buffer.from(html, 'latin1');
+          plan.file = null;
+          delete plan.headers.ETag;
+          delete plan.headers['Last-Modified'];
+          delete plan.headers['Accept-Ranges'];
+          plan.headers['Content-Length'] = String(plan.body.length);
+        }
         rec.status = plan.status;
         rec.statusText = http.STATUS_CODES[plan.status] || null;
         rec.responseHeaders = Object.entries(plan.headers);
@@ -389,8 +586,20 @@ export function createInspector({
       socket.end('HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
       return;
     }
+    const prefs = previewOf(entry);
+    if (!isReplay(req) && blockedBy(req.url, prefs.blocked)) {
+      socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
+      return;
+    }
     const rec = startRecord(entry, req, { websocket: true });
-    const { lib, options } = upstreamOptions(entry, req, rec.forward);
+    const headers = { ...rec.forward };
+    let path = req.url;
+    if (prefs.rewriter) {
+      headers.host = prefs.rewriter.localHost;
+      if (headers.origin) headers.origin = prefs.rewriter.toLocal(headers.origin);
+      path = prefs.rewriter.toLocal(path);
+    }
+    const { lib, options } = upstreamOptions(entry, req, headers, path);
     const upstream = lib.request(options);
     socket.on('error', () => upstream.destroy());
     upstream.on('upgrade', (pres, psocket, phead) => {
@@ -454,6 +663,10 @@ export function createInspector({
       folder,
       originUrl,
       noTlsVerify: !!session.options.noTlsVerify,
+      hostHeader: session.options.hostHeader || '',
+      siteHost: '',
+      rewriter: null,
+      rewriterKey: '',
       records: [],
       replays: new Map(),
       seq: 0,

@@ -83,6 +83,7 @@
           selected: null,
           expiresAt: null,
           expired: false,
+          localRedirect: null,
         };
         session.expiresAt = expiry(session);
         seq += 1;
@@ -156,6 +157,28 @@
         session.stoppedAt = now();
         var label = code == null ? '?' : String(code);
         synthetic(session, code === 0 ? 'info' : 'error', 'cloudflared exited (code ' + label + ')');
+        return session;
+      },
+      // The preview options live in trydash's proxy: they change on a running tunnel,
+      // and the URL stays. Anything else needs a new tunnel.
+      updatePreview: function (id, patch) {
+        var session = requireSession(id);
+        var next = Object.assign({}, session.options);
+        ['rewrite', 'noindex', 'badge', 'blocked'].forEach(function (key) {
+          if (patch && Object.prototype.hasOwnProperty.call(patch, key)) next[key] = patch[key];
+        });
+        var normalized = api.normalizeTunnelOptions(next);
+        if (normalized.inspect && !session.options.inspect) throw api.appError('CONFLICT', 'options.needsInspector');
+        session.options = normalized;
+        session.invocation = api.buildQuickTunnelCommand(session.origin, normalized, session.invocation.target);
+        if (normalized.rewrite) session.localRedirect = null;
+        return session;
+      },
+      // The origin sent visitors to its local address (see the inspector): worth a banner.
+      // `kind`: redirect (a Location to localhost), links (local URLs in a page) or host (Vite's host check).
+      recordLocalRedirect: function (id, location, kind) {
+        var session = requireSession(id);
+        session.localRedirect = { at: now(), location: String(location).slice(0, 300), kind: kind || 'redirect' };
         return session;
       },
       // Points cloudflared at the inspector's proxy; kept across restarts.

@@ -99,6 +99,25 @@
     return minutes;
   }
 
+  // Paths visitors get a 403 for, like `/wp-admin`: lowercase, no trailing slash.
+  var MAX_BLOCKED = 30;
+  var BLOCKED_RE = /^\/[^\s\u0000-\u001f\u007f?#]{1,199}$/;
+
+  function blockedPaths(value) {
+    var items = Array.isArray(value) ? value : String(value == null ? '' : value).split(/[\s,;]+/);
+    var out = [];
+    for (var i = 0; i < items.length; i += 1) {
+      var given = String(items[i] == null ? '' : items[i]).trim();
+      if (!given) continue;
+      // `/` alone would block the whole site: that is what Stop is for.
+      var item = given.toLowerCase().replace(/\/+$/, '');
+      if (!BLOCKED_RE.test(item)) badOptions('options.blockedInvalid', { value: items[i] });
+      if (out.indexOf(item) < 0) out.push(item);
+      if (out.length > MAX_BLOCKED) badOptions('options.blockedTooMany', { max: MAX_BLOCKED });
+    }
+    return out;
+  }
+
   function normalizeTunnelOptions(raw) {
     var input = raw || {};
     var hello = input.mode === 'hello';
@@ -114,11 +133,18 @@
       hostHeader: hostHeader,
       noTlsVerify: !noOrigin && input.noTlsVerify === true,
       http2Origin: http2Origin,
-      // The inspector's proxy speaks HTTP/1.1 only, so an HTTP/2 origin skips it.
-      // A folder is always served by trydash, so its requests are always recorded.
-      inspect: folder || (!hello && !http2Origin && input.inspect !== false),
       expiresIn: expiresIn(input.expiresIn),
     };
+    // Preview options work in trydash's proxy (or folder server), which an HTTP/2 origin skips.
+    var proxied = !hello && !http2Origin;
+    options.rewrite = proxied && !folder && input.rewrite === true;
+    options.blocked = proxied ? blockedPaths(input.blocked) : [];
+    options.badge = proxied && input.badge === true;
+    // The inspector's proxy speaks HTTP/1.1 only, so an HTTP/2 origin skips it.
+    // A folder is always served by trydash; the preview options need the proxy too.
+    options.inspect = folder || (proxied && (input.inspect !== false || options.rewrite || options.badge || options.blocked.length > 0));
+    // Previews stay out of search engines unless asked otherwise.
+    options.noindex = options.inspect && input.noindex !== false;
     if (folder) options.folder = folderPath(input.folder);
     return options;
   }
@@ -178,6 +204,14 @@
   api.normalizeTunnelOptions = normalizeTunnelOptions;
   api.isMailEntry = isMailEntry;
   api.MAX_EXPIRES = MAX_EXPIRES;
+  api.MAX_BLOCKED = MAX_BLOCKED;
+  api.blockedPaths = blockedPaths;
+  // Ready-made lists for the form: admin areas a client has no reason to open.
+  api.BLOCK_PRESETS = {
+    wordpress: ['/wp-admin', '/wp-login.php', '/xmlrpc.php'],
+    laravel: ['/telescope', '/horizon', '/_ignition'],
+    django: ['/admin'],
+  };
   api.buildQuickTunnelCommand = buildQuickTunnelCommand;
   api.shellWord = shellWord;
   api.windowsWord = windowsWord;
