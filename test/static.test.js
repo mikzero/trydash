@@ -238,3 +238,57 @@ test('index.html cannot point outside the folder or at a hidden file', async () 
     site.cleanup();
   }
 });
+
+test('a folder typed without ./ is a folder when it exists, a host name otherwise', async () => {
+  const { bareFolder } = await import('../src/static.js');
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'trydash-bare-'));
+  fs.mkdirSync(path.join(base, 'site', 'dist'), { recursive: true });
+  fs.mkdirSync(path.join(base, 'localhost'));
+  fs.mkdirSync(path.join(base, '3000'));
+  fs.writeFileSync(path.join(base, 'site', 'dist', 'index.html'), 'ok');
+  fs.writeFileSync(path.join(base, 'notes.txt'), 'x');
+  try {
+    assert.equal(bareFolder('site', base), 'site');
+    assert.equal(bareFolder(' site/dist ', base), 'site/dist');
+    for (const value of ['nope', 'notes.txt', '3000', 'localhost', 'site:8080', 'http://site', '', null]) {
+      assert.equal(bareFolder(value, base), null, String(value));
+    }
+
+    const spawned = [];
+    const app = createApp({
+      cwd: base,
+      probe: async () => ({ present: true, version: 'test' }),
+      spawn(bin, args) {
+        spawned.push(args);
+        const proc = new EventEmitter();
+        proc.stdout = Readable.from([]);
+        proc.stderr = Readable.from([]);
+        proc.pid = 0;
+        proc.kill = () => {};
+        return proc;
+      },
+    });
+    await app.listen(0, '127.0.0.1');
+    const post = async (origin) => (await (await fetch(`${app.url}/api/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ origin }),
+    })).json()).session;
+    try {
+      const folder = await post('site/dist');
+      assert.equal(folder.mode, 'folder');
+      assert.equal(folder.origin, null);
+      assert.equal(folder.options.folder, fs.realpathSync(path.join(base, 'site', 'dist')));
+      assert.equal((await get(folder.inspect.target, '/')).body, 'ok');
+      const host = await post('nope');
+      assert.equal(host.mode, 'origin');
+      assert.equal(host.origin, 'http://nope');
+      assert.equal((await post('localhost')).origin, 'http://localhost');
+      assert.equal((await post('3000')).origin, 'http://127.0.0.1:3000');
+    } finally {
+      await app.close();
+    }
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+});

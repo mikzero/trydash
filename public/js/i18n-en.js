@@ -255,5 +255,6 @@
     'ui.side.donateTitle': 'Buy the developer of trydash a coffee on Ko-fi',
     'session.removedWhileStarting': 'The tunnel was removed while it was starting',
     'session.stoppedWhileStarting': 'The tunnel was stopped while it was starting',
+    'ui.form.bareHint': '→ the folder {name} if it exists where trydash runs; otherwise {url}',
   };
 })(globalThis);

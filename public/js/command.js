@@ -69,6 +69,15 @@
   // A path, not an origin: `/srv/site`, `~/site`, `./dist`, `C:\\site`, `\\\\server\\share`.
   var FOLDER_RE = /^(\/|~(?:[\\/]|$)|\.{1,2}(?:[\\/]|$)|[A-Za-z]:[\\/]|\\\\)/;
 
+  // `site` or `site/dist`: a host name or a folder next to trydash; only the server can tell.
+  function looksBare(value) {
+    var raw = String(value == null ? '' : value).trim();
+    if (!raw || /^\d+$/.test(raw) || raw.indexOf(':') >= 0 || looksLikeFolder(raw)) return false;
+    if (/^(localhost|127\.0\.0\.1|0\.0\.0\.0)([\\/]|$)/i.test(raw)) return false;
+    // `example.com` is almost always a domain: the hint is for plain names like `site`.
+    return /^[\w\-]+([\\/][\w.\- ]*)*$/.test(raw);
+  }
+
   function looksLikeFolder(value) {
     return FOLDER_RE.test(String(value == null ? '' : value).trim());
   }
@@ -178,4 +187,5 @@
     return api.platform === 'win32' && item.equivalentWindows ? item.equivalentWindows : item.equivalent;
   };
   api.looksLikeFolder = looksLikeFolder;
+  api.looksBare = looksBare;
 })(globalThis);

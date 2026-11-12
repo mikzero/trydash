@@ -255,5 +255,6 @@
     'ui.side.donateTitle': 'Offri un caffè su Ko-fi a chi sviluppa trydash',
     'session.removedWhileStarting': 'Il tunnel è stato rimosso mentre si avviava',
     'session.stoppedWhileStarting': 'Il tunnel è stato fermato mentre si avviava',
+    'ui.form.bareHint': '→ la cartella {name}, se esiste dove gira trydash; altrimenti {url}',
   };
 })(globalThis);

@@ -204,6 +204,13 @@
       preview.className = 'origin-preview mono';
       return;
     }
+    if (api.looksBare(originValue)) {
+      var name = String(originValue).trim();
+      var url = api.buildQuickTunnelCommand(originValue, options).origin;
+      preview.textContent = api.t('ui.form.bareHint', { name: name, url: url });
+      preview.className = 'origin-preview mono';
+      return;
+    }
     try {
       preview.textContent = '→ ' + api.commandFor(api.buildQuickTunnelCommand(originValue, options));
       preview.className = 'origin-preview mono';

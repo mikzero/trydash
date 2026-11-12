@@ -69,7 +69,7 @@ Type the path of a folder instead of a port, for example `~/site/dist`, `./build
 - nothing outside the folder is reachable, symbolic links included;
 - only `GET` and `HEAD`: other methods get `405`.
 
-`~` is your home folder, and a relative path starts from the folder trydash runs in. The folder must exist when you create the tunnel, and it can’t be the root of the disk or your whole home folder. Its requests always appear in the **Requests** tab, and the sidebar shows 📁 and the folder name. The origin options don’t apply to a folder.
+`~` is your home folder, and a relative path starts from the folder trydash runs in. A name without `./`, like `site` or `site/dist`, is a folder too when one with that name exists there; otherwise it's a host name, as before (`site` → `http://site`). The preview under the field says which. The folder must exist when you create the tunnel, and it can’t be the root of the disk or your whole home folder. Its requests always appear in the **Requests** tab, and the sidebar shows 📁 and the folder name. The origin options don’t apply to a folder.
 
 ### Expiry
 

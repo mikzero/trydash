@@ -67,7 +67,7 @@ Scrivi il percorso di una cartella al posto della porta, per esempio `~/sito/dis
 - niente fuori dalla cartella è raggiungibile, nemmeno con i link simbolici;
 - solo `GET` e `HEAD`: gli altri metodi ricevono `405`.
 
-`~` è la tua cartella home, e un percorso relativo parte dalla cartella da cui avvii trydash. La cartella deve esistere quando crei il tunnel, e non può essere la radice del disco o tutta la tua home. Le sue richieste compaiono sempre nella scheda **Richieste**, e nella sidebar si vedono 📁 e il nome della cartella. Le opzioni dell’origine non valgono per una cartella.
+`~` è la tua cartella home, e un percorso relativo parte dalla cartella da cui avvii trydash. Anche un nome senza `./`, come `site` o `site/dist`, è una cartella se lì ne esiste una con quel nome; altrimenti resta un nome di host, come prima (`site` → `http://site`). L’anteprima sotto il campo lo dice. La cartella deve esistere quando crei il tunnel, e non può essere la radice del disco o tutta la tua home. Le sue richieste compaiono sempre nella scheda **Richieste**, e nella sidebar si vedono 📁 e il nome della cartella. Le opzioni dell’origine non valgono per una cartella.
 
 ### Scadenza
 

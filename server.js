@@ -8,7 +8,7 @@ import { loadDashboard } from './src/load-dashboard.js';
 import { spawnForSession, stopProcess, signalProcess, KILL_AFTER_MS } from './src/runtime.js';
 import { createTrafficSampler } from './src/traffic.js';
 import { createInspector } from './src/inspector.js';
-import { resolveFolder } from './src/static.js';
+import { resolveFolder, bareFolder } from './src/static.js';
 import { parseArgs, helpText, envValue, openBrowser, announceUrl } from './src/cli.js';
 import { createConfigFile, defaultConfigPath, tunnelKey } from './src/config.js';
 import { scanPorts } from './src/ports.js';
@@ -192,6 +192,8 @@ export function createApp(options = {}) {
   const dash = options.dashboard || loadDashboard();
   const store = options.store || dash.createSessionStore();
   const spawnImpl = options.spawn || spawn;
+  // Where relative folders start: the folder trydash was started from.
+  const cwd = options.cwd || process.cwd();
   const processes = new Map();
   let shuttingDown = false;
   let closePromise = null;
@@ -311,9 +313,15 @@ export function createApp(options = {}) {
 
   // What a tunnel is once normalized: the same shape as a saved one.
   function describeTunnel(origin, rawOptions) {
-    const wanted = rawOptions && typeof rawOptions === 'object' ? rawOptions : {};
+    let wanted = rawOptions && typeof rawOptions === 'object' ? rawOptions : {};
+    // `site` in the origin field is the folder ./site when that exists, not http://site.
+    const bare = !wanted.mode || wanted.mode === 'origin' ? bareFolder(origin, cwd) : null;
+    if (bare) {
+      wanted = { ...wanted, mode: 'folder', folder: bare };
+      origin = '';
+    }
     // A folder must exist now; the stored path is absolute, with `~` and symlinks resolved.
-    const resolved = wanted.mode === 'folder' ? { ...wanted, folder: resolveFolder(wanted.folder) } : wanted;
+    const resolved = wanted.mode === 'folder' ? { ...wanted, folder: resolveFolder(wanted.folder, cwd) } : wanted;
     const invocation = dash.buildQuickTunnelCommand(origin, resolved);
     return { origin: invocation.origin, options: invocation.options };
   }

@@ -887,3 +887,14 @@ test('the sidebar links to Ko-fi without a referrer', () => {
   assert.match(textOf(link), /Sostieni trydash/);
   assert.equal(walkAll(link).find((n) => n.tag === 'img').attrs.src, 'kofi-symbol.svg');
 });
+
+test('the form preview says a plain name may be a folder or a host', () => {
+  const { T, host } = domSandbox();
+  T.renderPhase(host, { present: true, version: 'test', platform: 'linux' });
+  T.previewCommand('site', {});
+  assert.equal(host.querySelector('#origin-preview').textContent, '→ la cartella site, se esiste dove gira trydash; altrimenti http://site');
+  T.previewCommand('example.com', {});
+  assert.equal(host.querySelector('#origin-preview').textContent, '→ cloudflared tunnel --url http://example.com');
+  T.previewCommand('./site', {});
+  assert.match(host.querySelector('#origin-preview').textContent, /^→ cartella \.\/site/);
+});

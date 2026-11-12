@@ -51,6 +51,21 @@ function appError(code, key, params) {
   return Object.assign(new Error(key), { code, key, params: params || {} });
 }
 
+// A folder typed without `./`, like `site` or `site/dist`: what the origin field
+// would otherwise read as a host name. It counts as a folder only when it has no
+// scheme, port or colon, isn't a port number or a loopback name, and a directory
+// with that name exists where trydash runs. Returns the name, or null.
+export function bareFolder(input, cwd = process.cwd()) {
+  const raw = String(input == null ? '' : input).trim();
+  if (!raw || /^\d+$/.test(raw) || raw.includes(':') || raw.includes('\0')) return null;
+  if (/^(localhost|127\.0\.0\.1|0\.0\.0\.0)([\\/]|$)/i.test(raw)) return null;
+  try {
+    return fs.statSync(path.resolve(cwd, raw)).isDirectory() ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
 // `~` is the home folder; relative paths start from where trydash runs.
 export function resolveFolder(input, cwd = process.cwd()) {
   const raw = String(input == null ? '' : input).trim();
