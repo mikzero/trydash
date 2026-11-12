@@ -418,6 +418,13 @@ export function createInspector({
         if (host && prefs.watch) noticeLocal(entry, location, 'redirect');
       }
       const headers = responseHeaders(pres, prefs);
+      // A redirect to the local address must not stay in the visitor's cache: a 301 kept from
+      // before rewriting was on, or the one-off redirect that teaches the site's Host, would
+      // send them to the wrong place for good.
+      if (location && pres.statusCode >= 300 && pres.statusCode < 400 && localHostOf(location, entry.originUrl, entry.hostHeader)) {
+        headers['cache-control'] = 'no-store';
+        delete headers.expires;
+      }
       const drop = () => {
         finish(entry, rec, 'error', 'response');
         if (!res.writableEnded) res.destroy();

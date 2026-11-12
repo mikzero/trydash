@@ -135,6 +135,7 @@ test('a WordPress on localhost works through the tunnel with rewriting on', asyn
     assert.equal(first.status, 301);
     assert.equal(first.headers.location, `${PUBLIC}/`);
     assert.equal(first.headers['x-robots-tag'], 'noindex, nofollow');
+    assert.equal(first.headers['cache-control'], 'no-store', 'a browser must not keep this redirect');
     assert.equal(wp.seen[0].headers.host, new URL(wp.url).host);
 
     const page = await request(target, { path: '/', headers: { host, 'accept-language': 'it-IT', 'accept-encoding': 'gzip', 'if-none-match': '"old"' } });
@@ -197,6 +198,7 @@ test('without rewriting, a redirect to localhost is noticed; blocked paths get a
     assert.equal(store.get(session.id).options.noindex, true);
     const res = await request(target, { path: '/about/', headers: { host } });
     assert.equal(res.headers.location, `http://localhost:${wp.port}/about/`);
+    assert.equal(res.headers['cache-control'], 'no-store');
     assert.equal(res.headers['x-robots-tag'], 'noindex, nofollow');
     assert.deepEqual({ ...store.get(session.id).localRedirect, at: 0 }, { at: 0, location: `http://localhost:${wp.port}/about/`, kind: 'redirect' });
 
