@@ -256,5 +256,11 @@
     'session.removedWhileStarting': 'The tunnel was removed while it was starting',
     'session.stoppedWhileStarting': 'The tunnel was stopped while it was starting',
     'ui.form.bareHint': '→ the folder {name} if it exists where trydash runs; otherwise {url}',
+    'collection.invalid': 'Invalid request: {field}',
+    'collection.notFound': 'Saved request not found',
+    'collection.tooMany': 'At most {max} saved requests',
+    'collection.unknownFormat': 'Unknown format: paste a Postman collection, a HAR file or a curl command',
+    'collection.badJson': 'The file is not valid JSON',
+    'collection.empty': 'No requests to import',
   };
 })(globalThis);

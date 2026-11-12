@@ -256,5 +256,11 @@
     'session.removedWhileStarting': 'Il tunnel è stato rimosso mentre si avviava',
     'session.stoppedWhileStarting': 'Il tunnel è stato fermato mentre si avviava',
     'ui.form.bareHint': '→ la cartella {name}, se esiste dove gira trydash; altrimenti {url}',
+    'collection.invalid': 'Richiesta non valida: {field}',
+    'collection.notFound': 'Richiesta salvata non trovata',
+    'collection.tooMany': 'Al massimo {max} richieste salvate',
+    'collection.unknownFormat': 'Formato non riconosciuto: incolla una collection Postman, un file HAR o un comando curl',
+    'collection.badJson': 'Il file non è un JSON valido',
+    'collection.empty': 'Nessuna richiesta da importare',
   };
 })(globalThis);

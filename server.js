@@ -12,6 +12,8 @@ import { resolveFolder, bareFolder } from './src/static.js';
 import { parseArgs, helpText, envValue, openBrowser, announceUrl } from './src/cli.js';
 import { createConfigFile, defaultConfigPath, tunnelKey } from './src/config.js';
 import { scanPorts } from './src/ports.js';
+import { createCollection } from './src/collection.js';
+import { parseImport, toPostman, toHar } from './src/formats.js';
 import { readAsset } from './src/assets.js';
 
 
@@ -38,13 +40,13 @@ function probeCloudflared() {
   });
 }
 
-function readBody(req) {
+function readBody(req, limit = 1_000_000) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let size = 0;
     req.on('data', (chunk) => {
       size += chunk.length;
-      if (size > 1_000_000) {
+      if (size > limit) {
         reject(Object.assign(new Error('body'), { key: 'request.bodyTooLarge', status: 413 }));
         req.destroy();
         return;
@@ -207,6 +209,8 @@ export function createApp(options = {}) {
   });
   let probeCache = null;
   const scan = options.scanPorts || scanPorts;
+  // Saved requests; main() gives them a file next to the saved tunnels.
+  const collection = options.collection || createCollection();
   let portsCache = null;
   let portsInflight = null;
 
@@ -436,6 +440,144 @@ export function createApp(options = {}) {
     return session;
   }
 
+  // The address a saved request is shown against: the public URL, else the local one.
+  function baseUrlOf(session) {
+    if (!session) return 'http://127.0.0.1:3000';
+    if (session.url) return session.url;
+    if (session.origin) {
+      const u = new URL(session.origin);
+      return `${u.protocol}//${u.host}`;
+    }
+    const info = inspector.info(session.id);
+    return info ? info.target : 'http://127.0.0.1:3000';
+  }
+
+  function sendDownload(res, name, data) {
+    const payload = `${JSON.stringify(data, null, 2)}\n`;
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${name}"`,
+      'Cache-Control': 'no-store',
+      'Content-Length': Buffer.byteLength(payload),
+    });
+    res.end(payload);
+  }
+
+  function savedSummary(item) {
+    return {
+      id: item.id,
+      name: item.name,
+      method: item.method,
+      path: item.path,
+      source: item.source,
+      createdAt: item.createdAt,
+      headerCount: item.headers.length,
+      bodySize: item.bodyBase64 ? Buffer.from(item.bodyBase64, 'base64').length : Buffer.byteLength(item.body || ''),
+    };
+  }
+
+  async function readJson(req, limit) {
+    let text;
+    try {
+      text = await readBody(req, limit);
+    } catch (error) {
+      throw withStatus(error, error.status || 400);
+    }
+    try {
+      const data = JSON.parse(text || '{}');
+      if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('shape');
+      return data;
+    } catch {
+      throw withStatus(dash.appError('BAD_REQUEST', 'request.badJson'), 400);
+    }
+  }
+
+  function statusFor(error) {
+    if (error.status) return error.status;
+    if (error.code === 'NOT_FOUND') return 404;
+    if (error.code === 'CONFLICT') return 409;
+    if (error.code === 'LIMIT') return 429;
+    if (error.code === 'BAD_REQUEST') return 400;
+    return 500;
+  }
+
+  // /api/collection…: saved requests, import, export, send; and a tunnel's export.
+  async function handleCollection(req, res, url) {
+    try {
+      const exportMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/requests\/export$/);
+      if (exportMatch) {
+        if (req.method !== 'GET') return sendError(res, req, 405, 'request.methodNotAllowed');
+        const session = store.get(decodeURIComponent(exportMatch[1]));
+        if (!session) return sendError(res, req, 404, 'session.notFound');
+        if (!inspector.has(session.id)) return sendError(res, req, 409, 'inspect.disabled');
+        const details = inspector.details(session.id);
+        const baseUrl = baseUrlOf(session);
+        if (url.searchParams.get('format') === 'har') {
+          return sendDownload(res, `trydash-${session.id}.har`, toHar(details, { baseUrl, version: appVersion() }));
+        }
+        const requests = details.filter((d) => !d.websocket).map((d) => ({
+          name: `${d.method} ${d.path}`,
+          method: d.method,
+          path: d.path,
+          headers: d.requestHeaders,
+          body: d.requestBody && d.requestBody.text != null && !d.requestBody.truncated ? d.requestBody.text : null,
+        }));
+        return sendDownload(res, `trydash-${session.id}.postman_collection.json`, toPostman(requests, { name: `trydash ${session.id}`, baseUrl }));
+      }
+      if (url.pathname === '/api/collection') {
+        if (req.method === 'GET') return sendJson(res, 200, { requests: collection.list().map(savedSummary), file: collection.file || null });
+        if (req.method !== 'POST') return sendError(res, req, 405, 'request.methodNotAllowed');
+        const data = await readJson(req);
+        let item;
+        if (data.session != null) {
+          // Pin a captured request from a tunnel's Requests tab.
+          const session = store.get(String(data.session));
+          if (!session) return sendError(res, req, 404, 'session.notFound');
+          if (!inspector.has(session.id)) return sendError(res, req, 409, 'inspect.disabled');
+          const request = inspector.captured(session.id, Number(data.seq));
+          item = collection.add({ ...request, name: data.name }, 'captured');
+        } else {
+          item = collection.add(data.request || {}, 'manual');
+        }
+        return sendJson(res, 201, { request: item });
+      }
+      if (url.pathname === '/api/collection/import') {
+        if (req.method !== 'POST') return sendError(res, req, 405, 'request.methodNotAllowed');
+        const data = await readJson(req, 5_000_000);
+        const parsed = parseImport(data.text, data.format || 'auto');
+        if (!parsed.requests.length) return sendError(res, req, 400, 'collection.empty', {}, { warnings: parsed.warnings });
+        const added = collection.addMany(parsed.requests, parsed.format);
+        return sendJson(res, 201, { format: parsed.format, added: added.length, warnings: parsed.warnings, requests: added.map(savedSummary) });
+      }
+      if (url.pathname === '/api/collection/export') {
+        if (req.method !== 'GET') return sendError(res, req, 405, 'request.methodNotAllowed');
+        const session = url.searchParams.get('session') ? store.get(url.searchParams.get('session')) : null;
+        return sendDownload(res, 'trydash.postman_collection.json', toPostman(collection.list(), { name: 'trydash', baseUrl: baseUrlOf(session) }));
+      }
+      const itemMatch = url.pathname.match(/^\/api\/collection\/([^/]+)(\/send)?$/);
+      if (!itemMatch) return sendError(res, req, 404, 'collection.notFound');
+      const id = decodeURIComponent(itemMatch[1]);
+      if (itemMatch[2]) {
+        if (req.method !== 'POST') return sendError(res, req, 405, 'request.methodNotAllowed');
+        const data = await readJson(req);
+        const item = collection.get(id);
+        const session = store.get(String(data.session || ''));
+        if (!session) return sendError(res, req, 404, 'session.notFound');
+        if (!inspector.has(session.id)) return sendError(res, req, 409, 'inspect.disabled');
+        return sendJson(res, 201, { request: await inspector.send(session.id, item, item.name) });
+      }
+      if (req.method === 'GET') return sendJson(res, 200, { request: collection.get(id) });
+      if (req.method === 'PATCH') return sendJson(res, 200, { request: collection.update(id, await readJson(req)) });
+      if (req.method === 'DELETE') {
+        collection.remove(id);
+        return sendJson(res, 200, { ok: true });
+      }
+      return sendError(res, req, 405, 'request.methodNotAllowed');
+    } catch (error) {
+      return sendError(res, req, statusFor(error), error);
+    }
+  }
+
   async function probeOnce() {
     if (options.probe) {
       const result = await options.probe();
@@ -511,6 +653,12 @@ export function createApp(options = {}) {
           return;
         }
         sendJson(res, 200, { probe, sessions: store.list().map((session) => summary(session, inspector)) });
+        return;
+      }
+
+      if (url.pathname === '/api/collection' || url.pathname.startsWith('/api/collection/')
+        || /^\/api\/sessions\/[^/]+\/requests\/export$/.test(url.pathname)) {
+        await handleCollection(req, res, url);
         return;
       }
 
@@ -665,6 +813,7 @@ export function createApp(options = {}) {
     store,
     inspector,
     openTunnel,
+    collection,
     restartTunnel,
     restoreTunnels,
     describeTunnel,
@@ -767,7 +916,9 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
   // The sample session of TRYDASH_SEED must not end up in the saved tunnels.
   const saving = args.save !== false && env.TRYDASH_CONFIG !== 'off' && !seed;
   const persist = saving ? createConfigFile(env.TRYDASH_CONFIG || defaultConfigPath({ env })) : null;
-  const app = createApp({ token, persist });
+  // Saved requests sit next to the saved tunnels, and are off when those are.
+  const collection = createCollection({ file: persist ? path.join(path.dirname(persist.file), 'requests.json') : null });
+  const app = createApp({ token, persist, collection });
   if (seed) await seedInspector(app.inspector, seedFixture(app.store));
   const restored = persist ? app.restoreTunnels(persist.load()) : [];
   const port = args.port != null ? args.port : Number(envValue(env, 'TRYDASH_PORT') || 8787);

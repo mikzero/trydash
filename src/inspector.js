@@ -144,6 +144,7 @@ function summaryOf(rec) {
     error: rec.error,
     replayOf: rec.replayOf,
     edited: !!rec.edited,
+    saved: rec.saved || null,
     websocket: rec.websocket,
     requestSize: rec.requestBody.size,
     responseSize: rec.responseBody.size,
@@ -192,7 +193,8 @@ export function createInspector({
 } = {}) {
   const proxies = new Map();
   const token = crypto.randomBytes(16).toString('hex');
-  const editedReplays = new Set();
+  // Requests trydash itself sent (replays and saved ones), by the nonce in their marker.
+  const pendingSends = new Map();
 
   function isReplay(req) {
     return String(req.headers[REPLAY_HEADER] || '').split(':')[0] === token;
@@ -210,7 +212,8 @@ export function createInspector({
   function startRecord(entry, req, extra = {}) {
     const requestHeaders = pairs(req.rawHeaders);
     const marker = String(req.headers[REPLAY_HEADER] || '').split(':');
-    const replayOf = marker[0] === token && /^\d+$/.test(marker[1] || '') ? Number(marker[1]) : null;
+    const mine = marker[0] === token && !!marker[2];
+    const replayOf = mine && /^\d+$/.test(marker[1] || '') ? Number(marker[1]) : null;
     const rec = {
       seq: entry.seq += 1,
       startedAt: new Date(clock()).toISOString(),
@@ -231,9 +234,11 @@ export function createInspector({
       replayOf,
       websocket: !!extra.websocket,
     };
-    if (replayOf != null && marker[2]) {
+    if (mine) {
       entry.replays.set(marker[2], rec);
-      if (editedReplays.has(marker[2])) rec.edited = true;
+      const meta = pendingSends.get(marker[2]) || {};
+      rec.edited = !!meta.edited;
+      rec.saved = meta.saved || null;
     }
     entry.records.push(rec);
     entry.total += 1;
@@ -540,43 +545,34 @@ export function createInspector({
     return out;
   }
 
-  async function replay(id, seq, edits = null) {
-    const entry = entryFor(id);
-    const rec = findRecord(entry, seq);
-    if (rec.websocket) throw appError('CONFLICT', 'inspect.replayWebsocket');
-    const change = edits ? checkEdits(edits) : {};
-    if (!change.body && rec.requestBody.size > rec.requestBody.kept) throw appError('CONFLICT', 'inspect.replayTruncated');
-    const body = change.body || Buffer.concat(rec.requestBody.chunks);
-    const method = change.method || rec.method;
+  // Sends a request through the tunnel's own proxy, so it is recorded like the rest
+  // and reaches only that tunnel's origin. `meta`: { replayOf, edited, saved }.
+  function dispatch(entry, { method, path, headers: list, body }, meta = {}) {
     const nonce = crypto.randomBytes(8).toString('hex');
-    // Original spelling and order of the header names, minus the hop-by-hop ones.
-    const allowed = change.headers ? null : new Set(Object.keys(rec.forward));
-    const source = change.headers || rec.requestHeaders;
     const headers = {};
-    for (const [name, value] of source) {
+    for (const [name, value] of list) {
       const key = name.toLowerCase();
       if (key === 'content-length' || key === REPLAY_HEADER || HOP_BY_HOP.has(key)) continue;
-      if (allowed && !allowed.has(key)) continue;
       const existing = Object.keys(headers).find((k) => k.toLowerCase() === key);
       if (existing) headers[existing] = [].concat(headers[existing], value);
       else headers[name] = value;
     }
     if (body.length || !['GET', 'HEAD', 'DELETE', 'OPTIONS'].includes(method)) headers['content-length'] = String(body.length);
-    headers[REPLAY_HEADER] = `${token}:${rec.seq}:${nonce}`;
-    if (edits) editedReplays.add(nonce);
+    headers[REPLAY_HEADER] = `${token}:${meta.replayOf == null ? 'send' : meta.replayOf}:${nonce}`;
+    pendingSends.set(nonce, meta);
     return new Promise((resolve, reject) => {
       const req = http.request({
         hostname: '127.0.0.1',
         port: entry.port,
         method,
-        path: change.path || rec.path,
+        path,
         headers,
         agent: false,
       });
       const done = () => {
         const created = entry.replays.get(nonce);
         entry.replays.delete(nonce);
-        editedReplays.delete(nonce);
+        pendingSends.delete(nonce);
         if (created) resolve(summaryOf(created));
         else reject(appError('SERVER', 'inspect.replayFailed'));
       };
@@ -589,6 +585,59 @@ export function createInspector({
       req.on('error', done);
       req.end(body);
     });
+  }
+
+  async function replay(id, seq, edits = null) {
+    const entry = entryFor(id);
+    const rec = findRecord(entry, seq);
+    if (rec.websocket) throw appError('CONFLICT', 'inspect.replayWebsocket');
+    const change = edits ? checkEdits(edits) : {};
+    if (!change.body && rec.requestBody.size > rec.requestBody.kept) throw appError('CONFLICT', 'inspect.replayTruncated');
+    // Original spelling and order of the header names, minus the hop-by-hop ones.
+    const allowed = change.headers ? null : new Set(Object.keys(rec.forward));
+    const list = (change.headers || rec.requestHeaders).filter(([name]) => !allowed || allowed.has(name.toLowerCase()));
+    return dispatch(entry, {
+      method: change.method || rec.method,
+      path: change.path || rec.path,
+      headers: list,
+      body: change.body || Buffer.concat(rec.requestBody.chunks),
+    }, { replayOf: rec.seq, edited: !!edits });
+  }
+
+  // A saved request (already checked by formats.checkRequest), sent to this tunnel's origin.
+  async function send(id, request, name) {
+    const entry = entryFor(id);
+    return dispatch(entry, {
+      method: request.method,
+      path: request.path,
+      headers: request.headers || [],
+      body: request.bodyBase64 ? Buffer.from(request.bodyBase64, 'base64') : Buffer.from(request.body || '', 'utf8'),
+    }, { saved: name || `${request.method} ${request.path}` });
+  }
+
+  // A recorded request as it arrived (raw body, no hop-by-hop headers), to save it.
+  function captured(id, seq) {
+    const rec = findRecord(entryFor(id), seq);
+    if (rec.websocket) throw appError('CONFLICT', 'inspect.replayWebsocket');
+    if (rec.requestBody.size > rec.requestBody.kept) throw appError('CONFLICT', 'inspect.replayTruncated');
+    const allowed = new Set(Object.keys(rec.forward));
+    const body = Buffer.concat(rec.requestBody.chunks);
+    let text = null;
+    try { text = new TextDecoder('utf-8', { fatal: true }).decode(body); } catch { text = null; }
+    return {
+      method: rec.method,
+      path: rec.path,
+      headers: rec.requestHeaders.filter(([name]) => allowed.has(name.toLowerCase())),
+      body: text != null && text !== '' ? text : null,
+      bodyBase64: text == null && body.length ? body.toString('base64') : null,
+    };
+  }
+
+  // The full records a HAR or Postman export needs, oldest first.
+  function details(id, seqs) {
+    const entry = entryFor(id);
+    const wanted = seqs ? new Set(seqs) : null;
+    return entry.records.filter((rec) => !wanted || wanted.has(rec.seq)).map(detailOf);
   }
 
   return {
@@ -622,6 +671,9 @@ export function createInspector({
       bump(entry);
     },
     replay,
+    send,
+    details,
+    captured,
     // For DASHBOARD_SEED: records that look like real traffic, without a socket.
     inject(id, sample) {
       const entry = entryFor(id);
