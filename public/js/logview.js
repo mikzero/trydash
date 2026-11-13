@@ -155,7 +155,7 @@
             h('span', { className: 'lbl', text: api.t('ui.preview.button') }),
           ]),
           h('a', { id: 'open-url', className: 'btn', target: '_blank', rel: 'noopener', 'aria-label': api.t('ui.head.openUrl'), dataset: { action: 'open' } }, [
-            h('span', { className: 'lbl', text: api.t('ui.head.open') }),
+            h('span', { id: 'open-url-label', className: 'lbl', text: api.t('ui.head.open') }),
             h('span', { className: 'ico', 'aria-hidden': 'true', text: '↗' }),
           ]),
           can('stop') ? h('button', { type: 'button', className: 'btn', 'aria-label': api.t('ui.head.stop'), dataset: { action: 'stop' } }, [
@@ -637,8 +637,15 @@
       }
       var open = el('open-url');
       if (open) {
-        if (session.url) {
-          open.setAttribute('href', api.ownerUrl ? api.ownerUrl(session) : session.url);
+        // Open goes to your own machine (you work on it); the public URL is the title's link.
+        var local = api.localUrl ? api.localUrl(session, '/') : null;
+        var href = local || (session.url && api.ownerUrl ? api.ownerUrl(session) : session.url);
+        open.title = local ? api.t('ui.head.openLocalTitle', { url: local.replace(/[?&]tdk=[^#&]+/, '') }) : api.t('ui.head.openUrl');
+        open.setAttribute('aria-label', open.title);
+        var openLabel = el('open-url-label');
+        if (openLabel) openLabel.textContent = local ? api.t('ui.head.openLocal') : api.t('ui.head.open');
+        if (href) {
+          open.setAttribute('href', href);
           open.removeAttribute('aria-disabled');
         } else {
           open.removeAttribute('href');

@@ -25,6 +25,26 @@
     return session.url;
   }
 
+  // The same page on your own machine, for working on it: the origin itself, or for a
+  // folder trydash's local server (with the owner's key, so links only lets you in).
+  function localUrl(session, page) {
+    if (!session) return null;
+    var path = page || '/';
+    if (session.mode === 'folder') {
+      var target = session.inspect && session.inspect.target;
+      if (!target) return null;
+      var key = session.ownerKey ? (path.indexOf('?') >= 0 ? '&' : '?') + 'tdk=' + encodeURIComponent(session.ownerKey) : '';
+      return target.replace(/\/+$/, '') + path + key;
+    }
+    if (session.mode !== 'origin' || !session.origin) return null;
+    try {
+      var u = new URL(session.origin);
+      return u.protocol + '//' + u.host + path;
+    } catch (err) {
+      return null;
+    }
+  }
+
   function buildClientsPane() {
     var h = api.h;
     return h('div', { id: 'pane-clients', className: 'tab-pane clients-pane', role: 'tabpanel', 'aria-labelledby': 'tab-clients', hidden: true }, [
@@ -123,6 +143,7 @@
 
   api.linkUrl = linkUrl;
   api.ownerUrl = ownerUrl;
+  api.localUrl = localUrl;
   api.buildClientsPane = buildClientsPane;
   api.paintClients = paintClients;
   api.readLinkForm = readLinkForm;

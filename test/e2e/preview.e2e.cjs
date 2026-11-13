@@ -379,12 +379,14 @@ async function waitFor(fn, ms = 5000) {
     check('revoked: Mario gets "link not valid"', revoked.status() === 403 && /Link non valido/.test(await mp.content()));
     check('Anna keeps working', (await ap.goto(`${wpUrl}/`)).status() === 200);
 
-    // The dashboard's Open uses the owner's key.
+    // The dashboard's Open goes to your own machine; the owner's key gets in on the public URL.
     const href = await dash.getAttribute('#open-url', 'href');
+    check('the dashboard\'s Open opens the local origin', href === 'http://127.0.0.1:18090/' && (await dash.locator('#open-url-label').innerText()) === 'Apri in locale', href);
+    const ownerKey = (await api(18799, 'GET', '/api/state')).json.sessions.find((s) => s.id === wp.id).ownerKey;
     const owner = await edgeContext(browser);
     const op = await owner.newPage();
-    await op.goto(href);
-    check('the dashboard\'s Open gets in with links only on', op.url() === `${wpUrl}/` && (await op.title()) === 'Bottega Rossi', href);
+    await op.goto(`${wpUrl}/?tdk=${ownerKey}`);
+    check('the owner\'s key gets in with links only on', op.url() === `${wpUrl}/` && (await op.title()) === 'Bottega Rossi');
     // ---------------- Client comments (Anna, through her PIN link) ----------------
     await dash.click('#tab-comments');
     await dash.check('#comments-on');
@@ -426,7 +428,9 @@ async function waitFor(fn, ms = 5000) {
     check('with a strict CSP the button still shows and is styled', cspWorks && (await cspFab.evaluate((n) => getComputedStyle(n).position)) === 'fixed');
 
     // The dashboard opens the page on the pin.
-    const pinHref = await dash.locator('.comment-card .comment-where a').first().getAttribute('href');
+    const localHref = await dash.locator('.comment-card .comment-local').first().getAttribute('href');
+    check('the comment opens the page on your machine', localHref === 'http://127.0.0.1:18090/', localHref);
+    const pinHref = await dash.locator('.comment-card .comment-public').first().getAttribute('href');
     const op2 = await owner.newPage();
     await op2.goto(pinHref);
     const pulsing = await op2.locator('trydash-comments .pin.pulse').waitFor({ timeout: 5000 }).then(() => true, () => false);

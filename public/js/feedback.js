@@ -56,8 +56,10 @@
     var details = [elementOf(comment) ? '`' + elementOf(comment) + '`' : '', screenOf(comment), browserOf(comment.userAgent)].filter(Boolean);
     if (details.length) lines.push(details.join(' · '));
     if (comment.errors && comment.errors.length) lines.push(api.t('ui.comments.errorsLabel') + ':\n' + comment.errors.map(function (e) { return '- `' + e + '`'; }).join('\n'));
+    var local = api.localUrl ? api.localUrl(session, comment.page) : null;
+    if (local) lines.push(api.t('ui.comments.localLabel') + ': ' + local.replace(/[?&]tdk=[^#&]+/, ''));
     var link = commentUrl(session, comment);
-    if (link) lines.push(link.replace(/[?&]tdk=[^#&]+/, ''));
+    if (link) lines.push(api.t('ui.comments.publicLabel') + ': ' + link.replace(/[?&]tdk=[^#&]+/, ''));
     return lines.join('\n');
   }
 
@@ -91,6 +93,7 @@
 
     function card(session, comment, nowMs) {
       var url = commentUrl(session, comment);
+      var local = api.localUrl ? api.localUrl(session, comment.page) : null;
       var errors = comment.errors || [];
       return h('div', { className: 'link-card comment-card' + (comment.resolved ? ' is-revoked' : ''), dataset: { comment: comment.id } }, [
         h('div', { className: 'link-top' }, [
@@ -100,9 +103,13 @@
           h('span', { className: 'link-seen', title: comment.at, text: api.relativeTime(comment.at, nowMs) }),
         ]),
         h('p', { className: 'comment-text', text: comment.text }),
+        // The page on your machine first (you fix it there), the public one with the pin after.
         h('p', { className: 'comment-where mono' }, [
-          url ? h('a', { href: url, target: '_blank', rel: 'noopener', text: comment.page + ' ↗' }) : h('span', { text: comment.page }),
+          local
+            ? h('a', { className: 'comment-local', href: local, target: '_blank', rel: 'noopener', title: api.t('ui.comments.openLocal'), text: comment.page + ' ↗' })
+            : h('span', { text: comment.page }),
           comment.title ? h('span', { className: 'comment-title', text: ' · ' + comment.title }) : null,
+          url ? h('a', { className: 'comment-public', href: url, target: '_blank', rel: 'noopener', title: api.t('ui.comments.openPublic'), text: ' · ' + api.t('ui.comments.publicPin') + ' ↗' }) : null,
         ]),
         h('p', { className: 'comment-meta', text: [elementOf(comment), screenOf(comment), browserOf(comment.userAgent)].filter(Boolean).join(' · ') }),
         errors.length ? h('details', { className: 'comment-errors' }, [

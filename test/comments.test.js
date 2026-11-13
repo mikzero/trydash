@@ -257,6 +257,15 @@ test('dashboard helpers: browser, Markdown, the link to the pin', () => {
   assert.equal(T.ownerUrl(session), 'https://a-b.trycloudflare.com/?tdk=OWNERKEYOWNERKEYOWNERK');
   assert.equal(T.ownerUrl({ ...session, inspect: { enabled: false } }), 'https://a-b.trycloudflare.com');
   const md = T.commentMarkdown({ ...session, options: { linksOnly: true } }, comment);
-  assert.match(md, /^\*\*Mario\*\* · .* · `\/chi-siamo\/\?x=1` \(“Chi siamo”\)\n> Più grande\n> grazie\n`<h1> “Chi siamo”` · 390×844 · Safari 18 · iOS\nErrori JavaScript:\n- `TypeError: x`\nhttps:\/\/a-b\.trycloudflare\.com\/chi-siamo\/\?x=1#trydash-comment=c0123456789$/);
+  assert.match(md, /^\*\*Mario\*\* · .* · `\/chi-siamo\/\?x=1` \(“Chi siamo”\)\n> Più grande\n> grazie\n`<h1> “Chi siamo”` · 390×844 · Safari 18 · iOS\nErrori JavaScript:\n- `TypeError: x`\nPubblica: https:\/\/a-b\.trycloudflare\.com\/chi-siamo\/\?x=1#trydash-comment=c0123456789$/);
   assert.doesNotMatch(md, /OWNERKEY/, 'the owner key never goes into a copied comment');
+
+  // Working on it: the page on your machine.
+  const origin = { ...session, mode: 'origin', origin: 'http://127.0.0.1:8080' };
+  assert.equal(T.localUrl(origin, '/chi-siamo/?x=1'), 'http://127.0.0.1:8080/chi-siamo/?x=1');
+  const folder = { ...session, mode: 'folder', origin: null, inspect: { enabled: true, target: 'http://127.0.0.1:41733' } };
+  assert.equal(T.localUrl(folder, '/'), 'http://127.0.0.1:41733/?tdk=OWNERKEYOWNERKEYOWNERK');
+  assert.equal(T.localUrl({ ...session, mode: 'hello' }, '/'), null);
+  const md2 = T.commentMarkdown(origin, comment);
+  assert.match(md2, /\nLocale: http:\/\/127\.0\.0\.1:8080\/chi-siamo\/\?x=1\nPubblica: https:/);
 });
