@@ -11,7 +11,7 @@ import { createInspector } from './src/inspector.js';
 import { resolveFolder, bareFolder } from './src/static.js';
 import { parseArgs, helpText, envValue, openBrowser, announceUrl } from './src/cli.js';
 import { createConfigFile, defaultConfigPath, tunnelKey } from './src/config.js';
-import { scanPorts } from './src/ports.js';
+import { scanPorts, deepScan, formatScan } from './src/ports.js';
 import { createCollection } from './src/collection.js';
 import { parseImport, toPostman, toHar } from './src/formats.js';
 import { readAsset } from './src/assets.js';
@@ -210,22 +210,56 @@ export function createApp(options = {}) {
   });
   let probeCache = null;
   const scan = options.scanPorts || scanPorts;
+  const deep = options.deepScan || deepScan;
+  // What the last scan found on each port, kept while the same process holds it.
+  const identified = new Map();
+  let deepInflight = null;
   // Saved requests; main() gives them a file next to the saved tunnels.
   const collection = options.collection || createCollection();
   let portsCache = null;
   let portsInflight = null;
 
   // Ports of dev servers on this machine: cached a few seconds, one scan at a time.
+  function ownPorts() {
+    return [server.address() && server.address().port].concat(store.list().map((s) => inspector.info(s.id)).filter(Boolean).map((i) => i.port)).filter(Boolean);
+  }
+
+  // A full scan: every port asked `GET /` once. Only on request, one at a time.
+  async function scanAll() {
+    if (!deepInflight) {
+      deepInflight = deep({ exclude: ownPorts() }).then((list) => {
+        identified.clear();
+        for (const item of list) identified.set(item.port, { process: item.process, scan: item.scan });
+        portsCache = null;
+        return list;
+      }).finally(() => { deepInflight = null; });
+    }
+    await deepInflight;
+    return listeningPorts();
+  }
+
   async function listeningPorts() {
-    if (portsCache && Date.now() - portsCache.at < 3000) return portsCache.ports;
+    if (portsCache && Date.now() - portsCache.at < 3000) return withBusy(portsCache.ports);
     if (!portsInflight) {
-      const own = [server.address() && server.address().port].concat(store.list().map((s) => inspector.info(s.id)).filter(Boolean).map((i) => i.port));
-      portsInflight = scan({ exclude: own.filter(Boolean) }).then((ports) => {
+      const own = ownPorts();
+      portsInflight = scan({ exclude: own, all: true }).then((ports) => {
         portsCache = { at: Date.now(), ports };
         return ports;
       }).finally(() => { portsInflight = null; });
     }
-    const ports = await portsInflight;
+    return withBusy(await portsInflight);
+  }
+
+  function withBusy(found) {
+    // Scan results stay on their port while the same process listens there. A quiet port
+    // (high, or usually not web) shows only once a scan found a web server on it.
+    const ports = [];
+    for (const { quiet, ...item } of found) {
+      const known = identified.get(item.port);
+      const scanned = known && known.process === item.process ? known.scan : null;
+      if (quiet && !(scanned && scanned.http)) continue;
+      ports.push(scanned ? { ...item, scan: scanned } : item);
+    }
     // A port an active tunnel already points at is marked, not hidden.
     const busy = new Set(store.list().filter((s) => s.active && s.origin).map((s) => {
       try {
@@ -666,7 +700,7 @@ export function createApp(options = {}) {
       }
 
       if (req.method === 'GET' && url.pathname === '/api/ports') {
-        sendJson(res, 200, { ports: await listeningPorts() });
+        sendJson(res, 200, { ports: url.searchParams.get('scan') === '1' ? await scanAll() : await listeningPorts() });
         return;
       }
 
@@ -932,6 +966,10 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
   }
   if (args.help) {
     console.log(helpText());
+    return null;
+  }
+  if (args.scan) {
+    console.log(formatScan(await deepScan(), loadDashboard().BLOCK_PRESETS));
     return null;
   }
   const token = env.TRYDASH_TOKEN || newToken();

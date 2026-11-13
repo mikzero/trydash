@@ -104,7 +104,22 @@ The list lives in `~/.config/trydash/tunnels.json` (`$XDG_CONFIG_HOME` if set, `
 
 ### Listening ports
 
-Under the field, “listening:” suggests the development servers running on your computer, like `:5173 · Vite` or `:3000 · Next.js`: a click fills the field. trydash only tries the usual development ports (3000, 4200, 5173, 8000, 8080…) with a plain TCP connection, so nothing shows up in their logs. A server listening only on IPv6 (`::1`) is suggested as `http://[::1]:5173`. A port already in a live tunnel is shown faded. The API has it as `GET /api/ports`.
+Under the field, “listening:” suggests the servers running on your computer, like `:5173 · Vite` or `:8080 · php`: a click fills the field. The list comes from the operating system (`/proc` on Linux, `lsof` on macOS, `netstat` on Windows) with the name of each process, so a WordPress in Docker on `8088` or a MAMP on `8888` shows up too, and nothing is sent to the servers. Databases, mail and system services (`5432`, `3306`, `22`, AirPlay…) are left out, and so are ports from 32768 up, which editors and helpers pick at random. Where the system won't say, trydash tries the usual development ports with a plain TCP connection. A server listening only on IPv6 (`::1`) is suggested as `http://[::1]:5173`, one bound to a single address (a Docker bridge, a LAN IP) with that address. A port already in a live tunnel is shown faded.
+
+**⌕ Scan** goes one step further: it asks every listening port `GET /` once, high ports included, and tells what answers: WordPress, Vite, Next.js, Nuxt, SvelteKit, Astro, Angular, Laravel, Django, Rails, Flask, Express, Storybook, Jupyter, a plain PHP, nginx or Apache, or the page title. A server that speaks only HTTPS is found too, and its chip turns on **Don’t verify TLS**. Picking a recognized site also fills the [client preview](#client-preview): **Rewrite localhost URLs** for WordPress, Laravel, Django, Rails, Vite and the other dev servers that check the host, and the blocked paths of WordPress, Laravel or Django. The findings stay on the chips while the same process holds the port.
+
+From the command line, `trydash --scan` prints the same list with the command to share each server:
+
+```text
+Listening on this computer:
+
+  :5173   Vite · “My app” · node
+          → trydash 5173 --rewrite
+  :8080   WordPress · “Bottega Rossi” · php
+          → trydash 8080 --rewrite --block /wp-admin,/wp-login.php,/xmlrpc.php
+```
+
+The API has it as `GET /api/ports`, and `GET /api/ports?scan=1` for the scan.
 
 ### QR code
 
@@ -246,6 +261,7 @@ trydash https://localhost:8443 --no-tls-verify
 | `--rewrite` · `--block <paths>` · `--badge` · `--index` | client preview: rewrite localhost URLs, `403` for these paths, the “Preview” label, let search engines index it |
 | `--no-save` | don’t save or restore tunnels |
 | `--expires <time>` | stop the tunnel after `30m`, `2h`, `1d`… |
+| `--scan` | list the web servers on this computer, what they are and the command to share each one |
 | `-v`, `--version` · `-h`, `--help` | version · help |
 
 ### Environment variables
@@ -312,7 +328,7 @@ The frontend uses a small JSON API, also handy for scripts. Every call needs the
 |---|---|---|
 | `GET` | `/api/state` | state of `cloudflared` and of every session |
 | `GET` | `/api/probe?fresh=1` | check `cloudflared` again |
-| `GET` | `/api/ports` | development servers listening on this computer, with `busy` when a live tunnel already uses them |
+| `GET` | `/api/ports` | servers listening on this computer, with `process`, and `busy` when a live tunnel already uses them; `?scan=1` asks each one `GET /` and adds `scan`: `{ "http", "kind", "label", "title", "tls", "suggest": { "rewrite", "preset" } }` |
 | `POST` | `/api/sessions` | create a tunnel, body `{ "origin": "3000", "options": { … } }` (see below) |
 | `POST` | `/api/sessions/:id/stop` | stop the tunnel |
 | `PATCH` | `/api/sessions/:id/options` | change the client preview of a tunnel, same URL: `{ "rewrite": true, "blocked": "/wp-admin", "badge": true, "noindex": true }` |

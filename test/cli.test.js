@@ -9,7 +9,9 @@ import { parseArgs, envValue, parseDuration, browserCommand, openBrowser, announ
 import { dashboardRoot } from '../src/load-dashboard.js';
 
 test('arguments: a port, a URL or a folder opens a tunnel; options follow cloudflared', () => {
-  assert.deepEqual(parseArgs([]), { port: null, open: null, save: null, help: false, version: false, target: null });
+  assert.deepEqual(parseArgs([]), { port: null, open: null, save: null, help: false, version: false, scan: false, target: null });
+  assert.equal(parseArgs(['--scan']).scan, true);
+  assert.throws(() => parseArgs(['--scan', '3000']), /--scan takes no/);
   assert.equal(parseArgs(['--no-save']).save, false);
   assert.deepEqual(parseArgs(['3000']).target, { origin: '3000', options: {} });
   assert.deepEqual(parseArgs(['./dist', '--mail', '*@x.it']).target, { origin: '', options: { allowedMail: '*@x.it', mode: 'folder', folder: './dist' } });

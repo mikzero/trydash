@@ -107,6 +107,8 @@ test('rewriter: local URLs become the public one, in text, JSON and query string
   assert.equal(localLinkIn('<link href="http://localhost:8080/s.css">', originUrl), 'http://localhost:8080');
   assert.equal(localLinkIn('<p>Open http://localhost:8080 in your browser</p>', originUrl), null);
   assert.ok(hostCheckIn('Blocked request. This host ("a.trycloudflare.com") is not allowed.'));
+  assert.ok(hostCheckIn("Invalid HTTP_HOST header: 'a.trycloudflare.com'. You may need to add it to ALLOWED_HOSTS."));
+  assert.ok(hostCheckIn('Blocked hosts: a.trycloudflare.com'));
   assert.equal(injectBadge('<p>x</p></BODY>', 'it-IT,it'), '<p>x</p><div id="trydash-preview" title="trydash" style="all:initial;position:fixed;z-index:2147483647;left:12px;bottom:12px;padding:4px 10px;border-radius:999px;background:#1f2937;color:#fff;font:600 12px/1.4 system-ui,sans-serif;letter-spacing:.03em;opacity:.85;pointer-events:none">Anteprima</div></BODY>');
   assert.match(injectBadge('plain', 'en'), /^plain<div[^>]+>Preview<\/div>$/);
 });

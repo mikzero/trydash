@@ -523,7 +523,7 @@ export function createInspector({
     if (!HTML_TYPE.test(type) && !/^text\/plain/i.test(type)) return;
     const view = describeBody(rec.responseBody, rec.responseHeaders);
     if (!view.text) return;
-    if (rec.status === 403 && hostCheckIn(view.text)) return noticeLocal(entry, rec.path, 'host');
+    if ((rec.status === 400 || rec.status === 403) && hostCheckIn(view.text)) return noticeLocal(entry, rec.path, 'host');
     if (!HTML_TYPE.test(type)) return;
     const link = localLinkIn(view.text, entry.originUrl, entry.hostHeader);
     if (link) noticeLocal(entry, link, 'links');

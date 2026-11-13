@@ -11,6 +11,7 @@ Starts the dashboard and, with an argument, opens a quick tunnel right away:
   trydash 3000             tunnel to http://127.0.0.1:3000
   trydash https://localhost:8443 --no-tls-verify
   trydash ./dist           publish a folder
+  trydash --scan           list the servers listening on this computer
 
 Options:
   -p, --port <n>           dashboard port (default 8787, or TRYDASH_PORT)
@@ -27,6 +28,8 @@ Options:
       --badge              a small "Preview" label on HTML pages
       --index              let search engines index the preview (noindex by default)
       --expires <time>     stop the tunnel after a while: 30m, 2h, 1d
+      --scan               find the web servers on this computer, what they are,
+                           and the command to share each one
   -v, --version            print the version
   -h, --help               this help
 
@@ -73,7 +76,7 @@ function usage(message) {
 
 export function parseArgs(argv) {
   const dash = loadDashboard();
-  const out = { port: null, open: null, save: null, help: false, version: false, target: null };
+  const out = { port: null, open: null, save: null, help: false, version: false, scan: false, target: null };
   const options = {};
   let positional = null;
   for (let i = 0; i < argv.length; i += 1) {
@@ -88,6 +91,7 @@ export function parseArgs(argv) {
     switch (name) {
       case '-h': case '--help': out.help = true; break;
       case '-v': case '--version': out.version = true; break;
+      case '--scan': out.scan = true; break;
       case '-p': case '--port': {
         const port = Number(value());
         if (!Number.isInteger(port) || port < 0 || port > 65535) throw usage('the port must be a number from 0 to 65535');
@@ -129,6 +133,7 @@ export function parseArgs(argv) {
   } else if (Object.keys(options).length) {
     throw usage('tunnel options need a port, URL or folder');
   }
+  if (out.scan && out.target) throw usage('--scan takes no port, URL or folder');
   return out;
 }
 

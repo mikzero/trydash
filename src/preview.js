@@ -88,9 +88,9 @@ export function localLinkIn(html, originUrl, hostHeader) {
   return match ? match[1] : null;
 }
 
-// Vite, webpack-dev-server and Angular refuse an unknown Host with these words.
+// Vite, webpack-dev-server, Angular, Django and Rails refuse an unknown Host with these words.
 export function hostCheckIn(text) {
-  return /Blocked request\. This host|Invalid Host header/i.test(String(text || ''));
+  return /Blocked request\. This host|Invalid Host header|Invalid HTTP_HOST header|DisallowedHost|Blocked hosts?:/i.test(String(text || ''));
 }
 
 // The ways the origin may read a path: dot segments resolved, %xx decoded, case,

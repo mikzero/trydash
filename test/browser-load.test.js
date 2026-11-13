@@ -822,7 +822,9 @@ test('port suggestions fill the origin field', () => {
   T.renderPhase(host, { present: true, version: 'test', platform: 'linux' });
   const form = host.querySelector('#create-form');
   T.paintPortHints(form, []);
-  assert.equal(host.querySelector('#port-hints').hidden, true);
+  // With nothing found, only the scan button.
+  assert.equal(host.querySelector('#port-hints').hidden, false);
+  assert.equal(textOf(host.querySelector('#port-hints')).trim(), '⌕ Cerca i server in ascolto');
   T.paintPortHints(form, [{ port: 5173, hint: 'Vite', origin: '5173', busy: false }, { port: 3000, hint: 'Next.js, React', origin: 'http://[::1]:3000', busy: true }]);
   const hints = host.querySelector('#port-hints');
   assert.equal(hints.hidden, false);
@@ -831,6 +833,32 @@ test('port suggestions fill the origin field', () => {
   assert.match(chips[1].className, /is-busy/);
   assert.equal(chips[1].attrs.title, 'già in un tunnel attivo');
   assert.match(textOf(hints), /in ascolto:/);
+  assert.ok(walkAll(hints).some((n) => n.dataset && n.dataset.action === 'scan-ports'));
+  T.paintPortHints(form, [], true);
+  assert.equal(textOf(host.querySelector('#port-hints')).trim(), 'Scansione…');
+
+  // After a scan: the kind of site, and picking it fills the suggested preview options.
+  const wp = { port: 8080, hint: null, origin: '8080', process: 'php', busy: false,
+    scan: { http: true, kind: 'wordpress', label: 'WordPress', title: 'Bottega Rossi', tls: false, suggest: { rewrite: true, preset: 'wordpress' } } };
+  const tls = { port: 8443, hint: null, origin: '8443', process: 'node', busy: false,
+    scan: { http: true, kind: null, label: null, status: 200, title: null, tls: true, suggest: { rewrite: false, preset: null } } };
+  T.paintPortHints(form, [wp, tls]);
+  const [wpChip, tlsChip] = walkAll(host.querySelector('#port-hints')).filter((n) => n.dataset && n.dataset.action === 'pick-port');
+  assert.equal(wpChip.textContent, ':8080 · WordPress');
+  assert.equal(wpChip.attrs.title, '“Bottega Rossi” · processo php · consigliato: riscrivi gli URL locali');
+  assert.match(wpChip.className, /is-known/);
+  T.applyPortPick(form, wpChip);
+  assert.equal(form.querySelector('#origin').value, '8080');
+  assert.equal(form.querySelector('#rewrite').checked, true);
+  assert.equal(form.querySelector('#blocked').value, '/wp-admin, /wp-login.php, /xmlrpc.php');
+  assert.equal(form.querySelector('#preview-details').open, true);
+  assert.equal(tlsChip.textContent, ':8443 · node');
+  // A scanned port shows what answered, not the guess from its number.
+  T.paintPortHints(form, [{ port: 8000, hint: 'Django, Laravel', origin: '8000', process: 'php', scan: { http: true, title: 'Officina del Mobile Artigiano', suggest: {} } }]);
+  assert.equal(walkAll(host.querySelector('#port-hints')).find((n) => n.dataset && n.dataset.action === 'pick-port').textContent, ':8000 · Officina del Mobile Art…');
+  assert.equal(tlsChip.dataset.origin, 'https://localhost:8443');
+  T.applyPortPick(form, tlsChip);
+  assert.equal(form.querySelector('#no-tls-verify').checked, true);
 });
 
 test('notifications: opt-in, only in the background, one per outage', async () => {

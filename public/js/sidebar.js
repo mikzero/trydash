@@ -319,27 +319,88 @@
     previewCommand(origin ? origin.value : '', options);
   }
 
-  // Dev servers found on this machine, as chips that fill the origin field.
-  function paintPortHints(form, ports) {
+  // What a chip says about a port: the scan's finding, else the usual use, else the process.
+  function portLabel(item) {
+    var scan = item.scan || {};
+    // Once scanned, what answered beats the guess from the port number.
+    var guess = item.scan && item.scan.http ? '' : (item.hint ? item.hint.split(',')[0] : '');
+    var title = scan.title && scan.title.length > 24 ? scan.title.slice(0, 23) + '…' : scan.title;
+    var what = scan.label || title || guess || item.process || '';
+    return ':' + item.port + (what ? ' · ' + what : '');
+  }
+
+  function portTitle(item) {
+    var scan = item.scan || {};
+    if (item.busy) return api.t('ui.ports.busy');
+    var parts = [];
+    if (scan.title) parts.push('“' + scan.title + '”');
+    if (scan.label && item.hint && scan.label !== item.hint) parts.push(item.hint);
+    if (item.process) parts.push(api.t('ui.ports.process', { name: item.process }));
+    if (scan.http === false) parts.push(api.t('ui.ports.noHttp'));
+    if (scan.suggest && scan.suggest.rewrite) parts.push(api.t('ui.ports.suggestRewrite'));
+    return parts.join(' · ') || item.hint || item.origin;
+  }
+
+  // Servers found on this machine, as chips that fill the origin field, and the scan button.
+  function paintPortHints(form, ports, scanning) {
     var slot = field(form, 'port-hints');
     if (!slot) return;
     var list = ports || [];
-    var sig = JSON.stringify(list);
+    var sig = JSON.stringify([list, !!scanning]);
     if (slot.dataset.sig === sig) return;
     slot.dataset.sig = sig;
-    slot.hidden = list.length === 0;
+    slot.hidden = false;
     var h = api.h;
-    slot.replaceChildren.apply(slot, list.length ? [h('span', { className: 'recent-label', text: api.t('ui.ports.label') })].concat(list.map(function (item) {
-      var label = ':' + item.port + (item.hint ? ' · ' + item.hint.split(',')[0] : '');
+    var chips = list.map(function (item) {
+      var scan = item.scan || {};
+      var suggest = scan.suggest || {};
       return h('button', {
         type: 'button',
-        className: 'chip mono' + (item.busy ? ' is-busy' : ''),
-        title: item.busy ? api.t('ui.ports.busy') : (item.hint || item.origin),
-        text: label,
-        dataset: { action: 'pick-port', origin: item.origin },
+        className: 'chip mono' + (item.busy ? ' is-busy' : '') + (scan.kind ? ' is-known' : '') + (scan.http === false ? ' is-quiet' : ''),
+        title: portTitle(item),
+        text: portLabel(item),
+        dataset: {
+          action: 'pick-port',
+          origin: scan.tls && /^\d+$/.test(item.origin) ? 'https://localhost:' + item.port : item.origin,
+          rewrite: suggest.rewrite ? '1' : '',
+          preset: suggest.preset || '',
+          tls: scan.tls ? '1' : '',
+        },
       });
-    })) : []);
+    });
+    var scanButton = h('button', {
+      type: 'button',
+      className: 'chip scan-chip',
+      title: api.t('ui.ports.scanTitle'),
+      disabled: !!scanning,
+      text: scanning ? api.t('ui.ports.scanning') : api.t(list.length ? 'ui.ports.scan' : 'ui.ports.scanEmpty'),
+      dataset: { action: 'scan-ports' },
+    });
+    var head = list.length ? [h('span', { className: 'recent-label', text: api.t('ui.ports.label') })] : [];
+    slot.replaceChildren.apply(slot, head.concat(chips, [scanButton]));
   }
+
+  // A picked chip fills the origin and, for a known kind of site, the suggested options.
+  function applyPortPick(form, node) {
+    var origin = field(form, 'origin');
+    if (origin) origin.value = node.dataset.origin;
+    if (node.dataset.tls === '1') {
+      var tls = field(form, 'no-tls-verify');
+      if (tls) tls.checked = true;
+      var originDetails = field(form, 'origin-details');
+      if (originDetails) originDetails.open = true;
+    }
+    if (node.dataset.rewrite === '1' || node.dataset.preset) {
+      var rewrite = field(form, 'rewrite');
+      if (rewrite && node.dataset.rewrite === '1') rewrite.checked = true;
+      if (node.dataset.preset) addPreset(field(form, 'blocked'), node.dataset.preset);
+      var details = field(form, 'preview-details');
+      if (details) details.open = true;
+    }
+    refreshCreateForm(form);
+    if (origin && origin.focus) origin.focus();
+  }
+
 
   function paintThemeToggle(button) {
     var full = api.t('ui.side.theme') + ': ' + api.theme.label(api.theme.get());
@@ -529,5 +590,7 @@
   api.previewCommand = previewCommand;
   api.refreshCreateForm = refreshCreateForm;
   api.paintPortHints = paintPortHints;
+  api.applyPortPick = applyPortPick;
+  api.portLabel = portLabel;
   api.paintThemeToggle = paintThemeToggle;
 })(globalThis);

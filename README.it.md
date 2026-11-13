@@ -102,7 +102,22 @@ L’elenco sta in `~/.config/trydash/tunnels.json` (`$XDG_CONFIG_HOME` se impost
 
 ### Porte in ascolto
 
-Sotto il campo, “in ascolto:” propone i server di sviluppo avviati sul tuo computer, come `:5173 · Vite` o `:3000 · Next.js`: un clic riempie il campo. trydash prova solo le porte di sviluppo più comuni (3000, 4200, 5173, 8000, 8080…) con una semplice connessione TCP, così nei loro log non compare niente. Un server in ascolto solo su IPv6 (`::1`) viene proposto come `http://[::1]:5173`. Una porta già in un tunnel attivo appare sbiadita. Nell’API è `GET /api/ports`.
+Sotto il campo, “in ascolto:” propone i server avviati sul tuo computer, come `:5173 · Vite` o `:8080 · php`: un clic riempie il campo. L’elenco viene dal sistema operativo (`/proc` su Linux, `lsof` su macOS, `netstat` su Windows) con il nome di ogni processo, quindi compaiono anche un WordPress in Docker su `8088` o un MAMP su `8888`, e ai server non arriva niente. Database, posta e servizi di sistema (`5432`, `3306`, `22`, AirPlay…) restano fuori, come le porte da 32768 in su, che editor e programmi di supporto scelgono a caso. Dove il sistema non lo dice, trydash prova le porte di sviluppo più comuni con una semplice connessione TCP. Un server in ascolto solo su IPv6 (`::1`) viene proposto come `http://[::1]:5173`, uno legato a un solo indirizzo (un bridge Docker, un IP di rete) con quell’indirizzo. Una porta già in un tunnel attivo appare sbiadita.
+
+**⌕ Scansiona** fa un passo in più: chiede `GET /` una volta a ogni porta in ascolto, comprese quelle alte, e dice cosa risponde: WordPress, Vite, Next.js, Nuxt, SvelteKit, Astro, Angular, Laravel, Django, Rails, Flask, Express, Storybook, Jupyter, un PHP semplice, nginx o Apache, oppure il titolo della pagina. Trova anche un server che parla solo HTTPS, e il suo chip attiva **Non verificare TLS**. Scegliere un sito riconosciuto compila anche l’[anteprima per il cliente](#anteprima-per-il-cliente): **Riscrivi gli URL di localhost** per WordPress, Laravel, Django, Rails, Vite e gli altri server di sviluppo che controllano l’host, e i percorsi bloccati di WordPress, Laravel o Django. Quello che lo scan ha trovato resta sui chip finché lo stesso processo tiene la porta.
+
+Da riga di comando, `trydash --scan` stampa lo stesso elenco con il comando per condividere ogni server:
+
+```text
+Listening on this computer:
+
+  :5173   Vite · “My app” · node
+          → trydash 5173 --rewrite
+  :8080   WordPress · “Bottega Rossi” · php
+          → trydash 8080 --rewrite --block /wp-admin,/wp-login.php,/xmlrpc.php
+```
+
+Nell’API è `GET /api/ports`, e `GET /api/ports?scan=1` per lo scan.
 
 ### QR code
 
@@ -244,6 +259,7 @@ trydash https://localhost:8443 --no-tls-verify
 | `--rewrite` · `--block <percorsi>` · `--badge` · `--index` | anteprima per il cliente: riscrive gli URL di localhost, `403` per quei percorsi, etichetta «Anteprima», lascia indicizzare ai motori di ricerca |
 | `--no-save` | non salva né ripristina i tunnel |
 | `--expires <tempo>` | ferma il tunnel dopo `30m`, `2h`, `1d`… |
+| `--scan` | elenca i server web su questo computer, cosa sono e il comando per condividere ciascuno |
 | `-v`, `--version` · `-h`, `--help` | versione · aiuto |
 
 ### Variabili d’ambiente
@@ -310,7 +326,7 @@ Il frontend usa una piccola API JSON, utile anche per script. Ogni chiamata rich
 |---|---|---|
 | `GET` | `/api/state` | stato di `cloudflared` e di tutte le sessioni |
 | `GET` | `/api/probe?fresh=1` | ricontrolla `cloudflared` |
-| `GET` | `/api/ports` | i server di sviluppo in ascolto su questo computer, con `busy` se un tunnel attivo li usa già |
+| `GET` | `/api/ports` | i server in ascolto su questo computer, con `process`, e `busy` se un tunnel attivo li usa già; `?scan=1` chiede `GET /` a ciascuno e aggiunge `scan`: `{ "http", "kind", "label", "title", "tls", "suggest": { "rewrite", "preset" } }` |
 | `POST` | `/api/sessions` | crea un tunnel, body `{ "origin": "3000", "options": { … } }` (vedi sotto) |
 | `POST` | `/api/sessions/:id/stop` | ferma il tunnel |
 | `PATCH` | `/api/sessions/:id/options` | cambia l’anteprima per il cliente di un tunnel, stesso URL: `{ "rewrite": true, "blocked": "/wp-admin", "badge": true, "noindex": true }` |

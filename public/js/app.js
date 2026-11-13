@@ -183,11 +183,34 @@
   function refreshPorts(force) {
     if (!force && Date.now() - portsAt < PORTS_EVERY_MS) return;
     portsAt = Date.now();
+    if (state.scanningPorts) return;
     fetch('/api/ports').then(function (response) {
       return response.ok ? response.json() : null;
     }).then(function (data) {
-      if (data) api.paintPortHints(document.getElementById('create-form'), data.ports);
+      if (data) state.lastPorts = data.ports;
+      if (data && !state.scanningPorts) api.paintPortHints(document.getElementById('create-form'), data.ports);
     }, function () {});
+  }
+
+  // The full scan: every listening port asked once what it is. Takes a second or two.
+  function scanPorts() {
+    if (state.scanningPorts) return;
+    state.scanningPorts = true;
+    var form = document.getElementById('create-form');
+    api.paintPortHints(form, state.lastPorts || [], true);
+    fetch('/api/ports?scan=1').then(function (response) {
+      return response.ok ? response.json() : null;
+    }).then(function (data) {
+      state.scanningPorts = false;
+      portsAt = Date.now();
+      var ports = data ? data.ports : [];
+      api.paintPortHints(form, ports);
+      var web = ports.filter(function (item) { return item.scan && item.scan.http; }).length;
+      notify(web ? api.tn('ui.ports.found', web) : api.t('ui.ports.none'));
+    }, function () {
+      state.scanningPorts = false;
+      refreshPorts(true);
+    });
   }
 
   function setNewOpen(open) {
@@ -626,12 +649,11 @@
       return;
     }
     if (action === 'pick-port') {
-      var originField = document.getElementById('origin');
-      if (originField) {
-        originField.value = node.dataset.origin;
-        api.refreshCreateForm(document.getElementById('create-form'));
-        originField.focus();
-      }
+      api.applyPortPick(document.getElementById('create-form'), node);
+      return;
+    }
+    if (action === 'scan-ports') {
+      scanPorts();
       return;
     }
     if (action === 'recent-mail') {

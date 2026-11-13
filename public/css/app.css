@@ -419,6 +419,10 @@ h2 { margin: 0; font-size: 13px; font-weight: 600; }
 .port-hints .chip { height: 22px; font-size: 11px; }
 
 .port-hints .chip.is-busy { opacity: 0.55; }
+.port-hints .chip.is-known { border-color: var(--i); color: var(--i); }
+.port-hints .chip.is-quiet { opacity: 0.7; }
+.port-hints .scan-chip { border-style: dashed; color: var(--muted); }
+.port-hints .scan-chip:disabled { cursor: progress; }
 .recent-label { font-size: 11px; color: var(--faint); }
 .create-more .field { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
 .create-more .checks { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; }
