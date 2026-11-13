@@ -191,6 +191,10 @@
           h('span', { text: api.t('ui.tabs.clients') }),
           h('span', { id: 'tab-clients-count', className: 'tab-count', hidden: true }),
         ]),
+        h('button', { type: 'button', id: 'tab-comments', className: 'tab', role: 'tab', 'aria-selected': 'false', 'aria-controls': 'pane-comments', dataset: { action: 'tab', tab: 'comments' } }, [
+          h('span', { text: api.t('ui.tabs.comments') }),
+          h('span', { id: 'tab-comments-count', className: 'tab-count', hidden: true }),
+        ]),
       ]),
       h('div', { id: 'pane-log', className: 'tab-pane', role: 'tabpanel', 'aria-labelledby': 'tab-log' }, [
         h('div', { className: 'log-toolbar' }, [
@@ -225,12 +229,13 @@
       api.buildRequestsPane ? api.buildRequestsPane() : null,
       api.buildSavedPane ? api.buildSavedPane() : null,
       api.buildClientsPane ? api.buildClientsPane() : null,
+      api.buildCommentsPane ? api.buildCommentsPane() : null,
     ]);
   }
 
   // Shows one of the two panes; the hidden one keeps its state.
   function showTab(tab) {
-    ['log', 'requests', 'saved', 'clients'].forEach(function (name) {
+    ['log', 'requests', 'saved', 'clients', 'comments'].forEach(function (name) {
       var on = name === tab;
       var button = el('tab-' + name);
       var pane = el('pane-' + name);
@@ -646,6 +651,12 @@
         var links = api.linkCount(session);
         clientsCount.hidden = !links;
         clientsCount.textContent = String(links);
+      }
+      var commentsCount = el('tab-comments-count');
+      if (commentsCount) {
+        var open = session.comments ? session.comments.open : 0;
+        commentsCount.hidden = !open;
+        commentsCount.textContent = String(open);
       }
       var copy = document.querySelector('[data-action="copy-url"]');
       if (copy) copy.disabled = !session.url;

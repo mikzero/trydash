@@ -27,6 +27,7 @@ Options:
       --block <paths>      paths visitors get a 403 for: /wp-admin,/wp-login.php
       --badge              a small "Preview" label on HTML pages
       --index              let search engines index the preview (noindex by default)
+      --comments           a Comment button on the pages: clients point and write
       --links-only         only personal links get in (create them in the Clients tab)
       --queue              keep POST/PUT/PATCH/DELETE (webhooks) while your server is down,
                            answer 202, and deliver them when it's back
@@ -115,6 +116,7 @@ export function parseArgs(argv) {
       case '--badge': options.badge = true; break;
       case '--queue': options.queue = true; break;
       case '--links-only': options.linksOnly = true; break;
+      case '--comments': options.comments = true; break;
       case '--index': options.noindex = false; break;
       case '--expires': {
         const minutes = parseDuration(value());

@@ -157,9 +157,17 @@ export function badgeHtml(acceptLanguage) {
 
 // The label goes before the last </body>, or at the end.
 export function injectBadge(html, acceptLanguage) {
-  const badge = badgeHtml(acceptLanguage);
+  return injectExtras(html, acceptLanguage, { badge: true });
+}
+
+// The comments widget is a script from trydash's own path: `script-src 'self'` lets it run.
+export const COMMENTS_TAG = '<script src="/__trydash/comments.js" defer data-trydash="comments"></script>';
+
+export function injectExtras(html, acceptLanguage, { badge = false, comments = false } = {}) {
+  const extra = (badge ? badgeHtml(acceptLanguage) : '') + (comments ? COMMENTS_TAG : '');
+  if (!extra) return html;
   const at = html.toLowerCase().lastIndexOf('</body');
-  return at < 0 ? html + badge : html.slice(0, at) + badge + html.slice(at);
+  return at < 0 ? html + extra : html.slice(0, at) + extra + html.slice(at);
 }
 
 // Set-Cookie for the public host: a Domain=localhost would make the browser drop it.

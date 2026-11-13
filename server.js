@@ -162,6 +162,11 @@ function summary(session, inspector) {
     localRedirect: session.localRedirect,
     expired: session.expired,
     links: (session.links || []).map(publicLink),
+    comments: {
+      open: (session.comments || []).filter((c) => !c.resolved).length,
+      total: (session.comments || []).length,
+      version: session.commentsVersion || 0,
+    },
     ownerKey: session.ownerKey || null,
     inspect: inspectState(session, inspector),
   };
@@ -205,7 +210,11 @@ export function createApp(options = {}) {
   let closePromise = null;
   const trackedChildren = [];
   // A stopped tunnel's proxy turns traffic away at once, even before cloudflared has exited.
-  const inspector = options.inspector || createInspector({ store, isLive: (id) => !!(store.get(id) && store.get(id).active) });
+  const inspector = options.inspector || createInspector({
+    store,
+    isLive: (id) => !!(store.get(id) && store.get(id).active),
+    onComment: () => saveTunnels(),
+  });
   const sampler = createTrafficSampler({
     store,
     fetchImpl: options.fetch || fetch,
@@ -356,6 +365,7 @@ export function createApp(options = {}) {
         options: session.options,
         ownerKey: session.ownerKey || null,
         links: (session.links || []).map(savedLink),
+        comments: session.comments || [],
       })));
     }
   }
@@ -392,6 +402,10 @@ export function createApp(options = {}) {
       store.setOwnerKey(session.id, typeof item.ownerKey === 'string' && item.ownerKey ? item.ownerKey : newKey());
       for (const link of Array.isArray(item.links) ? item.links : []) {
         try { store.addLink(session.id, link); } catch { /* a broken entry is left out */ }
+      }
+      for (const comment of Array.isArray(item.comments) ? item.comments : []) {
+        if (!comment || typeof comment !== 'object' || !/^c[0-9a-f]{10}$/.test(String(comment.id)) || typeof comment.text !== 'string') continue;
+        try { store.addComment(session.id, comment); } catch { break; }
       }
       store.stop(session.id);
       store.appendChunk(session.id, JSON.stringify({ level: 'info', message: 'restored from the saved tunnels: Restart starts it' }));
@@ -767,6 +781,36 @@ export function createApp(options = {}) {
           sendError(res, req, error.status || 500, error, null, error.extra);
         }
         return;
+      }
+
+      // Comments clients left on the pages: list, resolve or reopen, delete.
+      const commentsMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/comments(?:\/([^/]+))?$/);
+      if (commentsMatch) {
+        const id = decodeURIComponent(commentsMatch[1]);
+        const commentId = commentsMatch[2] == null ? null : decodeURIComponent(commentsMatch[2]);
+        const session = store.get(id);
+        if (!session) return sendError(res, req, 404, 'session.notFound');
+        try {
+          if (req.method === 'GET' && !commentId) {
+            const since = url.searchParams.get('version');
+            if (since != null && Number(since) === session.commentsVersion) return sendJson(res, 200, { version: session.commentsVersion, unchanged: true });
+            return sendJson(res, 200, { version: session.commentsVersion, comments: session.comments.slice().reverse() });
+          }
+          if (req.method === 'PATCH' && commentId) {
+            const body = await readJson(req);
+            const comment = store.setCommentResolved(id, commentId, !!body.resolved);
+            saveTunnels();
+            return sendJson(res, 200, { comment });
+          }
+          if (req.method === 'DELETE' && commentId) {
+            store.removeComment(id, commentId);
+            saveTunnels();
+            return sendJson(res, 200, { ok: true });
+          }
+        } catch (error) {
+          return sendError(res, req, error.status || (error.code === 'NOT_FOUND' ? 404 : error.code === 'BAD_REQUEST' ? 400 : 500), error);
+        }
+        return sendError(res, req, 405, 'request.methodNotAllowed');
       }
 
       // Personal links: create, rename, revoke, set or clear the PIN, delete.

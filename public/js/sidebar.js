@@ -72,6 +72,7 @@
         check('rewrite', o.rewrite, api.t('ui.preview.rewrite'), api.t('ui.preview.rewriteTitle')),
         check('noindex', o.noindex !== false, api.t('ui.preview.noindex')),
         check('badge', o.badge, api.t('ui.preview.badge')),
+        check('comments', o.comments, api.t('ui.preview.comments'), api.t('ui.preview.commentsTitle')),
       ]),
       h('label', { className: 'field' }, [
         h('span', { text: api.t('ui.preview.blocked') }),
@@ -107,11 +108,13 @@
     var rewrite = get('rewrite');
     var noindex = get('noindex');
     var badge = get('badge');
+    var comments = get('comments');
     var blocked = get('blocked');
     return {
       rewrite: !!(rewrite && rewrite.checked),
       noindex: !noindex || !!noindex.checked,
       badge: !!(badge && badge.checked),
+      comments: !!(comments && comments.checked),
       blocked: blocked ? String(blocked.value || '') : '',
     };
   }
@@ -232,6 +235,7 @@
       rewrite: preview.rewrite,
       noindex: preview.noindex,
       badge: preview.badge,
+      comments: preview.comments,
       blocked: preview.blocked,
     };
   }
@@ -272,11 +276,11 @@
     if (inspectLabel) inspectLabel.textContent = options.http2Origin ? api.t('ui.form.inspectNoH2') : api.t('ui.form.inspect');
     // The preview lives in trydash's proxy: not with HTTP/2 to the origin.
     var previewSummary = field(form, 'preview-summary');
-    var on = (options.rewrite ? 1 : 0) + (options.badge ? 1 : 0) + (String(options.blocked || '').trim() ? 1 : 0);
+    var on = (options.rewrite ? 1 : 0) + (options.badge ? 1 : 0) + (options.comments ? 1 : 0) + (String(options.blocked || '').trim() ? 1 : 0);
     if (previewSummary) {
       previewSummary.textContent = api.t('ui.preview.title') + (options.http2Origin ? ' · ' + api.t('ui.preview.offH2') : on ? ' · ' + on : '');
     }
-    ['rewrite', 'noindex', 'badge', 'blocked'].forEach(function (name) {
+    ['rewrite', 'noindex', 'badge', 'comments', 'blocked'].forEach(function (name) {
       var node = field(form, name);
       if (node) node.disabled = !!options.http2Origin;
     });

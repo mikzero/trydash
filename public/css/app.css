@@ -1189,3 +1189,13 @@ mark { background: var(--mark); color: var(--mark-t); border-radius: 2px; paddin
 .link-seen.is-seen { color: var(--ok, var(--i)); }
 .link-url { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
 .req-tag.q-client { background: var(--i-bg); color: var(--i); font-weight: 600; }
+
+/* Comments tab */
+.comments-toolbar { padding: 12px 0; border: 0; max-width: 760px; background: transparent; }
+.comment-text { margin: 0; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.comment-where { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
+.comment-where a { color: var(--accent, var(--i)); }
+.comment-title { color: var(--muted); font-family: inherit; }
+.comment-meta { margin: 0; font-size: 12px; color: var(--faint); overflow-wrap: anywhere; }
+.comment-errors summary { font-size: 12px; color: var(--e); cursor: pointer; }
+.comment-errors ul { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: var(--e); }

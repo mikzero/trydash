@@ -443,7 +443,7 @@ test('create form options, preview and recent mail', () => {
   assert.equal(form.querySelector('#inspect').checked, true);
   assert.deepEqual({ ...T.readCreateOptions(form) }, {
     expiresIn: null, allowedMail: 'a@b.it, *@x.it', hostHeader: 'app.local', noTlsVerify: true, http2Origin: false, inspect: true, queue: false,
-    rewrite: false, noindex: true, badge: false, blocked: '',
+    rewrite: false, noindex: true, badge: false, comments: false, blocked: '',
   });
   // Client preview: presets add their paths once; the summary counts what is on.
   const blocked = form.querySelector('#blocked');

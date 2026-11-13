@@ -25,6 +25,7 @@ export const browserScripts = [
   'public/js/requests.js',
   'public/js/saved.js',
   'public/js/clients.js',
+  'public/js/feedback.js',
   'public/js/logview.js',
   'public/js/app.js',
 ];

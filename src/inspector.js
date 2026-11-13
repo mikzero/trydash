@@ -11,13 +11,14 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { planStatic } from './static.js';
 import { isListening } from './ports.js';
+import { readAsset } from './assets.js';
 import {
   KEY_PARAM, COOKIE, RESERVED, PIN_TRIES, PIN_LOCK_MS, cookieValue, cookieLinkId, readCookie, withoutCookie,
   withoutKey, setCookie, gatePage, safeBack, pinMatches,
 } from './links.js';
 import {
   MODIFY_CAP, NOINDEX, REWRITE_TYPE, HTML_TYPE, createRewriter, localHostOf, localLinkIn, hostCheckIn,
-  blockedBy, blockedPage, injectBadge, publicCookie,
+  blockedBy, blockedPage, injectExtras, publicCookie,
 } from './preview.js';
 
 export const KEEP = 200;
@@ -210,6 +211,8 @@ export function createInspector({
   responseBodyCap = RESPONSE_BODY_CAP,
   clock = () => Date.now(),
   isLive = () => true,
+  // Called after a client left a comment (the server saves the tunnels then).
+  onComment = () => {},
 } = {}) {
   const proxies = new Map();
   const token = crypto.randomBytes(16).toString('hex');
@@ -317,7 +320,9 @@ export function createInspector({
   function previewOf(entry) {
     const session = store.get(entry.id);
     const o = (session && session.options) || {};
-    const prefs = { rewriter: null, blocked: o.blocked || [], badge: !!o.badge, noindex: !!o.noindex, queue: !!o.queue && !entry.folder, watch: false };
+    const prefs = { rewriter: null, blocked: o.blocked || [], badge: !!o.badge, noindex: !!o.noindex, queue: !!o.queue && !entry.folder, comments: !!o.comments, watch: false };
+    // Something goes into the pages: the label, the comments widget.
+    prefs.inject = prefs.badge || prefs.comments;
     if (entry.folder) return prefs;
     if (o.rewrite && session.url) {
       const key = `${session.url} ${entry.siteHost || ''}`;
@@ -369,7 +374,7 @@ export function createInspector({
       for (const name of ['origin', 'referer']) if (headers[name]) headers[name] = r.toLocal(headers[name]);
       path = r.toLocal(path);
     }
-    if (r || prefs.badge) {
+    if (r || prefs.inject) {
       delete headers['accept-encoding'];
       // A copy cached before the change must not come back as a 304.
       delete headers['if-none-match'];
@@ -394,7 +399,7 @@ export function createInspector({
   function wantsChange(req, pres, prefs) {
     if (req.method === 'HEAD' || [204, 206, 304].includes(pres.statusCode) || pres.statusCode < 200) return false;
     const type = String(pres.headers['content-type'] || '');
-    if (!(prefs.rewriter && REWRITE_TYPE.test(type)) && !(prefs.badge && HTML_TYPE.test(type))) return false;
+    if (!(prefs.rewriter && REWRITE_TYPE.test(type)) && !(prefs.inject && HTML_TYPE.test(type))) return false;
     const length = Number(pres.headers['content-length']);
     return !(length > MODIFY_CAP);
   }
@@ -410,8 +415,8 @@ export function createInspector({
     }
     let text = buffer.toString('latin1');
     if (prefs.rewriter) text = prefs.rewriter.toPublic(text);
-    if (prefs.badge && HTML_TYPE.test(String(pres.headers['content-type'] || '')) && pres.statusCode < 300) {
-      text = injectBadge(text, req.headers['accept-language']);
+    if (prefs.inject && HTML_TYPE.test(String(pres.headers['content-type'] || '')) && pres.statusCode < 300) {
+      text = injectExtras(text, req.headers['accept-language'], prefs);
     }
     return Buffer.from(text, 'latin1');
   }
@@ -541,6 +546,133 @@ export function createInspector({
     });
   }
 
+  // ---- Comments -------------------------------------------------------------------
+
+  const COMMENT_RATE = 30;
+  const COMMENT_WINDOW_MS = 10 * 60 * 1000;
+
+  function sendJsonReply(res, status, data) {
+    const body = Buffer.from(JSON.stringify(data));
+    res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': String(body.length), 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' });
+    res.end(body);
+  }
+
+  function shortText(value, max) {
+    return String(value == null ? '' : value).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').trim().slice(0, max);
+  }
+
+  function unit(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 0;
+  }
+
+  function coord(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.min(1e6, Math.max(0, Math.round(n))) : 0;
+  }
+
+  // Who sees which comments on the page: a client their own, the owner all, others the anonymous ones.
+  function visibleTo(link) {
+    return (comment) => !comment.resolved && (link && link.id === 'owner' ? true : link ? comment.linkId === link.id : !comment.linkId);
+  }
+
+  function pinView(comment) {
+    return { id: comment.id, at: comment.at, text: comment.text, author: comment.author, selector: comment.selector, x: comment.x, y: comment.y, docX: comment.docX, docY: comment.docY };
+  }
+
+  // trydash's own paths on the tunnel: /__trydash/…. They never reach the site.
+  function handleReserved(entry, req, res, prefs) {
+    const url = new URL(req.url, 'http://x');
+    const route = url.pathname.slice(RESERVED.length);
+    if (!prefs.comments) {
+      sendPage(res, 404, '<!doctype html><title>404</title><p>Not found.</p>');
+      return;
+    }
+    if (route === 'comments.js' && (req.method === 'GET' || req.method === 'HEAD')) {
+      const code = readAsset('public/widget/comments.js') || Buffer.alloc(0);
+      res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Content-Length': String(code.length), 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff' });
+      res.end(req.method === 'HEAD' ? undefined : code);
+      return;
+    }
+    if (route !== 'comments') {
+      sendPage(res, 404, '<!doctype html><title>404</title><p>Not found.</p>');
+      return;
+    }
+    const session = store.get(entry.id);
+    const link = req.trydashLink || null;
+    if (req.method === 'GET') {
+      const page = url.searchParams.get('page') || '/';
+      const list = (session.comments || []).filter((c) => c.page === page).filter(visibleTo(link)).map(pinView);
+      sendJsonReply(res, 200, { me: link && link.id !== 'owner' ? { name: link.name } : null, comments: list });
+      return;
+    }
+    if (req.method !== 'POST') {
+      sendJsonReply(res, 405, { error: 'method not allowed' });
+      return;
+    }
+    // JSON only: another site can't post here without a CORS preflight, which gets no answer.
+    if (!/^application\/json\b/i.test(String(req.headers['content-type'] || ''))) {
+      sendJsonReply(res, 415, { error: 'application/json expected' });
+      return;
+    }
+    const who = headerValue(pairs(req.rawHeaders), 'cf-connecting-ip') || req.socket.remoteAddress || '?';
+    const now = clock();
+    const rate = entry.commentRate.get(who) || { count: 0, since: now };
+    if (now - rate.since > COMMENT_WINDOW_MS) { rate.count = 0; rate.since = now; }
+    if (rate.count >= COMMENT_RATE) {
+      sendJsonReply(res, 429, { error: 'too many comments, try again later' });
+      return;
+    }
+    const chunks = [];
+    let size = 0;
+    req.on('data', (chunk) => {
+      size += chunk.length;
+      if (size <= 16 * 1024) chunks.push(chunk);
+    });
+    req.on('end', () => {
+      let body;
+      try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { body = null; }
+      const text = body && shortText(body.text, 2000);
+      const page = body && shortText(body.page, 500);
+      if (size > 16 * 1024 || !body || !text || !page.startsWith('/')) {
+        sendJsonReply(res, 400, { error: 'bad comment' });
+        return;
+      }
+      rate.count += 1;
+      entry.commentRate.set(who, rate);
+      const viewport = body.viewport && typeof body.viewport === 'object' ? body.viewport : {};
+      const comment = {
+        id: `c${crypto.randomBytes(5).toString('hex')}`,
+        at: new Date(now).toISOString(),
+        page,
+        title: shortText(body.title, 200),
+        text,
+        author: link && link.id !== 'owner' ? link.name : shortText(body.name, 60) || (link ? 'trydash' : null),
+        linkId: link ? link.id : null,
+        selector: shortText(body.selector, 600),
+        x: unit(body.x),
+        y: unit(body.y),
+        docX: coord(body.docX),
+        docY: coord(body.docY),
+        element: body.element && typeof body.element === 'object'
+          ? { tag: shortText(body.element.tag, 20), text: shortText(body.element.text, 120) } : null,
+        viewport: { w: coord(viewport.w), h: coord(viewport.h), dpr: Math.min(8, Math.max(0, Number(viewport.dpr) || 1)) },
+        userAgent: shortText(req.headers['user-agent'], 300),
+        errors: Array.isArray(body.errors) ? body.errors.slice(0, 10).map((e) => shortText(e, 300)).filter(Boolean) : [],
+        resolved: false,
+        resolvedAt: null,
+      };
+      try {
+        store.addComment(entry.id, comment);
+      } catch {
+        sendJsonReply(res, 507, { error: 'this preview has too many comments' });
+        return;
+      }
+      try { onComment(entry.id, comment); } catch { /* saving is best effort */ }
+      sendJsonReply(res, 201, { comment: pinView(comment) });
+    });
+  }
+
   // WebSockets: the cookie must be valid with "personal links only", and never reaches the origin.
   function gateUpgrade(entry, req) {
     const session = store.get(entry.id);
@@ -556,6 +688,7 @@ export function createInspector({
     if (refuseStopped(entry, req)) return refuse(res);
     if (gate(entry, req, res)) return;
     const prefs = previewOf(entry);
+    if (String(req.url || '').startsWith(RESERVED)) return handleReserved(entry, req, res, prefs);
     if (refuseBlocked(entry, req, res, prefs)) return;
     const rec = startRecord(entry, req);
     const sent = requestFor(entry, req, rec, prefs);
@@ -795,17 +928,18 @@ export function createInspector({
     if (refuseStopped(entry, req)) return refuse(res);
     if (gate(entry, req, res)) return;
     const prefs = previewOf(entry);
+    if (String(req.url || '').startsWith(RESERVED)) return handleReserved(entry, req, res, prefs);
     if (refuseBlocked(entry, req, res, prefs)) return;
     const rec = startRecord(entry, req);
     // The label changes the page, so a copy cached without it must not come back as a 304.
-    if (prefs.badge) delete req.headers['if-none-match'];
+    if (prefs.inject) delete req.headers['if-none-match'];
     req.on('data', (chunk) => take(rec.requestBody, chunk));
     req.on('end', () => {
       planStatic(entry.folder, req).then(async (plan) => {
         if (prefs.noindex) plan.headers['X-Robots-Tag'] = NOINDEX;
-        if (prefs.badge && req.method === 'GET' && plan.status === 200 && plan.file && HTML_TYPE.test(plan.headers['Content-Type'] || '')
+        if (prefs.inject && req.method === 'GET' && plan.status === 200 && plan.file && HTML_TYPE.test(plan.headers['Content-Type'] || '')
           && Number(plan.headers['Content-Length']) <= MODIFY_CAP) {
-          const html = injectBadge((await fs.promises.readFile(plan.file)).toString('latin1'), req.headers['accept-language']);
+          const html = injectExtras((await fs.promises.readFile(plan.file)).toString('latin1'), req.headers['accept-language'], prefs);
           plan.body = Buffer.from(html, 'latin1');
           plan.file = null;
           delete plan.headers.ETag;
@@ -942,6 +1076,7 @@ export function createInspector({
       rewriterKey: '',
       queue: [],
       pinTries: new Map(),
+      commentRate: new Map(),
       queueTimer: null,
       delivering: false,
       closed: false,

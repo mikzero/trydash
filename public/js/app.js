@@ -227,6 +227,7 @@
   function paintShell() {
     var session = currentSession();
     api.paintSidebar(state);
+    if (state.comments && session) state.comments.refresh(session);
     placeCreateForm();
     var empty = document.getElementById('empty-state');
     var view = document.getElementById('tunnel-view');
@@ -245,7 +246,8 @@
   }
 
   function setTab(tab) {
-    state.tab = tab === 'requests' || tab === 'saved' || tab === 'clients' ? tab : 'log';
+    state.tab = ['requests', 'saved', 'clients', 'comments'].indexOf(tab) >= 0 ? tab : 'log';
+    if (state.tab === 'comments' && state.comments) state.comments.refresh(currentSession(), true);
     api.showTab(state.tab);
     if (state.requests) state.requests.setActive(state.tab === 'requests');
     if (state.saved) state.saved.setActive(state.tab === 'saved');
@@ -289,6 +291,19 @@
     button.setAttribute('aria-pressed', on ? 'true' : 'false');
   }
 
+  // "New comment from Mario: …", for the newest ones (at most three at a time).
+  function announceComments(session, count) {
+    api_('GET', '/api/sessions/' + encodeURIComponent(session.id) + '/comments').then(function (data) {
+      (data.comments || []).slice(0, Math.min(count, 3)).forEach(function (comment) {
+        var who = comment.author || api.t('ui.comments.anonymous');
+        var title = api.t('ui.comments.new', { name: who });
+        notify(title + ': ' + (comment.text.length > 80 ? comment.text.slice(0, 79) + '…' : comment.text));
+        if (api.notifications) api.notifications.show(title, comment.text, { tag: session.id + ':comment:' + comment.id });
+      });
+      if (state.comments && session.id === state.currentId) state.comments.refresh(session, true);
+    }).catch(function () {});
+  }
+
   function announceTransitions(sessions) {
     var next = {};
     var nowMs = Date.now();
@@ -314,6 +329,8 @@
           if (api.notifications) api.notifications.show(text, session.url ? session.url.replace(/^https?:\/\//, '') : '', { tag: session.id + ':link:' + link.id });
         });
       }
+      var before = prev && prev.comments ? prev.comments.total : null;
+      if (before != null && session.comments && session.comments.total > before) announceComments(session, session.comments.total - before);
       if (prev && prev.status !== session.status) {
         if (session.status === 'running' && session.url) notify(api.t('ui.toast.newUrl', { url: session.url }));
         if (session.status === 'stopped' && session.expired) notify(api.t('ui.toast.expired'));
@@ -321,7 +338,7 @@
           notify(api.t('ui.toast.exited', { code: session.exitCode == null ? '?' : session.exitCode }), 'error');
         }
       }
-      next[session.id] = { status: session.status, lastOriginError: session.lastOriginError, links: session.links };
+      next[session.id] = { status: session.status, lastOriginError: session.lastOriginError, links: session.links, comments: session.comments };
     });
     state.prevById = next;
   }
@@ -364,6 +381,7 @@
       state.view = nextPhase === 'workspace' ? api.createLogView() : null;
       state.requests = nextPhase === 'workspace' ? api.createRequestView() : null;
       state.saved = nextPhase === 'workspace' ? api.createSavedView() : null;
+      state.comments = nextPhase === 'workspace' && api.createCommentsView ? api.createCommentsView(function (p) { return api_('GET', p); }) : null;
       if (state.requests) api.showTab(state.tab);
       if (state.requests) state.requests.setActive(state.tab === 'requests');
     }
@@ -447,7 +465,7 @@
     if (inspect) inspect.checked = true;
     var expires = form.querySelector('#expires');
     if (expires) expires.value = '';
-    ['rewrite', 'badge'].forEach(function (id) {
+    ['rewrite', 'badge', 'comments'].forEach(function (id) {
       var node = form.querySelector('#' + id);
       if (node) node.checked = false;
     });
@@ -642,6 +660,9 @@
     var target = event.target;
     if (!target) return;
     if (target.closest && target.closest('#create-form')) api.refreshCreateForm(document.getElementById('create-form'));
+    if (target.id === 'comments-on' && event.type === 'change') {
+      updatePreview({ comments: !!target.checked }, target.checked ? api.t('ui.comments.on') : api.t('ui.comments.off')).catch(fail);
+    }
     if (target.id === 'links-only' && event.type === 'change') {
       updatePreview({ linksOnly: !!target.checked }, target.checked ? api.t('ui.clients.onlyOn') : api.t('ui.clients.onlyOff')).catch(fail);
     }
@@ -759,6 +780,44 @@
     }
     if (action === 'qr-close') {
       api.closeQr();
+      return;
+    }
+    if (action === 'comments-filter' && state.comments) {
+      state.comments.setFilter(node.dataset.filter, currentSession());
+      return;
+    }
+    if ((action === 'resolve-comment' || action === 'copy-comment' || action === 'delete-comment' || action === 'copy-comments') && state.comments) {
+      var forComment = currentSession();
+      if (!forComment) return;
+      if (action === 'copy-comments') {
+        var all = state.comments.visible().map(function (c) { return api.commentMarkdown(forComment, c); });
+        if (all.length) copyText(all.join('\n\n---\n\n'), api.tn('ui.comments.copiedAll', all.length));
+        return;
+      }
+      var comment = state.comments.get(node.dataset.comment);
+      if (!comment) return;
+      var commentPath = '/api/sessions/' + encodeURIComponent(forComment.id) + '/comments/' + encodeURIComponent(comment.id);
+      if (action === 'copy-comment') {
+        copyText(api.commentMarkdown(forComment, comment), api.t('ui.comments.copied'));
+      } else if (action === 'resolve-comment') {
+        api_('PATCH', commentPath, { resolved: !comment.resolved }).then(function () {
+          notify(api.t(comment.resolved ? 'ui.comments.reopened' : 'ui.comments.resolved'));
+          return refresh();
+        }).catch(fail);
+      } else if (node.dataset.armed === '1') {
+        api_('DELETE', commentPath).then(function () {
+          notify(api.t('ui.comments.removed'));
+          return refresh();
+        }).catch(fail);
+      } else {
+        node.dataset.armed = '1';
+        node.textContent = api.t('ui.clients.confirmRemove');
+        setTimeout(function () {
+          if (node.dataset.armed !== '1') return;
+          node.dataset.armed = '';
+          node.textContent = api.t('ui.comments.remove');
+        }, 4000);
+      }
       return;
     }
     if (action === 'copy-link' || action === 'link-qr' || action === 'toggle-link' || action === 'delete-link') {

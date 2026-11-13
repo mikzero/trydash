@@ -72,6 +72,11 @@ export function wordpress(port = 18090) {
     if (url.pathname === '/wp-json/wp/v2/posts') {
       return gz(res, 200, 'application/json; charset=UTF-8', JSON.stringify([{ id: 1, title: { rendered: 'Ciao mondo' }, link: `${home}/ciao-mondo/` }]));
     }
+    if (url.pathname === '/csp/') {
+      // A strict Content-Security-Policy: no inline scripts or styles.
+      return html(res, `<!doctype html><title>CSP</title><h1 id="csp-title">Pagina con CSP</h1><p>Testo</p>`,
+        { 'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'" });
+    }
     if (url.pathname === '/ciao-mondo/') return html(res, `<title>Ciao mondo – Bottega Rossi</title><h1>Ciao mondo</h1><a href="${home}/">Home</a>`);
     if (url.pathname === '/wp-login.php' && req.method === 'GET') {
       const to = url.searchParams.get('redirect_to') || `${home}/wp-admin/`;

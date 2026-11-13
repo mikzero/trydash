@@ -480,7 +480,7 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
 test('tunnel options and command', () => {
   const o = dash.normalizeTunnelOptions({ allowedMail: 'Mario@Cliente.it; *@azienda.it;\nmario@cliente.it;' });
   assert.deepEqual(plain(o.allowedMail), ['mario@cliente.it', '*@azienda.it']);
-  assert.deepEqual(plain(dash.normalizeTunnelOptions()), { mode: 'origin', allowedMail: [], hostHeader: '', noTlsVerify: false, http2Origin: false, expiresIn: null, rewrite: false, blocked: [], badge: false, queue: false, linksOnly: false, inspect: true, noindex: true });
+  assert.deepEqual(plain(dash.normalizeTunnelOptions()), { mode: 'origin', allowedMail: [], hostHeader: '', noTlsVerify: false, http2Origin: false, expiresIn: null, rewrite: false, blocked: [], badge: false, queue: false, linksOnly: false, comments: false, inspect: true, noindex: true });
   // Preview options: they need trydash's proxy, so they turn the inspector on.
   const preview = dash.normalizeTunnelOptions({ inspect: false, rewrite: true, blocked: '/WP-Admin/, /wp-login.php /wp-admin', badge: true, noindex: false });
   assert.deepEqual(plain([preview.rewrite, preview.blocked, preview.badge, preview.inspect, preview.noindex]), [true, ['/wp-admin', '/wp-login.php'], true, true, false]);
@@ -501,7 +501,7 @@ test('tunnel options and command', () => {
     (e) => e.key === 'options.mailTooMany' && e.params.max === 20);
   assert.throws(() => dash.normalizeTunnelOptions({ hostHeader: 'a b' }), (e) => e.key === 'options.hostHeaderInvalid');
   assert.deepEqual(plain(dash.normalizeTunnelOptions({ mode: 'hello', hostHeader: 'x.local', noTlsVerify: true, allowedMail: 'a@b.it' })),
-    { mode: 'hello', allowedMail: ['a@b.it'], hostHeader: '', noTlsVerify: false, http2Origin: false, expiresIn: null, rewrite: false, blocked: [], badge: false, queue: false, linksOnly: false, inspect: false, noindex: false });
+    { mode: 'hello', allowedMail: ['a@b.it'], hostHeader: '', noTlsVerify: false, http2Origin: false, expiresIn: null, rewrite: false, blocked: [], badge: false, queue: false, linksOnly: false, comments: false, inspect: false, noindex: false });
 
   const c = dash.buildQuickTunnelCommand('3000', { allowedMail: '*@azienda.it', hostHeader: 'app.local', noTlsVerify: true, http2Origin: true });
   assert.deepEqual(plain(c.args), ['tunnel', '--url', 'http://127.0.0.1:3000', '--allowed-mail', '*@azienda.it', '--http-host-header', 'app.local',

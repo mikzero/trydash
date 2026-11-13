@@ -27,6 +27,9 @@ function clean(tunnel) {
     out.links = tunnel.links.filter((link) => link && typeof link === 'object'
       && /^l[0-9a-f]{10}$/.test(String(link.id)) && /^[A-Za-z0-9_-]{16,64}$/.test(String(link.key))).slice(0, 50);
   }
+  if (Array.isArray(tunnel.comments)) {
+    out.comments = tunnel.comments.filter((c) => c && typeof c === 'object' && /^c[0-9a-f]{10}$/.test(String(c.id)) && typeof c.text === 'string').slice(-500);
+  }
   return out;
 }
 

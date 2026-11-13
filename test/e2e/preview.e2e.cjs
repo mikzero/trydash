@@ -385,7 +385,60 @@ async function waitFor(fn, ms = 5000) {
     const op = await owner.newPage();
     await op.goto(href);
     check('the dashboard\'s Open gets in with links only on', op.url() === `${wpUrl}/` && (await op.title()) === 'Bottega Rossi', href);
-    await api(18799, 'PATCH', `/api/sessions/${wp.id}/options`, { linksOnly: false });
+    // ---------------- Client comments (Anna, through her PIN link) ----------------
+    await dash.click('#tab-comments');
+    await dash.check('#comments-on');
+    await waitFor(async () => (await api(18799, 'GET', '/api/state')).json.sessions.find((s) => s.id === wp.id).options.comments);
+    await ap.goto(`${wpUrl}/`);
+    const fab = ap.locator('trydash-comments .fab');
+    await fab.waitFor({ timeout: 5000 });
+    check('the page shows the 💬 Commenta button', (await fab.innerText()).includes('Commenta'));
+    await ap.evaluate(() => setTimeout(() => { throw new Error('boom dal sito'); }, 0));
+    await ap.waitForTimeout(100);
+    await fab.click();
+    const urlBefore = ap.url();
+    await ap.click('#post');
+    check('in comment mode a click on a link does not navigate', ap.url() === urlBefore);
+    const box = ap.locator('trydash-comments .pop textarea');
+    await box.waitFor();
+    check('Anna is not asked her name (it comes from her link)', (await ap.locator('trydash-comments .pop input').count()) === 0);
+    await box.fill('Questo link dovrebbe essere più visibile');
+    await ap.locator('trydash-comments .pop .btn.main').click();
+    await ap.locator('trydash-comments .toast').waitFor({ timeout: 5000 });
+    check('the client sees "Grazie, commento inviato"', /Grazie, commento inviato/.test(await ap.locator('trydash-comments .toast').innerText()));
+    check('a numbered pin marks the spot', (await ap.locator('trydash-comments .pin').count()) === 1);
+    await ap.screenshot({ path: `${SHOTS}/9-comment-client.png` });
+    const stored = (await api(18799, 'GET', `/api/sessions/${wp.id}/comments`)).json.comments[0];
+    check('the comment knows author, page, element and the page\'s JS error',
+      stored && stored.author === 'Anna' && stored.page === '/' && stored.element.tag === 'a' && stored.selector.includes('#post') && stored.errors.some((e) => /boom dal sito/.test(e)),
+      JSON.stringify({ author: stored && stored.author, selector: stored && stored.selector, errors: stored && stored.errors }));
+    const toastSeen = await dash.waitForFunction(() => /Nuovo commento da Anna/.test(document.body.innerText), null, { timeout: 6000 }).then(() => true, () => false);
+    check('the dashboard says "Nuovo commento da Anna"', toastSeen);
+    await dash.waitForSelector('.comment-card', { timeout: 5000 });
+    const cardText = await dash.locator('.comment-card').first().innerText();
+    check('the Comments tab shows text, element, browser and the error', /più visibile/.test(cardText) && /<a> “Ciao mondo”/.test(cardText) && /Chrome/.test(cardText) && /1 errore JavaScript/.test(cardText), cardText.replace(/\n/g, ' | '));
+    await dash.screenshot({ path: `${SHOTS}/10-comments.png` });
+
+    // A strict CSP: the widget is a same-origin script with constructed styles, so it still works.
+    await ap.goto(`${wpUrl}/csp/`);
+    const cspFab = ap.locator('trydash-comments .fab');
+    const cspWorks = await cspFab.waitFor({ timeout: 5000 }).then(() => true, () => false);
+    check('with a strict CSP the button still shows and is styled', cspWorks && (await cspFab.evaluate((n) => getComputedStyle(n).position)) === 'fixed');
+
+    // The dashboard opens the page on the pin.
+    const pinHref = await dash.locator('.comment-card .comment-where a').first().getAttribute('href');
+    const op2 = await owner.newPage();
+    await op2.goto(pinHref);
+    const pulsing = await op2.locator('trydash-comments .pin.pulse').waitFor({ timeout: 5000 }).then(() => true, () => false);
+    check('"open on the page" highlights the pin', pulsing, pinHref.replace(/tdk=[^&#]+/, 'tdk=…'));
+
+    await dash.locator('.comment-card [data-action="resolve-comment"]').first().click();
+    await waitFor(async () => (await api(18799, 'GET', `/api/sessions/${wp.id}/comments`)).json.comments[0].resolved);
+    await ap.goto(`${wpUrl}/`);
+    await ap.locator('trydash-comments .fab').waitFor();
+    await ap.waitForTimeout(500);
+    check('a resolved comment leaves the client\'s page', (await ap.locator('trydash-comments .pin').count()) === 0);
+    await api(18799, 'PATCH', `/api/sessions/${wp.id}/options`, { linksOnly: false, comments: false });
 
     // ---------------- Folder ----------------
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trydash-e2e-site-'));

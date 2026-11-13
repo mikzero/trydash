@@ -7,6 +7,7 @@
   // oldest LOG_DROP lines go. `index` keeps counting, so a line keeps its number.
   var MAX_ENTRIES = 20000;
   var MAX_LINKS = 50;
+  var MAX_COMMENTS = 500;
   var LOG_DROP = 5000;
 
   function now() {
@@ -80,6 +81,9 @@
           // Personal links for clients, and the key of the owner's own (set by the server).
           links: [],
           ownerKey: null,
+          // What clients wrote on the pages, oldest first; the version moves on every change.
+          comments: [],
+          commentsVersion: 0,
           status: 'starting',
           active: true,
           exitCode: null,
@@ -174,7 +178,7 @@
       updatePreview: function (id, patch) {
         var session = requireSession(id);
         var next = Object.assign({}, session.options);
-        ['rewrite', 'noindex', 'badge', 'blocked', 'queue', 'linksOnly'].forEach(function (key) {
+        ['rewrite', 'noindex', 'badge', 'blocked', 'queue', 'linksOnly', 'comments'].forEach(function (key) {
           if (patch && Object.prototype.hasOwnProperty.call(patch, key)) next[key] = patch[key];
         });
         var normalized = api.normalizeTunnelOptions(next);
@@ -257,6 +261,40 @@
         }
         return null;
       },
+      // ---- Comments from the pages ----------------------------------------------
+      addComment: function (id, comment) {
+        var session = requireSession(id);
+        if (session.comments.length >= MAX_COMMENTS) {
+          // Room is made from the oldest resolved ones; open ones are never dropped.
+          var resolvedAt = -1;
+          for (var i = 0; i < session.comments.length; i += 1) {
+            if (session.comments[i].resolved) { resolvedAt = i; break; }
+          }
+          if (resolvedAt < 0) throw api.appError('LIMIT', 'comments.tooMany', { max: MAX_COMMENTS });
+          session.comments.splice(resolvedAt, 1);
+        }
+        session.comments.push(comment);
+        session.commentsVersion += 1;
+        return comment;
+      },
+      getComment: function (id, commentId) {
+        var session = requireSession(id);
+        for (var i = 0; i < session.comments.length; i += 1) if (session.comments[i].id === commentId) return session.comments[i];
+        throw api.appError('NOT_FOUND', 'comments.notFound');
+      },
+      setCommentResolved: function (id, commentId, resolved) {
+        var comment = this.getComment(id, commentId);
+        comment.resolved = !!resolved;
+        comment.resolvedAt = resolved ? now() : null;
+        requireSession(id).commentsVersion += 1;
+        return comment;
+      },
+      removeComment: function (id, commentId) {
+        var session = requireSession(id);
+        this.getComment(id, commentId);
+        session.comments = session.comments.filter(function (c) { return c.id !== commentId; });
+        session.commentsVersion += 1;
+      },
       // The origin answered again: the "not responding" banner goes at once, not after a minute.
       recordOriginBack: function (id) {
         var session = requireSession(id);
@@ -336,6 +374,7 @@
   api.TRAFFIC_KEEP = TRAFFIC_KEEP;
   api.MAX_ENTRIES = MAX_ENTRIES;
   api.MAX_LINKS = MAX_LINKS;
+  api.MAX_COMMENTS = MAX_COMMENTS;
   api.LOG_DROP = LOG_DROP;
   api.createSessionStore = createSessionStore;
 })(globalThis);
