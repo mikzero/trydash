@@ -18,7 +18,7 @@ import {
 } from './links.js';
 import {
   MODIFY_CAP, NOINDEX, REWRITE_TYPE, HTML_TYPE, createRewriter, localHostOf, localLinkIn, hostCheckIn,
-  blockedBy, blockedPage, injectExtras, publicCookie,
+  blockedBy, blockedPage, injectExtras, publicCookie, isPageRequest, wantsExtras,
 } from './preview.js';
 
 export const KEEP = 200;
@@ -415,10 +415,12 @@ export function createInspector({
       if (!buffer) return null;
     }
     let text = buffer.toString('latin1');
+    const inject = prefs.inject && HTML_TYPE.test(String(pres.headers['content-type'] || '')) && pres.statusCode < 300
+      && wantsExtras(req.headers, text);
+    // Nothing to change: the origin's bytes go out as they came, encoding and all.
+    if (!prefs.rewriter && !inject) return null;
     if (prefs.rewriter) text = prefs.rewriter.toPublic(text);
-    if (prefs.inject && HTML_TYPE.test(String(pres.headers['content-type'] || '')) && pres.statusCode < 300) {
-      text = injectExtras(text, req.headers['accept-language'], prefs);
-    }
+    if (inject) text = injectExtras(text, req.headers['accept-language'], prefs);
     return Buffer.from(text, 'latin1');
   }
 
@@ -1029,9 +1031,11 @@ export function createInspector({
     req.on('end', () => {
       planStatic(entry.folder, req).then(async (plan) => {
         if (prefs.noindex) plan.headers['X-Robots-Tag'] = NOINDEX;
-        if (prefs.inject && req.method === 'GET' && plan.status === 200 && plan.file && HTML_TYPE.test(plan.headers['Content-Type'] || '')
-          && Number(plan.headers['Content-Length']) <= MODIFY_CAP) {
-          const html = injectExtras((await fs.promises.readFile(plan.file)).toString('latin1'), req.headers['accept-language'], prefs);
+        const page = prefs.inject && req.method === 'GET' && plan.status === 200 && plan.file && HTML_TYPE.test(plan.headers['Content-Type'] || '')
+          && Number(plan.headers['Content-Length']) <= MODIFY_CAP && isPageRequest(req.headers);
+        const source = page ? (await fs.promises.readFile(plan.file)).toString('latin1') : null;
+        if (source != null && wantsExtras(req.headers, source)) {
+          const html = injectExtras(source, req.headers['accept-language'], prefs);
           plan.body = Buffer.from(html, 'latin1');
           plan.file = null;
           delete plan.headers.ETag;

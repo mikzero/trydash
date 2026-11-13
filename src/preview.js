@@ -160,6 +160,37 @@ export function injectBadge(html, acceptLanguage) {
   return injectExtras(html, acceptLanguage, { badge: true });
 }
 
+// Only pages a browser opens get the label and the comments widget: not the answers a page
+// asks for with fetch or XHR, which many apps send as text/html (JSON, pieces of HTML).
+export function isPageRequest(headers) {
+  const h = headers || {};
+  const dest = String(h['sec-fetch-dest'] || '').toLowerCase();
+  if (dest) return dest === 'document' || dest === 'iframe' || dest === 'frame';
+  if (/xmlhttprequest/i.test(String(h['x-requested-with'] || ''))) return false;
+  if (h['hx-request'] || h['x-pjax'] || h['turbo-frame']) return false;
+  return true;
+}
+
+// A body that is really a page: never JSON (or a JSON string) labelled text/html. When the
+// browser said it opens a page (Sec-Fetch-Dest: document), markup is enough; without that
+// header the body must also look like a whole document, not a fragment.
+// `text` is latin1, so a UTF-8 BOM shows as three characters.
+export function looksLikeDocument(text, { declared = false } = {}) {
+  const start = String(text).slice(0, 4096).replace(/^(\uFEFF|\u00EF\u00BB\u00BF)/, '').trimStart();
+  if (!start.startsWith('<')) return false;
+  if (declared) return true;
+  return /^<!doctype\s+html|<html[\s>]|<head[\s>]|<body[\s>]/i.test(start) || /<\/body\s*>/i.test(String(text).slice(-65536));
+}
+
+function declaredPage(headers) {
+  return /^(document|iframe|frame)$/i.test(String((headers || {})['sec-fetch-dest'] || ''));
+}
+
+// Both checks together: the request opens a page, and the body is one.
+export function wantsExtras(headers, text) {
+  return isPageRequest(headers) && looksLikeDocument(text, { declared: declaredPage(headers) });
+}
+
 // The comments widget is a script from trydash's own path: `script-src 'self'` lets it run.
 export const COMMENTS_TAG = '<script src="/__trydash/comments.js" defer data-trydash="comments"></script>';
 

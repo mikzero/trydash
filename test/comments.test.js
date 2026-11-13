@@ -16,7 +16,9 @@ const dash = loadDashboard();
 function request(target, { method = 'GET', path: p = '/', headers = {}, body } = {}) {
   return new Promise((resolve, reject) => {
     const url = new URL(target);
-    const req = http.request({ hostname: url.hostname, port: url.port, method, path: p, headers, agent: false }, (res) => {
+    // Like a browser: a body always has its length (Node would send a DELETE's unframed).
+    const sized = body != null ? { 'Content-Length': Buffer.byteLength(body), ...headers } : headers;
+    const req = http.request({ hostname: url.hostname, port: url.port, method, path: p, headers: sized, agent: false }, (res) => {
       const chunks = [];
       res.on('data', (c) => chunks.push(c));
       res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8') }));
@@ -103,6 +105,64 @@ test('with comments on, pages get the widget and the tunnel takes comments; the 
   } finally {
     await inspector.closeAll();
     await origin.close();
+  }
+});
+
+test('only real pages get the widget: JSON or fragments served as text/html stay untouched (VTE\'s count)', async () => {
+  const zlib = await import('node:zlib');
+  const COUNT = '{"success":"1","count":1}';
+  const server = http.createServer((req, res) => {
+    const html = { 'Content-Type': 'text/html; charset=utf-8' };
+    if (req.url.startsWith('/count')) { res.writeHead(200, html); return res.end(COUNT); }
+    if (req.url === '/gz') { res.writeHead(200, { ...html, 'Content-Encoding': 'gzip' }); return res.end(zlib.gzipSync(COUNT)); }
+    if (req.url === '/bom') { res.writeHead(200, html); return res.end('\uFEFF[1,2,3]'); }
+    if (req.url === '/string') { res.writeHead(200, html); return res.end('"ok"'); }
+    if (req.url === '/fragment') { res.writeHead(200, html); return res.end('<tr><td>Riga</td></tr>'); }
+    res.writeHead(200, html);
+    res.end('<!doctype html><title>VTE</title><body><p>Wizard</p></body>');
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const store = dash.createSessionStore();
+  const inspector = createInspector({ store });
+  const session = store.create(`http://127.0.0.1:${server.address().port}`, { comments: true, badge: true });
+  const target = await inspector.open(session);
+  const get = (p, headers = {}) => request(target, { path: p, headers });
+  const raw = (p) => new Promise((resolve, reject) => {
+    const url = new URL(target);
+    http.get({ hostname: url.hostname, port: url.port, path: p, agent: false }, (res) => {
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => resolve({ headers: res.headers, body: Buffer.concat(chunks) }));
+    }).on('error', reject);
+  });
+  try {
+    // The bug: a jQuery-style call, and a plain fetch, both got the script after the JSON.
+    for (const headers of [{}, { 'X-Requested-With': 'XMLHttpRequest' }, { 'Sec-Fetch-Dest': 'empty' }, { 'Sec-Fetch-Dest': 'document' }]) {
+      const res = await get('/count?step=2', headers);
+      assert.equal(res.body, COUNT, JSON.stringify(headers));
+      assert.deepEqual(JSON.parse(res.body), { success: '1', count: 1 });
+    }
+    // Nothing to change: the origin's own bytes, gzip included.
+    const gz = await raw('/gz');
+    assert.equal(gz.headers['content-encoding'], 'gzip');
+    assert.equal(zlib.gunzipSync(gz.body).toString(), COUNT);
+    assert.equal((await get('/bom')).body, '\uFEFF[1,2,3]');
+    assert.equal((await get('/string')).body, '"ok"');
+    // A piece of HTML asked for by the page itself stays a piece.
+    assert.equal((await get('/fragment', { 'Sec-Fetch-Dest': 'empty' })).body, '<tr><td>Riga</td></tr>');
+    assert.equal((await get('/fragment', { 'HX-Request': 'true' })).body, '<tr><td>Riga</td></tr>');
+    assert.equal((await get('/fragment')).body, '<tr><td>Riga</td></tr>', 'no page markers and no Sec-Fetch-Dest: left alone');
+    // The browser says it opens a page: short markup counts, JSON still never does.
+    assert.match((await get('/fragment', { 'Sec-Fetch-Dest': 'document' })).body, /__trydash\/comments\.js/);
+    // The page itself still gets the label and the widget.
+    const page = await get('/', { 'Sec-Fetch-Dest': 'document' });
+    assert.match(page.body, /<p>Wizard<\/p><div id="trydash-preview"[^>]*>Preview<\/div><script src="\/__trydash\/comments.js"/);
+    // An iframe page too, but not the same page fetched by a script.
+    assert.match((await get('/', { 'Sec-Fetch-Dest': 'iframe' })).body, /__trydash\/comments\.js/);
+    assert.doesNotMatch((await get('/', { 'Sec-Fetch-Dest': 'empty' })).body, /__trydash/);
+  } finally {
+    await inspector.closeAll();
+    await new Promise((r) => server.close(r));
   }
 });
 
