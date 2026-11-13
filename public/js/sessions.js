@@ -289,6 +289,14 @@
         requireSession(id).commentsVersion += 1;
         return comment;
       },
+      // The client changed their own words.
+      editComment: function (id, commentId, text) {
+        var comment = this.getComment(id, commentId);
+        comment.text = String(text);
+        comment.editedAt = now();
+        requireSession(id).commentsVersion += 1;
+        return comment;
+      },
       removeComment: function (id, commentId) {
         var session = requireSession(id);
         this.getComment(id, commentId);

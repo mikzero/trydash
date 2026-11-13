@@ -350,33 +350,79 @@
     return parts.join(' · ') || item.hint || item.origin;
   }
 
-  // Servers found on this machine, as chips that fill the origin field, and the scan button.
+  // Processes that are usually a dev server, a container or a local web server.
+  var DEV_PROCESS = /^(node|bun|deno|php|php-fpm[\d.]*|php-cgi|python[\d.]*|ruby|java|dotnet|go|air|docker-proxy|com\.docker\.backend|vpnkit-bridge|rancher|podman|hugo|caddy|nginx|httpd|apache2|uvicorn|gunicorn|puma|rails|flask|next-server|mamp.*|valet|herd)$/i;
+  var TOP_PORTS = 5;
+
+  // The likeliest dev servers first: recognized by the scan, a known dev port, a dev process.
+  function portScore(item) {
+    var scan = item.scan || {};
+    var score = 0;
+    if (scan.kind) score += 100;
+    else if (scan.http) score += 40;
+    if (scan.http === false) score -= 60;
+    if (item.hint) score += 30;
+    if (item.process && DEV_PROCESS.test(item.process)) score += 25;
+    if (item.port >= 32768) score -= 20;
+    if (item.busy) score -= 5;
+    return score;
+  }
+
+  function rankPorts(list) {
+    return (list || []).slice().sort(function (a, b) {
+      return portScore(b) - portScore(a) || a.port - b.port;
+    });
+  }
+
+  function portButton(item, className) {
+    var scan = item.scan || {};
+    var suggest = scan.suggest || {};
+    var h = api.h;
+    return h('button', {
+      type: 'button',
+      className: className + (item.busy ? ' is-busy' : '') + (scan.kind ? ' is-known' : '') + (scan.http === false ? ' is-quiet' : ''),
+      title: portTitle(item),
+      text: portLabel(item),
+      dataset: {
+        action: 'pick-port',
+        origin: scan.tls && /^\d+$/.test(item.origin) ? 'https://localhost:' + item.port : item.origin,
+        rewrite: suggest.rewrite ? '1' : '',
+        preset: suggest.preset || '',
+        tls: scan.tls ? '1' : '',
+        search: [item.port, item.process, scan.label, scan.title, item.hint].filter(Boolean).join(' ').toLowerCase(),
+      },
+    });
+  }
+
+  // Servers found on this machine: the likeliest few as chips, the others in a list that
+  // opens and filters, and the scan button.
   function paintPortHints(form, ports, scanning) {
     var slot = field(form, 'port-hints');
     if (!slot) return;
-    var list = ports || [];
-    var sig = JSON.stringify([list, !!scanning]);
+    var list = rankPorts(ports);
+    var open = slot.dataset.open === '1';
+    var sig = JSON.stringify([list, !!scanning, open]);
     if (slot.dataset.sig === sig) return;
     slot.dataset.sig = sig;
+    slot.portsData = ports || [];
     slot.hidden = false;
     var h = api.h;
-    var chips = list.map(function (item) {
-      var scan = item.scan || {};
-      var suggest = scan.suggest || {};
-      return h('button', {
+    var oldFilter = field(form, 'port-filter');
+    var filterValue = oldFilter ? oldFilter.value : '';
+    var hadFocus = !!(oldFilter && typeof document !== 'undefined' && document.activeElement === oldFilter);
+    var top = list.slice(0, TOP_PORTS);
+    var rest = list.slice(TOP_PORTS);
+    var chips = top.map(function (item) { return portButton(item, 'chip mono'); });
+    if (rest.length) {
+      chips.push(h('button', {
         type: 'button',
-        className: 'chip mono' + (item.busy ? ' is-busy' : '') + (scan.kind ? ' is-known' : '') + (scan.http === false ? ' is-quiet' : ''),
-        title: portTitle(item),
-        text: portLabel(item),
-        dataset: {
-          action: 'pick-port',
-          origin: scan.tls && /^\d+$/.test(item.origin) ? 'https://localhost:' + item.port : item.origin,
-          rewrite: suggest.rewrite ? '1' : '',
-          preset: suggest.preset || '',
-          tls: scan.tls ? '1' : '',
-        },
-      });
-    });
+        className: 'chip more-ports',
+        'aria-expanded': open ? 'true' : 'false',
+        'aria-controls': 'ports-more',
+        text: api.t(open ? 'ui.ports.less' : 'ui.ports.more', { n: rest.length }),
+        dataset: { action: 'toggle-ports' },
+      }));
+    }
     var scanButton = h('button', {
       type: 'button',
       className: 'chip scan-chip',
@@ -385,8 +431,49 @@
       text: scanning ? api.t('ui.ports.scanning') : api.t(list.length ? 'ui.ports.scan' : 'ui.ports.scanEmpty'),
       dataset: { action: 'scan-ports' },
     });
-    var head = list.length ? [h('span', { className: 'recent-label', text: api.t('ui.ports.label') })] : [];
-    slot.replaceChildren.apply(slot, head.concat(chips, [scanButton]));
+    var head = list.length ? [h('span', { className: 'recent-label', text: api.t('ui.ports.labelCount', { n: list.length }) })] : [];
+    var children = head.concat(chips, [scanButton]);
+    if (rest.length && open) {
+      children.push(h('div', { id: 'ports-more', className: 'ports-more' }, [
+        h('input', { id: 'port-filter', type: 'search', className: 'input mono', placeholder: api.t('ui.ports.filter'), 'aria-label': api.t('ui.ports.filter'), autocomplete: 'off', spellcheck: 'false', value: filterValue }),
+        h('div', { id: 'ports-more-list', className: 'ports-more-list', role: 'list' }, rest.map(function (item) { return portButton(item, 'port-row mono'); })),
+        h('p', { id: 'ports-none', className: 'recent-label', hidden: true, text: api.t('ui.ports.noMatch') }),
+      ]));
+    }
+    slot.replaceChildren.apply(slot, children);
+    if (open && rest.length) {
+      filterPortList(form, filterValue);
+      var filter = field(form, 'port-filter');
+      if (filter) filter.value = filterValue;
+      if (hadFocus && filter && filter.focus) filter.focus();
+    }
+  }
+
+  // Opens or closes the full list; the ports painted last are painted again.
+  function togglePortList(form) {
+    var slot = field(form, 'port-hints');
+    if (!slot) return;
+    slot.dataset.open = slot.dataset.open === '1' ? '' : '1';
+    slot.dataset.sig = '';
+    paintPortHints(form, slot.portsData || []);
+    var filter = field(form, 'port-filter');
+    if (filter && filter.focus) filter.focus();
+  }
+
+  // Port number, process, kind or page title: rows that don't match hide, nothing is rebuilt.
+  function filterPortList(form, value) {
+    var box = field(form, 'ports-more-list');
+    if (!box) return;
+    var words = String(value || '').toLowerCase().split(/\s+/).filter(Boolean);
+    var shown = 0;
+    Array.prototype.forEach.call(box.children || [], function (row) {
+      var text = (row.dataset && row.dataset.search) || '';
+      var ok = words.every(function (w) { return text.indexOf(w.replace(/^:/, '')) >= 0; });
+      row.hidden = !ok;
+      if (ok) shown += 1;
+    });
+    var none = field(form, 'ports-none');
+    if (none) none.hidden = shown > 0;
   }
 
   // A picked chip fills the origin and, for a known kind of site, the suggested options.
@@ -600,6 +687,9 @@
   api.refreshCreateForm = refreshCreateForm;
   api.paintPortHints = paintPortHints;
   api.applyPortPick = applyPortPick;
+  api.rankPorts = rankPorts;
+  api.togglePortList = togglePortList;
+  api.filterPortList = filterPortList;
   api.portLabel = portLabel;
   api.paintThemeToggle = paintThemeToggle;
 })(globalThis);

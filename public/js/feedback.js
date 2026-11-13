@@ -10,12 +10,12 @@
     return document.getElementById(id);
   }
 
-  // The page as the client saw it, with the pin highlighted. With "links only", the owner's key.
+  // The page as the client saw it, with the pin highlighted. The owner's key, so every pin shows.
   function commentUrl(session, comment) {
     if (!session || !session.url) return null;
     var base = session.url.replace(/\/+$/, '');
     var page = comment.page || '/';
-    if (session.options && session.options.linksOnly && session.ownerKey) {
+    if (session.ownerKey) {
       page += (page.indexOf('?') >= 0 ? '&' : '?') + 'tdk=' + encodeURIComponent(session.ownerKey);
     }
     return base + page + '#trydash-comment=' + encodeURIComponent(comment.id);

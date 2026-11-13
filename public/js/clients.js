@@ -15,10 +15,11 @@
     return session.url.replace(/\/+$/, '') + '/?tdk=' + encodeURIComponent(link.key);
   }
 
-  // The dashboard's own Open: with "links only", the owner's key lets you in.
+  // The dashboard's own Open: with the owner's key you always get in, and you see every
+  // client's comment pins, not only the anonymous ones.
   function ownerUrl(session) {
     if (!session || !session.url) return null;
-    if (session.options && session.options.linksOnly && session.ownerKey) {
+    if (session.ownerKey && session.inspect && session.inspect.enabled) {
       return session.url.replace(/\/+$/, '') + '/?tdk=' + encodeURIComponent(session.ownerKey);
     }
     return session.url;

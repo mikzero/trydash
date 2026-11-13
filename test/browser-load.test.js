@@ -836,7 +836,7 @@ test('port suggestions fill the origin field', () => {
   assert.deepEqual(chips.map((c) => [c.textContent, c.dataset.origin]), [[':5173 · Vite', '5173'], [':3000 · Next.js', 'http://[::1]:3000']]);
   assert.match(chips[1].className, /is-busy/);
   assert.equal(chips[1].attrs.title, 'già in un tunnel attivo');
-  assert.match(textOf(hints), /in ascolto:/);
+  assert.match(textOf(hints), /in ascolto \(2\):/);
   assert.ok(walkAll(hints).some((n) => n.dataset && n.dataset.action === 'scan-ports'));
   T.paintPortHints(form, [], true);
   assert.equal(textOf(host.querySelector('#port-hints')).trim(), 'Scansione…');
@@ -857,6 +857,37 @@ test('port suggestions fill the origin field', () => {
   assert.equal(form.querySelector('#blocked').value, '/wp-admin, /wp-login.php, /xmlrpc.php');
   assert.equal(form.querySelector('#preview-details').open, true);
   assert.equal(tlsChip.textContent, ':8443 · node');
+  // Many ports: the likeliest five as chips, the rest in a list that opens and filters.
+  const many = [
+    { port: 45123, origin: '45123', process: 'code', scan: { http: true } },
+    { port: 6463, origin: '6463', process: 'Discord' },
+    { port: 7000, origin: '7000', process: 'helper', scan: { http: false } },
+    { port: 8088, origin: '8088', process: 'docker-proxy', scan: { http: true, kind: 'wordpress', label: 'WordPress', suggest: { rewrite: true, preset: 'wordpress' } } },
+    { port: 5173, hint: 'Vite', origin: '5173', process: 'node' },
+    { port: 9229, origin: '9229', process: 'node' },
+    { port: 3000, hint: 'Next.js, React', origin: '3000', process: 'node' },
+    { port: 17600, origin: '17600', process: 'dropbox' },
+  ];
+  assert.deepEqual(Array.from(T.rankPorts(many).map((p) => p.port)), [8088, 3000, 5173, 9229, 45123, 6463, 17600, 7000]);
+  T.paintPortHints(form, many);
+  const slot = host.querySelector('#port-hints');
+  const shown = () => walkAll(slot).filter((n) => n.dataset && n.dataset.action === 'pick-port' && /\bchip\b/.test(n.className)).map((n) => n.dataset.origin);
+  assert.deepEqual(shown(), ['8088', '3000', '5173', '9229', '45123']);
+  const more = walkAll(slot).find((n) => n.dataset && n.dataset.action === 'toggle-ports');
+  assert.equal(more.textContent, '+3 altre ▾');
+  assert.equal(host.querySelector('#ports-more'), null);
+  T.togglePortList(form);
+  const rows = () => walkAll(host.querySelector('#ports-more-list')).filter((n) => n.dataset && n.dataset.action === 'pick-port');
+  assert.deepEqual(rows().map((n) => n.dataset.origin), ['6463', '17600', '7000']);
+  T.filterPortList(form, 'drop');
+  assert.deepEqual(rows().filter((n) => !n.hidden).map((n) => n.dataset.origin), ['17600']);
+  T.filterPortList(form, ':6463');
+  assert.deepEqual(rows().filter((n) => !n.hidden).map((n) => n.dataset.origin), ['6463']);
+  T.filterPortList(form, 'nothing-like-this');
+  assert.equal(host.querySelector('#ports-none').hidden, false);
+  T.togglePortList(form);
+  assert.equal(host.querySelector('#ports-more'), null);
+
   // A scanned port shows what answered, not the guess from its number.
   T.paintPortHints(form, [{ port: 8000, hint: 'Django, Laravel', origin: '8000', process: 'php', scan: { http: true, title: 'Officina del Mobile Artigiano', suggest: {} } }]);
   assert.equal(walkAll(host.querySelector('#port-hints')).find((n) => n.dataset && n.dataset.action === 'pick-port').textContent, ':8000 · Officina del Mobile Art…');

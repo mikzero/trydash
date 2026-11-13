@@ -660,6 +660,10 @@
     var target = event.target;
     if (!target) return;
     if (target.closest && target.closest('#create-form')) api.refreshCreateForm(document.getElementById('create-form'));
+    if (target.id === 'port-filter') {
+      api.filterPortList(document.getElementById('create-form'), target.value);
+      return;
+    }
     if (target.id === 'comments-on' && event.type === 'change') {
       updatePreview({ comments: !!target.checked }, target.checked ? api.t('ui.comments.on') : api.t('ui.comments.off')).catch(fail);
     }
@@ -709,6 +713,10 @@
     }
     if (action === 'pick-port') {
       api.applyPortPick(document.getElementById('create-form'), node);
+      return;
+    }
+    if (action === 'toggle-ports') {
+      api.togglePortList(document.getElementById('create-form'));
       return;
     }
     if (action === 'scan-ports') {

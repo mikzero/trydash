@@ -21,6 +21,14 @@
     by: 'di',
     anon: 'anonimo',
     close: 'Chiudi',
+    edit: 'Modifica',
+    save: 'Salva',
+    remove: 'Elimina',
+    removeSure: 'Elimina davvero',
+    removed: 'Commento eliminato',
+    edited: 'modificato',
+    bigger: 'Elemento più grande',
+    smaller: 'Elemento più piccolo',
   } : {
     button: 'Comment',
     hint: 'Click the spot to comment on · Esc to cancel',
@@ -33,6 +41,14 @@
     by: 'by',
     anon: 'anonymous',
     close: 'Close',
+    edit: 'Edit',
+    save: 'Save',
+    remove: 'Delete',
+    removeSure: 'Really delete',
+    removed: 'Comment deleted',
+    edited: 'edited',
+    bigger: 'Bigger element',
+    smaller: 'Smaller element',
   };
 
   // JavaScript errors on the page go with the comment: often they are the real problem.
@@ -59,7 +75,11 @@
     '* { box-sizing: border-box; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }',
     '.fab { position: fixed; right: 16px; bottom: 16px; z-index: 2147483646; display: inline-flex; align-items: center; gap: 6px; padding: 10px 14px; border: 0; border-radius: 999px; background: #1f2937; color: #fff; font-size: 14px; font-weight: 600; box-shadow: 0 6px 20px rgba(0,0,0,.25); cursor: pointer; }',
     '.fab.on { background: #c2410c; }',
-    '.hint { position: fixed; left: 50%; top: 12px; transform: translateX(-50%); z-index: 2147483646; padding: 8px 12px; border-radius: 8px; background: #1f2937; color: #fff; font-size: 13px; pointer-events: none; }',
+    // The bar lets the pointer through to the page; only its Cancel button takes clicks.
+    '.hint { position: fixed; left: 50%; top: 12px; bottom: auto; transform: translateX(-50%); z-index: 2147483646; display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 24px); padding: 6px 6px 6px 12px; border-radius: 10px; background: rgba(31,41,55,.92); color: #fff; font-size: 13px; pointer-events: none; transition: top .2s, bottom .2s; }',
+    '.hint.low { top: auto; bottom: 12px; }',
+    '.hint .btn { pointer-events: auto; padding: 5px 10px; font-size: 13px; border-color: rgba(255,255,255,.4); background: transparent; color: #fff; }',
+    '.pins.dim .pin { opacity: .3; pointer-events: none; }',
     '.hl { position: fixed; z-index: 2147483645; border: 2px solid #c2410c; background: rgba(194,65,12,.08); border-radius: 4px; pointer-events: none; display: none; }',
     '.pins { position: absolute; left: 0; top: 0; width: 0; height: 0; }',
     '.pin { position: absolute; z-index: 2147483644; width: 26px; height: 26px; margin: -13px 0 0 -13px; border: 2px solid #fff; border-radius: 50% 50% 50% 0; background: #c2410c; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,.3); cursor: pointer; }',
@@ -72,6 +92,11 @@
     '.btn { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; color: #1f2937; font-size: 14px; cursor: pointer; }',
     '.btn.main { border-color: #1f2937; background: #1f2937; color: #fff; }',
     '.meta { font-size: 12px; color: #6b7280; }',
+    '.target { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #6b7280; }',
+    '.target code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 12px ui-monospace, monospace; color: #c2410c; }',
+    '.mini { padding: 2px 8px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #1f2937; font-size: 12px; cursor: pointer; }',
+    '.mini:disabled { opacity: .4; cursor: default; }',
+    '.btn.danger { color: #b42318; border-color: #f3b4ab; }',
     '.text { white-space: pre-wrap; overflow-wrap: anywhere; }',
     '.toast { position: fixed; right: 16px; bottom: 70px; z-index: 2147483647; padding: 10px 14px; border-radius: 8px; background: #1f2937; color: #fff; font-size: 14px; }',
   ].join('\n');
@@ -119,6 +144,49 @@
   function closePop() {
     if (pop) pop.remove();
     pop = null;
+    hl.style.display = 'none';
+  }
+
+  // The keys that let this browser change its own anonymous comments.
+  function editKeys() {
+    try { return JSON.parse(localStorage.getItem('trydash-comment-keys') || '{}') || {}; } catch (err) { return {}; }
+  }
+  function saveEditKey(id, key) {
+    var keys = editKeys();
+    if (key) keys[id] = key;
+    else delete keys[id];
+    try { localStorage.setItem('trydash-comment-keys', JSON.stringify(keys)); } catch (err) { /* private mode */ }
+  }
+
+  function highlight(el) {
+    if (!el) { hl.style.display = 'none'; return; }
+    var r = el.getBoundingClientRect();
+    hl.style.display = 'block';
+    hl.style.left = r.left + 'px';
+    hl.style.top = r.top + 'px';
+    hl.style.width = r.width + 'px';
+    hl.style.height = r.height + 'px';
+  }
+
+  // Everything under the point, smallest first: an invisible overlay (a card's link, a
+  // slider) doesn't hide the text or the picture under it.
+  function stackAt(x, y) {
+    var all = document.elementsFromPoint ? document.elementsFromPoint(x, y) : [document.elementFromPoint(x, y)];
+    var seen = [];
+    all.forEach(function (el) {
+      if (!el || el === hostNode || el === document.documentElement || el === document.body) return;
+      if (hostNode.contains(el)) return;
+      var r = el.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      seen.push({ el: el, area: r.width * r.height });
+    });
+    seen.sort(function (a, b) { return a.area - b.area; });
+    return seen.map(function (item) { return item.el; });
+  }
+
+  function label(el) {
+    var text = String(el.textContent || '').replace(/\s+/g, ' ').trim();
+    return '<' + el.tagName.toLowerCase() + '>' + (text ? ' ' + (text.length > 40 ? text.slice(0, 39) + '…' : text) : '');
   }
 
   function place(node, x, y) {
@@ -177,16 +245,78 @@
     });
   }
 
+  function button(text, cls, onClick) {
+    var node = make('button', cls, text);
+    node.type = 'button';
+    node.addEventListener('click', function (e) {
+      e.stopPropagation();
+      onClick(node);
+    });
+    return node;
+  }
+
+  function changeComment(c, method, body) {
+    return fetch(API + '/' + c.id, {
+      method: method,
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ editKey: editKeys()[c.id] || null }, body || {})),
+    }).then(function (r) {
+      if (!r.ok) throw new Error(String(r.status));
+      return r.json();
+    });
+  }
+
+  // A pin opened: the comment, and for its author Edit and Delete.
   function showComment(c, x, y) {
     closePop();
     pop = make('div', 'pop');
-    pop.appendChild(make('div', 'meta', T.by + ' ' + (c.author || T.anon) + ' · ' + new Date(c.at).toLocaleString(it ? 'it-IT' : 'en-US')));
-    pop.appendChild(make('div', 'text', c.text));
+    var when = new Date(c.at).toLocaleString(it ? 'it-IT' : 'en-US');
+    pop.appendChild(make('div', 'meta', T.by + ' ' + (c.author || T.anon) + ' · ' + when + (c.editedAt ? ' · ' + T.edited : '')));
+    var body = make('div', 'text', c.text);
+    pop.appendChild(body);
     var row = make('div', 'row');
-    var close = make('button', 'btn', T.close);
-    close.type = 'button';
-    close.addEventListener('click', closePop);
-    row.appendChild(close);
+    var mine = c.mine || !!editKeys()[c.id];
+    if (mine) {
+      row.appendChild(button(T.remove, 'btn danger', function (node) {
+        if (node.dataset.sure !== '1') {
+          node.dataset.sure = '1';
+          node.textContent = T.removeSure;
+          return;
+        }
+        changeComment(c, 'DELETE').then(function () {
+          saveEditKey(c.id, null);
+          list = list.filter(function (item) { return item.id !== c.id; });
+          closePop();
+          drawPins();
+          toast(T.removed);
+        }).catch(function () { toast(T.failed); });
+      }));
+      row.appendChild(button(T.edit, 'btn', function () {
+        var area = make('textarea');
+        area.value = c.text;
+        area.maxLength = 2000;
+        body.replaceWith(area);
+        row.replaceChildren(
+          button(T.cancel, 'btn', function () { showComment(c, x, y); }),
+          button(T.save, 'btn main', function (node) {
+            var text = String(area.value || '').trim();
+            if (!text) { area.focus(); return; }
+            node.disabled = true;
+            changeComment(c, 'PATCH', { text: text }).then(function (data) {
+              Object.assign(c, data.comment);
+              drawPins();
+              showComment(c, x, y);
+            }).catch(function () {
+              node.disabled = false;
+              toast(T.failed);
+            });
+          })
+        );
+        area.focus();
+      }));
+    }
+    row.appendChild(button(T.close, 'btn', closePop));
     pop.appendChild(row);
     place(pop, x, y);
     shadow.appendChild(pop);
@@ -216,13 +346,27 @@
       .catch(function () {});
   }
 
+  var dodgeTimer = null;
+
+  // While commenting, the button steps aside and the bar on top carries Cancel; nothing
+  // of ours stays over the page for good.
   function setMode(on) {
     mode = on;
-    fab.className = 'fab' + (on ? ' on' : '');
-    fab.textContent = on ? '✕ ' + T.cancel : '💬 ' + T.button;
+    fab.style.display = on ? 'none' : '';
+    pins.className = 'pins' + (on ? ' dim' : '');
     hl.style.display = 'none';
+    clearTimeout(dodgeTimer);
+    dodgeTimer = null;
     if (on && !hint) {
-      hint = make('div', 'hint', T.hint);
+      hint = make('div', 'hint');
+      hint.appendChild(make('span', null, T.hint));
+      var cancel = make('button', 'btn', T.cancel);
+      cancel.type = 'button';
+      cancel.addEventListener('click', function (e) {
+        e.stopPropagation();
+        setMode(false);
+      });
+      hint.appendChild(cancel);
       shadow.appendChild(hint);
     }
     if (!on && hint) {
@@ -232,41 +376,87 @@
     document.documentElement.style.cursor = on ? 'crosshair' : '';
   }
 
+  // Resting on something the bar covers: the bar moves to the other edge. A quick pass on
+  // the way to Cancel doesn't move it.
+  function dodge(e) {
+    if (!hint) return;
+    var r = hint.getBoundingClientRect();
+    var over = e.clientX >= r.left - 8 && e.clientX <= r.right + 8 && e.clientY >= r.top - 8 && e.clientY <= r.bottom + 8;
+    if (!over) {
+      clearTimeout(dodgeTimer);
+      dodgeTimer = null;
+      return;
+    }
+    if (dodgeTimer) return;
+    dodgeTimer = setTimeout(function () {
+      dodgeTimer = null;
+      if (hint) hint.classList.toggle('low');
+    }, 350);
+  }
+
   function ours(e) {
     return e.composedPath ? e.composedPath().indexOf(hostNode) >= 0 : e.target === hostNode;
   }
 
   function onMove(e) {
-    if (!mode || ours(e)) return;
-    var r = e.target.getBoundingClientRect();
-    hl.style.display = 'block';
-    hl.style.left = r.left + 'px';
-    hl.style.top = r.top + 'px';
-    hl.style.width = r.width + 'px';
-    hl.style.height = r.height + 'px';
+    if (!mode) return;
+    if (ours(e)) {
+      // On the Cancel button itself: stay put.
+      clearTimeout(dodgeTimer);
+      dodgeTimer = null;
+      return;
+    }
+    dodge(e);
+    highlight(stackAt(e.clientX, e.clientY)[0] || e.target);
+  }
+
+  function spotFor(el, x, y) {
+    var r = el.getBoundingClientRect();
+    return {
+      selector: selectorOf(el),
+      x: r.width ? Math.min(1, Math.max(0, (x - r.left) / r.width)) : 0,
+      y: r.height ? Math.min(1, Math.max(0, (y - r.top) / r.height)) : 0,
+      docX: Math.round(x + window.scrollX),
+      docY: Math.round(y + window.scrollY),
+      element: { tag: el.tagName.toLowerCase(), text: String(el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 120) },
+    };
   }
 
   function onPick(e) {
     if (!mode || ours(e)) return;
     e.preventDefault();
     e.stopPropagation();
-    var el = e.target;
-    var r = el.getBoundingClientRect();
-    var spot = {
-      selector: selectorOf(el),
-      x: r.width ? Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) : 0,
-      y: r.height ? Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) : 0,
-      docX: Math.round(e.clientX + window.scrollX),
-      docY: Math.round(e.clientY + window.scrollY),
-      element: { tag: el.tagName.toLowerCase(), text: String(el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 120) },
-    };
+    var stack = stackAt(e.clientX, e.clientY);
+    if (!stack.length) stack = [e.target];
     setMode(false);
-    ask(spot, e.clientX, e.clientY);
+    ask(stack, e.clientX, e.clientY);
   }
 
-  function ask(spot, x, y) {
+  // The new comment: the element it is about (▲ ▼ to pick a bigger or smaller one), the text.
+  function ask(stack, x, y) {
     closePop();
+    var index = 0;
+    var spot = spotFor(stack[0], x, y);
     pop = make('div', 'pop');
+    var target = make('div', 'target');
+    var code = make('code');
+    var up = button('▲', 'mini', function () { pick(index + 1); });
+    up.title = T.bigger;
+    var down = button('▼', 'mini', function () { pick(index - 1); });
+    down.title = T.smaller;
+    target.appendChild(code);
+    target.appendChild(up);
+    target.appendChild(down);
+    pop.appendChild(target);
+    function pick(i) {
+      index = Math.max(0, Math.min(stack.length - 1, i));
+      spot = spotFor(stack[index], x, y);
+      code.textContent = label(stack[index]);
+      up.disabled = index >= stack.length - 1;
+      down.disabled = index <= 0;
+      highlight(stack[index]);
+    }
+    pick(0);
     var text = make('textarea');
     text.placeholder = T.placeholder;
     text.maxLength = 2000;
@@ -314,6 +504,7 @@
         return r.json();
       }).then(function (data) {
         closePop();
+        if (data.editKey) saveEditKey(data.comment.id, data.editKey);
         list.push(data.comment);
         drawPins();
         toast(T.sent);

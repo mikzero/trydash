@@ -141,6 +141,47 @@ test('a client with a personal link comments under their name and sees only thei
   }
 });
 
+test('the author can edit or delete their comment: same link, same browser (edit key), or the owner', async () => {
+  const origin = await startOrigin();
+  const store = dash.createSessionStore();
+  const inspector = createInspector({ store });
+  const session = store.create(origin.url, { comments: true });
+  store.setOwnerKey(session.id, newKey());
+  const mario = store.addLink(session.id, { id: newId(), name: 'Mario', key: newKey() });
+  const target = await inspector.open(session);
+  const change = (id, method, body, headers = {}) => request(target, { method, path: `/__trydash/comments/${id}`, headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body || {}) });
+  const cookieFor = async (key) => (await request(target, { path: `/?tdk=${key}` })).headers['set-cookie'][0].split(';')[0];
+  try {
+    const anon = JSON.parse((await post(target, { page: '/', text: 'prima versione' })).body);
+    assert.match(anon.editKey, /^[\w-]{22}$/);
+    assert.equal(anon.comment.mine, true);
+    assert.equal(store.get(session.id).comments[0].editHash.length, 64, 'only a hash is kept');
+    assert.equal((await change(anon.comment.id, 'PATCH', { text: 'hack' })).status, 403, 'no key, not yours');
+    assert.equal((await change(anon.comment.id, 'PATCH', { text: 'hack', editKey: 'x'.repeat(22) })).status, 403);
+    const edited = await change(anon.comment.id, 'PATCH', { text: 'seconda versione', editKey: anon.editKey });
+    assert.equal(edited.status, 200);
+    assert.equal(JSON.parse(edited.body).comment.text, 'seconda versione');
+    assert.ok(store.get(session.id).comments[0].editedAt);
+    assert.equal((await change(anon.comment.id, 'PATCH', { text: '  ', editKey: anon.editKey })).status, 400);
+    assert.equal((await request(target, { method: 'PATCH', path: `/__trydash/comments/${anon.comment.id}`, headers: { 'Content-Type': 'text/plain' }, body: '{}' })).status, 415);
+
+    const marioCookie = await cookieFor(mario.key);
+    const his = JSON.parse((await post(target, { page: '/', text: 'di Mario' }, { cookie: marioCookie })).body).comment;
+    const listed = JSON.parse((await request(target, { path: '/__trydash/comments?page=/', headers: { cookie: marioCookie } })).body).comments;
+    assert.equal(listed.find((c) => c.id === his.id).mine, true, 'his link says it is his, on any browser');
+    assert.equal((await change(his.id, 'DELETE', {})).status, 403);
+    assert.equal((await change(his.id, 'DELETE', {}, { cookie: marioCookie })).status, 200);
+    assert.equal(store.get(session.id).comments.some((c) => c.id === his.id), false);
+
+    const ownerCookie = await cookieFor(store.get(session.id).ownerKey);
+    assert.equal((await change(anon.comment.id, 'DELETE', {}, { cookie: ownerCookie })).status, 200, 'the owner may tidy up');
+    assert.equal((await change(anon.comment.id, 'DELETE', {}, { cookie: ownerCookie })).status, 404);
+  } finally {
+    await inspector.closeAll();
+    await origin.close();
+  }
+});
+
 test('a folder gets the widget too', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trydash-comments-'));
   fs.writeFileSync(path.join(dir, 'index.html'), '<html><body><p>ok</p></body></html>');
@@ -208,10 +249,13 @@ test('dashboard helpers: browser, Markdown, the link to the pin', () => {
   assert.equal(T.browserOf('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36'), 'Chrome 131 · macOS');
   assert.equal(T.browserOf('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Version/18.0 Mobile/15E148 Safari/604.1'), 'Safari 18 · iOS');
   assert.equal(T.browserOf('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0 Safari/537.36 Edg/131.0'), 'Edge 131 · Windows');
-  const session = { url: 'https://a-b.trycloudflare.com', options: { linksOnly: false }, ownerKey: 'OWNERKEYOWNERKEYOWNERK' };
+  const session = { url: 'https://a-b.trycloudflare.com', options: { linksOnly: false }, ownerKey: 'OWNERKEYOWNERKEYOWNERK', inspect: { enabled: true } };
   const comment = { id: 'c0123456789', at: '2026-11-13T10:22:00.000Z', page: '/chi-siamo/?x=1', title: 'Chi siamo', text: 'Più grande\ngrazie', author: 'Mario', element: { tag: 'h1', text: 'Chi siamo' }, viewport: { w: 390, h: 844 }, userAgent: 'iPhone OS 18_0 Version/18.0 Safari/604.1', errors: ['TypeError: x'] };
-  assert.equal(T.commentUrl(session, comment), 'https://a-b.trycloudflare.com/chi-siamo/?x=1#trydash-comment=c0123456789');
-  assert.equal(T.commentUrl({ ...session, options: { linksOnly: true } }, comment), 'https://a-b.trycloudflare.com/chi-siamo/?x=1&tdk=OWNERKEYOWNERKEYOWNERK#trydash-comment=c0123456789');
+  // Always with the owner's key: the owner sees the pins of every client, links only or not.
+  assert.equal(T.commentUrl(session, comment), 'https://a-b.trycloudflare.com/chi-siamo/?x=1&tdk=OWNERKEYOWNERKEYOWNERK#trydash-comment=c0123456789');
+  assert.equal(T.commentUrl({ ...session, ownerKey: null }, comment), 'https://a-b.trycloudflare.com/chi-siamo/?x=1#trydash-comment=c0123456789');
+  assert.equal(T.ownerUrl(session), 'https://a-b.trycloudflare.com/?tdk=OWNERKEYOWNERKEYOWNERK');
+  assert.equal(T.ownerUrl({ ...session, inspect: { enabled: false } }), 'https://a-b.trycloudflare.com');
   const md = T.commentMarkdown({ ...session, options: { linksOnly: true } }, comment);
   assert.match(md, /^\*\*Mario\*\* · .* · `\/chi-siamo\/\?x=1` \(“Chi siamo”\)\n> Più grande\n> grazie\n`<h1> “Chi siamo”` · 390×844 · Safari 18 · iOS\nErrori JavaScript:\n- `TypeError: x`\nhttps:\/\/a-b\.trycloudflare\.com\/chi-siamo\/\?x=1#trydash-comment=c0123456789$/);
   assert.doesNotMatch(md, /OWNERKEY/, 'the owner key never goes into a copied comment');

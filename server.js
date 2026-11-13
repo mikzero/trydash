@@ -795,7 +795,8 @@ export function createApp(options = {}) {
           if (req.method === 'GET' && !commentId) {
             const since = url.searchParams.get('version');
             if (since != null && Number(since) === session.commentsVersion) return sendJson(res, 200, { version: session.commentsVersion, unchanged: true });
-            return sendJson(res, 200, { version: session.commentsVersion, comments: session.comments.slice().reverse() });
+            const shown = session.comments.slice().reverse().map(({ editHash, ...comment }) => comment);
+            return sendJson(res, 200, { version: session.commentsVersion, comments: shown });
           }
           if (req.method === 'PATCH' && commentId) {
             const body = await readJson(req);

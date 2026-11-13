@@ -583,8 +583,79 @@ export function createInspector({
     return (comment) => !comment.resolved && (link && link.id === 'owner' ? true : link ? comment.linkId === link.id : !comment.linkId);
   }
 
-  function pinView(comment) {
-    return { id: comment.id, at: comment.at, text: comment.text, author: comment.author, selector: comment.selector, x: comment.x, y: comment.y, docX: comment.docX, docY: comment.docY };
+  // A comment's author may change or delete it: the same personal link, the owner, or the
+  // browser that holds its edit key (only a hash of it is kept).
+  function editKeyHash(key) {
+    return crypto.createHash('sha256').update(String(key)).digest('hex');
+  }
+
+  function mayEdit(comment, link, key) {
+    if (link && link.id === 'owner') return true;
+    if (link && comment.linkId === link.id) return true;
+    if (!key || !comment.editHash) return false;
+    const a = Buffer.from(editKeyHash(key), 'hex');
+    const b = Buffer.from(comment.editHash, 'hex');
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  }
+
+  function pinView(comment, link) {
+    return {
+      id: comment.id, at: comment.at, editedAt: comment.editedAt || null, text: comment.text, author: comment.author,
+      selector: comment.selector, x: comment.x, y: comment.y, docX: comment.docX, docY: comment.docY,
+      mine: mayEdit(comment, link, null),
+    };
+  }
+
+  function readSmallJson(req, done) {
+    const chunks = [];
+    let size = 0;
+    req.on('data', (chunk) => {
+      size += chunk.length;
+      if (size <= 16 * 1024) chunks.push(chunk);
+      if (size > 64 * 1024) req.destroy();
+    });
+    req.on('end', () => {
+      let body = null;
+      // A DELETE may come without a body: that is an empty object, not an error.
+      if (size === 0) body = {};
+      else if (size <= 16 * 1024) {
+        try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { body = null; }
+      }
+      done(body && typeof body === 'object' && !Array.isArray(body) ? body : null);
+    });
+  }
+
+  // PATCH (new text) or DELETE of one comment, by its author.
+  function changeComment(entry, req, res, commentId) {
+    const session = store.get(entry.id);
+    const link = req.trydashLink || null;
+    if (!/^application\/json\b/i.test(String(req.headers['content-type'] || ''))) {
+      sendJsonReply(res, 415, { error: 'application/json expected' });
+      return;
+    }
+    readSmallJson(req, (body) => {
+      const comment = (session.comments || []).find((c) => c.id === commentId);
+      if (!body || !comment) {
+        sendJsonReply(res, comment ? 400 : 404, { error: comment ? 'bad request' : 'not found' });
+        return;
+      }
+      if (!mayEdit(comment, link, body.editKey)) {
+        sendJsonReply(res, 403, { error: 'not yours' });
+        return;
+      }
+      if (req.method === 'DELETE') {
+        store.removeComment(entry.id, comment.id);
+      } else {
+        const text = shortText(body.text, 2000);
+        if (!text) {
+          sendJsonReply(res, 400, { error: 'bad comment' });
+          return;
+        }
+        store.editComment(entry.id, comment.id, text);
+      }
+      try { onComment(entry.id, comment); } catch { /* saving is best effort */ }
+      sendJsonReply(res, 200, req.method === 'DELETE' ? { ok: true } : { comment: { ...pinView(comment, link), mine: true } });
+    });
   }
 
   // trydash's own paths on the tunnel: /__trydash/…. They never reach the site.
@@ -601,6 +672,11 @@ export function createInspector({
       res.end(req.method === 'HEAD' ? undefined : code);
       return;
     }
+    const one = /^comments\/(c[0-9a-f]{10})$/.exec(route);
+    if (one && (req.method === 'PATCH' || req.method === 'DELETE')) {
+      changeComment(entry, req, res, one[1]);
+      return;
+    }
     if (route !== 'comments') {
       sendPage(res, 404, '<!doctype html><title>404</title><p>Not found.</p>');
       return;
@@ -609,7 +685,7 @@ export function createInspector({
     const link = req.trydashLink || null;
     if (req.method === 'GET') {
       const page = url.searchParams.get('page') || '/';
-      const list = (session.comments || []).filter((c) => c.page === page).filter(visibleTo(link)).map(pinView);
+      const list = (session.comments || []).filter((c) => c.page === page).filter(visibleTo(link)).map((c) => pinView(c, link));
       sendJsonReply(res, 200, { me: link && link.id !== 'owner' ? { name: link.name } : null, comments: list });
       return;
     }
@@ -652,6 +728,8 @@ export function createInspector({
       if (entry.commentRate.size > 5000) entry.commentRate.clear();
       entry.commentRate.set(who, rate);
       const viewport = body.viewport && typeof body.viewport === 'object' ? body.viewport : {};
+      // Only this browser gets the key: it can change or delete the comment later.
+      const editKey = crypto.randomBytes(16).toString('base64url');
       const comment = {
         id: `c${crypto.randomBytes(5).toString('hex')}`,
         at: new Date(now).toISOString(),
@@ -672,6 +750,8 @@ export function createInspector({
         errors: Array.isArray(body.errors) ? body.errors.slice(0, 10).map((e) => shortText(e, 300)).filter(Boolean) : [],
         resolved: false,
         resolvedAt: null,
+        editHash: editKeyHash(editKey),
+        editedAt: null,
       };
       try {
         store.addComment(entry.id, comment);
@@ -680,7 +760,7 @@ export function createInspector({
         return;
       }
       try { onComment(entry.id, comment); } catch { /* saving is best effort */ }
-      sendJsonReply(res, 201, { comment: pinView(comment) });
+      sendJsonReply(res, 201, { comment: { ...pinView(comment, link), mine: true }, editKey });
     });
   }
 
