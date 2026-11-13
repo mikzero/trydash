@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 export const KEY_PARAM = 'tdk';
 export const COOKIE = 'trydash_link';
 export const RESERVED = '/__trydash/';
-const PIN_RE = /^\d{4,8}$/;
+const PIN_RE = /^\d{6,8}$/;
 export const PIN_TRIES = 5;
 export const PIN_LOCK_MS = 10 * 60 * 1000;
 
@@ -146,7 +146,7 @@ export function gatePage(kind, acceptLanguage, { key = '', back = '/', error = n
     const note = error ? `<p role="alert" style="color:#b42318">${t[error]}</p>` : '';
     return page(lang, t.pinTitle, `<p>${t.pinText}</p>${note}<form method="post" action="${RESERVED}pin">`
       + `<input type="hidden" name="key" value="${escapeHtml(key)}"><input type="hidden" name="back" value="${escapeHtml(back)}">`
-      + '<input name="pin" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{4,8}" required autofocus aria-label="PIN" '
+      + '<input name="pin" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,8}" required autofocus aria-label="PIN" '
       + 'style="font:inherit;font-size:1.4rem;letter-spacing:.3em;width:10ch;padding:.4rem .6rem;border:1px solid #9ca3af;border-radius:8px"> '
       + `<button style="font:inherit;padding:.5rem 1rem;border:0;border-radius:8px;background:#1f2937;color:#fff">${t.open}</button></form>`);
   }
@@ -154,8 +154,16 @@ export function gatePage(kind, acceptLanguage, { key = '', back = '/', error = n
   return page(lang, t.requiredTitle, `<p>${t.requiredText}</p>`);
 }
 
-// A `back` path from the PIN form: same site only.
+// A `back` path from the PIN form: same site only. Characters a URL parser would
+// delete (tab, newline) are refused, so "/\t/evil.com" cannot become "//evil.com".
 export function safeBack(value) {
   const text = String(value || '/');
-  return text.startsWith('/') && !text.startsWith('//') && !text.startsWith('/\\') ? text : '/';
+  if (/[\u0000-\u001f\u007f]/.test(text) || !text.startsWith('/') || text.startsWith('//') || text.includes('\\')) return '/';
+  try {
+    const url = new URL(text, 'https://trydash.invalid');
+    if (url.host !== 'trydash.invalid' || url.username || url.password) return '/';
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return '/';
+  }
 }

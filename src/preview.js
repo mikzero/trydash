@@ -116,12 +116,18 @@ export function pathForms(rawUrl) {
   const tidy = (p) => p.replace(/\\/g, '/').replace(/\/{2,}/g, '/').replace(/[.\s]+$/, '').toLowerCase() || '/';
   const forms = new Set([tidy(pathname), tidy(decoded)]);
   // Decoding can bring new dot segments (`%2e%2e`, `%2f`): resolve them once more.
+  const resolve = (p) => tidy(new URL(`http://x/${String(p).replace(/\\/g, '/').replace(/^\/+/, '')}`).pathname);
   try {
-    forms.add(tidy(new URL(`http://x/${decoded.replace(/\\/g, '/').replace(/^\/+/, '')}`).pathname));
+    forms.add(resolve(decoded));
   } catch {
     return null;
   }
-  for (const form of Array.from(forms)) forms.add(tidy(form.replace(/;[^/]*/g, '')));
+  // `;params` come off first, then `..` is resolved again: some servers do it in that order.
+  for (const form of Array.from(forms)) {
+    const stripped = tidy(form.replace(/;[^/]*/g, ''));
+    forms.add(stripped);
+    try { forms.add(resolve(stripped)); } catch { return null; }
+  }
   return Array.from(forms);
 }
 

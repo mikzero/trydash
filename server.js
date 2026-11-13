@@ -282,12 +282,18 @@ export function createApp(options = {}) {
       store.setCommentShot(id, commentId, { state: 'failed', reason: 'no-url', at: new Date().toISOString() });
       return Promise.resolve(null);
     }
-    const sep = comment.page.includes('?') ? '&' : '?';
-    const key = session.ownerKey ? `${sep}tdk=${encodeURIComponent(session.ownerKey)}` : '';
     const lang = comment.lang ? `&trydash-lang=${comment.lang}` : '';
-    const url = `${session.url.replace(/\/+$/, '')}${comment.page}${key}#trydash-comment=${comment.id}&trydash-shot=1${lang}`;
+    const hashAt = comment.page.indexOf('#');
+    const path = hashAt >= 0 ? comment.page.slice(0, hashAt) : comment.page;
+    const url = `${session.url.replace(/\/+$/, '')}${path}#trydash-comment=${comment.id}&trydash-shot=1${lang}`;
+    const value = inspector.ownerCookie(id);
     store.setCommentShot(id, commentId, { state: 'pending', at: new Date().toISOString() });
-    return shooter.take({ url, viewport: comment.viewport, file: shotFile(commentId) }).then((size) => {
+    return shooter.take({
+      url,
+      viewport: comment.viewport,
+      file: shotFile(commentId),
+      cookie: value ? { name: 'trydash_link', value } : null,
+    }).then((size) => {
       store.setCommentShot(id, commentId, { state: 'ready', at: new Date().toISOString(), width: size.width, height: size.height });
       saveTunnels();
     }, (error) => {

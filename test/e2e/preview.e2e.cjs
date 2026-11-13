@@ -326,7 +326,7 @@ async function waitFor(fn, ms = 5000) {
     await dash.click('[data-action="create-link"]');
     await dash.waitForSelector('.link-card');
     await dash.fill('#link-name', 'Anna');
-    await dash.fill('#link-pin', '4821');
+    await dash.fill('#link-pin', '482191');
     await dash.click('[data-action="create-link"]');
     await dash.waitForFunction(() => document.querySelectorAll('.link-card').length === 2);
     await dash.check('#links-only');
@@ -373,10 +373,10 @@ async function waitFor(fn, ms = 5000) {
     await ap.goto(`${wpUrl}/ciao-mondo/?tdk=${annaLink.key}`);
     check('Anna\'s link asks for the PIN', /Inserisci il PIN/.test(await ap.content()));
     await ap.screenshot({ path: `${SHOTS}/8-pin.png` });
-    await ap.fill('input[name=pin]', '0000');
+    await ap.fill('input[name=pin]', '000000');
     await Promise.all([ap.waitForNavigation(), ap.click('button')]);
     check('a wrong PIN says so', /PIN errato/.test(await ap.content()));
-    await ap.fill('input[name=pin]', '4821');
+    await ap.fill('input[name=pin]', '482191');
     await Promise.all([ap.waitForNavigation(), ap.click('button')]);
     check('the right PIN opens the page she was sent to', ap.url() === `${wpUrl}/ciao-mondo/` && /Ciao mondo/.test(await ap.title()), ap.url());
 

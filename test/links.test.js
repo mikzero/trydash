@@ -57,14 +57,18 @@ test('link helpers: signed cookie, no trydash cookie or key for the origin, safe
   assert.equal(readCookie('a=1; trydash_link=v', 'trydash_link'), 'v');
   assert.equal(withoutKey('/shop?tdk=abc&x=1'), '/shop?x=1');
   assert.equal(withoutKey('/?tdk=abc'), '/');
-  for (const bad of ['//evil.com', 'https://evil.com', '/\\evil.com', '']) assert.equal(safeBack(bad), '/');
+  for (const bad of ['//evil.com', 'https://evil.com', '/\\evil.com', '', '/\t/evil.com', '/\t\\evil.com', '/ok\r\nSet-Cookie: a=1', '/\n/evil.com']) {
+    assert.equal(safeBack(bad), '/', JSON.stringify(bad));
+  }
   assert.equal(safeBack('/wp/?p=1'), '/wp/?p=1');
-  const withPin = { ...link, pinHash: pinHash(link.key, '4821') };
-  assert.equal(pinMatches(withPin, '4821'), true);
-  assert.equal(pinMatches(withPin, '4822'), false);
-  assert.equal(pinMatches({ ...withPin, key: newKey() }, '4821'), false, 'the key salts the hash');
+  const withPin = { ...link, pinHash: pinHash(link.key, '482191') };
+  assert.equal(pinMatches(withPin, '482191'), true);
+  assert.equal(pinMatches(withPin, '482192'), false);
+  assert.equal(pinMatches({ ...withPin, key: newKey() }, '482191'), false, 'the key salts the hash');
   assert.equal(checkPin(''), null);
+  assert.equal(checkPin('482191'), '482191');
   assert.throws(() => checkPin('12'), /links\.badPin/);
+  assert.throws(() => checkPin('4821'), /links\.badPin/);
   assert.throws(() => checkPin('abcd'), /links\.badPin/);
 });
 
@@ -144,12 +148,12 @@ test('a link with a PIN asks for it, and locks after five wrong tries', async ()
   const inspector = createInspector({ store, clock: () => now });
   const session = store.create(origin.url, { linksOnly: true });
   const key = newKey();
-  const anna = store.addLink(session.id, { id: newId(), name: 'Anna', key, pinHash: pinHash(key, '4821') });
+  const anna = store.addLink(session.id, { id: newId(), name: 'Anna', key, pinHash: pinHash(key, '482191') });
   const target = await inspector.open(session);
-  const form = (pin, back = '/catalogo?p=2') => request(target, {
+  const form = (pin, back = '/catalogo?p=2', ip = '203.0.113.10') => request(target, {
     method: 'POST',
     path: '/__trydash/pin',
-    headers: { 'content-type': 'application/x-www-form-urlencoded', 'accept-language': 'it-IT' },
+    headers: { 'content-type': 'application/x-www-form-urlencoded', 'accept-language': 'it-IT', 'cf-connecting-ip': ip },
     body: new URLSearchParams({ key, pin, back }).toString(),
   });
   try {
@@ -159,25 +163,36 @@ test('a link with a PIN asks for it, and locks after five wrong tries', async ()
     assert.match(ask.body, /name="back" value="\/catalogo\?p=2"/);
     assert.equal(ask.headers['set-cookie'], undefined);
 
-    const wrong = await form('1111');
+    const wrong = await form('111111');
     assert.equal(wrong.status, 401);
     assert.match(wrong.body, /PIN errato/);
-    for (let i = 0; i < 3; i += 1) await form('1111');
-    const locked = await form('1111');
+    for (let i = 0; i < 3; i += 1) await form('111111');
+    const locked = await form('111111');
     assert.equal(locked.status, 429);
     assert.match(locked.body, /Troppi tentativi/);
-    assert.equal((await form('4821')).status, 429, 'even the right PIN waits while locked');
+    assert.equal((await form('482191')).status, 429, 'even the right PIN waits while locked');
+    const other = await form('482191', '/catalogo?p=2', '203.0.113.11');
+    assert.equal(other.status, 303, 'another visitor is not locked out');
+    assert.equal(other.headers.location, '/catalogo?p=2');
 
     now += 11 * 60 * 1000;
-    const ok = await form('4821');
+    const bulky = `x=${'a'.repeat(5000)}&${new URLSearchParams({ key, pin: '482191', back: '/catalogo?p=2' })}`;
+    assert.equal((await request(target, {
+      method: 'POST', path: '/__trydash/pin',
+      headers: { 'content-type': 'application/x-www-form-urlencoded', 'cf-connecting-ip': '203.0.113.10' },
+      body: bulky,
+    })).status, 413);
+    const ok = await form('482191');
     assert.equal(ok.status, 303);
     assert.equal(ok.headers.location, '/catalogo?p=2');
     const cookie = cookieFrom(ok);
     assert.equal((await request(target, { path: '/catalogo?p=2', headers: { cookie } })).status, 200);
-    assert.equal((await form('4821', '//evil.example/')).headers.location, '/', 'no open redirect');
+    for (const back of ['//evil.example/', '/\t/evil.com', '/\t\\evil.com', '/ok\r\nSet-Cookie: a=1']) {
+      assert.equal((await form('482191', back)).headers.location, '/', `no open redirect for ${JSON.stringify(back)}`);
+    }
 
     // A new PIN logs out the cookies made with the old one.
-    store.updateLink(session.id, anna.id, { pinHash: pinHash(key, '9999') });
+    store.updateLink(session.id, anna.id, { pinHash: pinHash(key, '999999') });
     assert.equal((await request(target, { path: '/', headers: { cookie } })).status, 403);
     assert.equal(origin.seen.length, 1);
   } finally {
@@ -224,12 +239,13 @@ test('links API: create with or without PIN, rename, revoke, delete; saved and r
     const session = app.store.create('http://127.0.0.1:9', { inspect: true });
     app.store.setOwnerKey(session.id, newKey());
     const base = `/api/sessions/${session.id}/links`;
-    const made = await call('POST', base, { name: 'Mario Rossi', pin: '4821' });
+    const made = await call('POST', base, { name: 'Mario Rossi', pin: '482191' });
     assert.equal(made.status, 201);
     assert.equal(made.json.link.name, 'Mario Rossi');
     assert.equal(made.json.link.hasPin, true);
     assert.equal(made.json.link.pinHash, undefined, 'the hash never leaves the server');
-    assert.equal((await call('POST', base, { name: 'x', pin: '12' })).json.error, 'Il PIN deve avere da 4 a 8 cifre.');
+    assert.equal((await call('POST', base, { name: 'x', pin: '12' })).json.error, 'Il PIN deve avere da 6 a 8 cifre.');
+    assert.equal((await call('POST', base, { name: 'x', pin: '4821' })).json.error, 'Il PIN deve avere da 6 a 8 cifre.');
     assert.equal((await call('POST', base, { name: '' })).status, 400);
     const plain = (await call('POST', base, { name: 'Anna' })).json.link;
     assert.equal(plain.hasPin, false);

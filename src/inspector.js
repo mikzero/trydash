@@ -214,6 +214,7 @@ export function createInspector({
   // Called after a client left a comment, or first opened their link (the server saves then).
   onComment = () => {},
   onFirstVisit = () => {},
+  commentRateMax = 5000,
 } = {}) {
   const proxies = new Map();
   const token = crypto.randomBytes(16).toString('hex');
@@ -512,6 +513,10 @@ export function createInspector({
     return false;
   }
 
+  function clientAddress(req) {
+    return headerValue(pairs(req.rawHeaders), 'cf-connecting-ip') || req.socket?.remoteAddress || '?';
+  }
+
   function handlePin(entry, session, req, res) {
     const lang = req.headers['accept-language'];
     if (req.method !== 'POST') {
@@ -520,11 +525,24 @@ export function createInspector({
     }
     const chunks = [];
     let size = 0;
+    let tooBig = false;
+    const rejectBig = () => {
+      if (tooBig) return;
+      tooBig = true;
+      if (!res.headersSent) sendPage(res, 413, gatePage('invalid', lang));
+      req.destroy();
+    };
     req.on('data', (chunk) => {
+      if (tooBig) return;
       size += chunk.length;
-      if (size <= 4096) chunks.push(chunk);
+      if (size > 4096) {
+        rejectBig();
+        return;
+      }
+      chunks.push(chunk);
     });
     req.on('end', () => {
+      if (tooBig || res.headersSent) return;
       const form = new URLSearchParams(Buffer.concat(chunks).toString('utf8'));
       const key = form.get('key') || '';
       const back = safeBack(form.get('back'));
@@ -533,16 +551,22 @@ export function createInspector({
         sendPage(res, 403, gatePage('invalid', lang));
         return;
       }
-      const tries = entry.pinTries.get(link.id) || { count: 0, until: 0 };
+      // One visitor's wrong guesses lock only that visitor.
+      const who = `${link.id}\n${clientAddress(req)}`;
+      const tries = entry.pinTries.get(who) || { count: 0, until: 0 };
       const now = clock();
       if (tries.until > now) {
         sendPage(res, 429, gatePage('pin', lang, { key, back, error: 'pinLocked' }));
         return;
       }
       if (pinMatches(link, form.get('pin'))) {
-        entry.pinTries.delete(link.id);
-        res.writeHead(303, { Location: back, 'Set-Cookie': setCookie(cookieValue(linkSecret, link)), 'Cache-Control': 'no-store', 'Content-Length': '0' });
-        res.end();
+        entry.pinTries.delete(who);
+        try {
+          res.writeHead(303, { Location: back, 'Set-Cookie': setCookie(cookieValue(linkSecret, link)), 'Cache-Control': 'no-store', 'Content-Length': '0' });
+          res.end();
+        } catch {
+          if (!res.headersSent) sendPage(res, 400, gatePage('invalid', lang));
+        }
         return;
       }
       tries.count += 1;
@@ -550,7 +574,7 @@ export function createInspector({
         tries.count = 0;
         tries.until = now + PIN_LOCK_MS;
       }
-      entry.pinTries.set(link.id, tries);
+      entry.pinTries.set(who, tries);
       sendPage(res, tries.until > now ? 429 : 401, gatePage('pin', lang, { key, back, error: tries.until > now ? 'pinLocked' : 'pinWrong' }));
     });
   }
@@ -700,7 +724,7 @@ export function createInspector({
       sendJsonReply(res, 415, { error: 'application/json expected' });
       return;
     }
-    const who = headerValue(pairs(req.rawHeaders), 'cf-connecting-ip') || req.socket.remoteAddress || '?';
+    const who = clientAddress(req);
     const now = clock();
     const rate = entry.commentRate.get(who) || { count: 0, since: now };
     if (now - rate.since > COMMENT_WINDOW_MS) { rate.count = 0; rate.since = now; }
@@ -726,8 +750,18 @@ export function createInspector({
         return;
       }
       rate.count += 1;
-      // One entry per visitor address; the map can't grow without end.
-      if (entry.commentRate.size > 5000) entry.commentRate.clear();
+      // A full map drops visitors whose window has passed. It never wipes the
+      // counters still in force: a new visitor is refused instead.
+      if (!entry.commentRate.has(who) && entry.commentRate.size >= commentRateMax) {
+        for (const [key, value] of entry.commentRate) {
+          if (now - value.since > COMMENT_WINDOW_MS) entry.commentRate.delete(key);
+        }
+      }
+      if (!entry.commentRate.has(who) && entry.commentRate.size >= commentRateMax) {
+        rate.count -= 1;
+        sendJsonReply(res, 429, { error: 'too many comments, try again later' });
+        return;
+      }
       entry.commentRate.set(who, rate);
       const viewport = body.viewport && typeof body.viewport === 'object' ? body.viewport : {};
       // Only this browser gets the key: it can change or delete the comment later.
@@ -1412,6 +1446,12 @@ export function createInspector({
     },
     details,
     captured,
+    // The cookie the screenshot browser sends, so the owner key never sits in the URL.
+    ownerCookie(id) {
+      const session = store.get(id);
+      if (!session || !session.ownerKey) return null;
+      return cookieValue(linkSecret, { id: 'owner', key: session.ownerKey, pinHash: null });
+    },
     // For DASHBOARD_SEED: records that look like real traffic, without a socket.
     inject(id, sample) {
       const entry = entryFor(id);

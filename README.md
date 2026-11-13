@@ -97,7 +97,7 @@ Rewriting, the label and blocked paths live in the inspector's proxy, so they tu
 The **Clients** tab makes one link per client, like `https://….trycloudflare.com/?tdk=…`. Each card shows whether the client opened it, how many pages they viewed and when they last came; the dashboard tells you the first time (“Mario opened the preview”), and the **Requests** tab marks every request with the client's name.
 
 - The key leaves the address bar at once: trydash's proxy swaps it for an `HttpOnly`, `Secure` cookie and redirects to the clean URL. Neither the key nor the cookie reaches your site, so its own cookies and logins work as usual.
-- A link can ask for a **PIN** of 4 to 8 digits. Only a hash of it is kept, and after five wrong tries that link waits ten minutes.
+- A link can ask for a **PIN** of 6 to 8 digits. Only a hash of it is kept. Five wrong tries from the same visitor lock that visitor for ten minutes; someone else can still enter.
 - **Revoke** stops a link at its next page, **Restore** brings it back, **Delete** removes it for good. Changing the PIN logs out whoever entered with the old one.
 - **Personal links only** (`--links-only`) refuses anyone who opens the URL without a link. The dashboard's **Open** button always gets in.
 - Links are saved with the tunnel and keep their keys: after a restart the URL changes, and the **Copy link** of the same card gives the new one with the same key.
@@ -366,7 +366,7 @@ The frontend uses a small JSON API, also handy for scripts. Every call needs the
 | `POST` | `/api/sessions` | create a tunnel, body `{ "origin": "3000", "options": { … } }` (see below) |
 | `POST` | `/api/sessions/:id/stop` | stop the tunnel |
 | `PATCH` | `/api/sessions/:id/options` | change the client preview of a tunnel, same URL: `{ "rewrite": true, "blocked": "/wp-admin", "badge": true, "noindex": true, "comments": true, "linksOnly": true, "queue": true }` |
-| `GET`, `POST` | `/api/sessions/:id/links` | personal links; create one with `{ "name": "Mario", "pin": "4821" }` (the PIN is optional) |
+| `GET`, `POST` | `/api/sessions/:id/links` | personal links; create one with `{ "name": "Mario", "pin": "482191" }` (the PIN is optional) |
 | `PATCH`, `DELETE` | `/api/sessions/:id/links/:linkId` | `{ "name", "revoked", "pin" }` (`"pin": ""` removes it), or delete |
 | `GET` | `/api/sessions/:id/comments?version=` | comments, newest first; with the current `version`, `{ "unchanged": true }` |
 | `PATCH`, `DELETE` | `/api/sessions/:id/comments/:commentId` | `{ "resolved": true }`, or delete |

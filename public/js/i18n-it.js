@@ -451,7 +451,7 @@
     'links.tooMany': 'Al massimo {max} link per tunnel.',
     'links.notFound': 'Link non trovato.',
     'links.badName': 'Il nome del link deve avere da 1 a {max} caratteri.',
-    'links.badPin': 'Il PIN deve avere da 4 a 8 cifre.',
+    'links.badPin': 'Il PIN deve avere da 6 a 8 cifre.',
     'options.blockedInvalid': 'Percorso da bloccare non valido: {value}. Deve iniziare con / e non contenere spazi',
     'options.blockedTooMany': 'Al massimo {max} percorsi bloccati',
     'options.needsInspector': 'Per questa opzione il tunnel deve passare dall’ispettore: ricrealo con «Ispeziona richieste» attivo',

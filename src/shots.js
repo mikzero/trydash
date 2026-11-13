@@ -77,7 +77,7 @@ function devtools(wsUrl) {
       for (let i = waiters.length - 1; i >= 0; i -= 1) {
         const w = waiters[i];
         if (w.method === msg.method && (!w.sessionId || w.sessionId === msg.sessionId)) {
-          waiters.splice(i, 1);
+          if (!w.stay) waiters.splice(i, 1);
           w.ok(msg.params || {});
         }
       }
@@ -98,6 +98,9 @@ function devtools(wsUrl) {
             if (i >= 0) { waiters.splice(i, 1); ok(null); }
           }, timeoutMs);
         });
+      },
+      on(method, sessionId, handler) {
+        waiters.push({ method, sessionId, ok: handler, stay: true });
       },
       close() { try { ws.close(); } catch { /* already closed */ } },
     });
@@ -135,7 +138,7 @@ const QUIET_FLAGS = [
 ];
 
 // Opens `url` at the client's screen size, lets the page settle, writes a PNG to `file`.
-export async function capture({ browser, url, viewport, file, settleMs = 1200, timeoutMs = 30000, extraArgs = [], spawnImpl = spawn }) {
+export async function capture({ browser, url, viewport, file, settleMs = 1200, timeoutMs = 30000, extraArgs = [], spawnImpl = spawn, cookie = null }) {
   const { width, height } = clampViewport(viewport);
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'trydash-shot-'));
   const flags = [...QUIET_FLAGS, `--user-data-dir=${profile}`, `--window-size=${width},${height}`];
@@ -150,10 +153,35 @@ export async function capture({ browser, url, viewport, file, settleMs = 1200, t
     const { sessionId } = await client.send('Target.attachToTarget', { targetId, flatten: true });
     await client.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 600 }, sessionId);
     await client.send('Page.enable', {}, sessionId);
+    await client.send('Network.enable', {}, sessionId);
+    const allowedHost = new URL(url).host;
+    // A document that leaves the tunnel (an open redirect on the page) is not loaded.
+    client.on('Fetch.requestPaused', sessionId, (params) => {
+      let host = '';
+      try { host = new URL(params.request.url).host; } catch { host = ''; }
+      const leave = params.resourceType === 'Document' && host && host !== allowedHost;
+      const call = leave
+        ? client.send('Fetch.failRequest', { requestId: params.requestId, errorReason: 'BlockedByClient' }, sessionId)
+        : client.send('Fetch.continueRequest', { requestId: params.requestId }, sessionId);
+      call.catch(() => {});
+    });
+    await client.send('Fetch.enable', { patterns: [{ urlPattern: '*', requestStage: 'Request' }] }, sessionId);
+    if (cookie) {
+      await client.send('Network.setCookie', {
+        name: cookie.name,
+        value: cookie.value,
+        url: url.split('#')[0],
+        httpOnly: true,
+        secure: url.startsWith('https://'),
+      }, sessionId);
+    }
     const loaded = client.once('Page.loadEventFired', sessionId, 20000);
     const nav = await client.send('Page.navigate', { url }, sessionId);
     if (nav.errorText) throw new Error(nav.errorText);
     await loaded;
+    const href = await client.send('Runtime.evaluate', { expression: 'location.href', returnByValue: true }, sessionId);
+    const finalUrl = href && href.result && href.result.value;
+    if (!finalUrl || new URL(finalUrl).host !== allowedHost) throw new Error('screenshot left the tunnel');
     // The comments widget loads its pins after the page: give it a moment.
     await new Promise((r) => setTimeout(r, settleMs));
     const shot = await client.send('Page.captureScreenshot', { format: 'png' }, sessionId);

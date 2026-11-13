@@ -103,7 +103,10 @@ test('a new comment gets its screenshot: public URL with the owner key and the p
     const made = JSON.parse((await post({ page: '/chi-siamo/?a=1', text: 'più grande', viewport: { w: 390, h: 844 } })).body.toString()).comment;
     const shot = await until(() => app.store.get(session.id).comments[0].shot.state === 'ready' && app.store.get(session.id).comments[0].shot);
     assert.deepEqual([shot.width, shot.height], [390, 844]);
-    assert.equal(jobs[0].url, `https://shy-fox.trycloudflare.com/chi-siamo/?a=1&tdk=OWNERKEYOWNERKEYOWNERK#trydash-comment=${made.id}&trydash-shot=1&trydash-lang=it`);
+    assert.equal(jobs[0].url, `https://shy-fox.trycloudflare.com/chi-siamo/?a=1#trydash-comment=${made.id}&trydash-shot=1&trydash-lang=it`);
+    assert.equal(jobs[0].url.includes('tdk='), false, 'the owner key stays out of the address');
+    assert.equal(jobs[0].cookie.name, 'trydash_link');
+    assert.match(jobs[0].cookie.value, /^owner\.[A-Za-z0-9_-]{43}$/);
     assert.deepEqual(jobs[0].viewport, { w: 390, h: 844, dpr: 1 });
     assert.equal(jobs[0].file, path.join(shotsDir, `${made.id}.png`));
 
@@ -148,6 +151,35 @@ test('without a browser on the computer, comments say how to get screenshots', a
 
 // A real browser, when there is one: Playwright's Chromium here, Chrome on a developer machine.
 const realBrowser = findBrowser() || (fs.existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : null);
+
+test('a screenshot does not follow a document onto another host', { skip: !realBrowser, timeout: 60000 }, async () => {
+  let followed = 0;
+  const other = http.createServer((req, res) => {
+    followed += 1;
+    res.writeHead(200, { 'Content-Type': 'text/html' });
+    res.end('<!doctype html><title>elsewhere</title>');
+  });
+  await new Promise((r) => other.listen(0, '127.0.0.1', r));
+  const here = http.createServer((req, res) => {
+    res.writeHead(302, { Location: `http://127.0.0.1:${other.address().port}/gone` });
+    res.end();
+  });
+  await new Promise((r) => here.listen(0, '127.0.0.1', r));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trydash-shot-redirect-'));
+  try {
+    const file = path.join(dir, 'shot.png');
+    await assert.rejects(
+      capture({ browser: realBrowser, url: `http://127.0.0.1:${here.address().port}/`, file, settleMs: 100, extraArgs: ['--no-proxy-server'] }),
+      /left the tunnel|ERR_BLOCKED_BY_CLIENT/,
+    );
+    assert.equal(followed, 0, 'the other host was not loaded');
+    assert.equal(fs.existsSync(file), false);
+  } finally {
+    here.close();
+    other.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 test('a real headless screenshot of a local page', { skip: !realBrowser, timeout: 60000 }, async () => {
   const server = http.createServer((req, res) => {

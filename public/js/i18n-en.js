@@ -451,7 +451,7 @@
     'links.tooMany': 'At most {max} links per tunnel.',
     'links.notFound': 'Link not found.',
     'links.badName': 'The link name must be 1 to {max} characters.',
-    'links.badPin': 'The PIN must be 4 to 8 digits.',
+    'links.badPin': 'The PIN must be 6 to 8 digits.',
     'options.blockedInvalid': 'Invalid path to block: {value}. It must start with / and have no spaces',
     'options.blockedTooMany': 'At most {max} blocked paths',
     'options.needsInspector': 'This option needs the tunnel to go through the inspector: create it again with “Inspect requests” on',

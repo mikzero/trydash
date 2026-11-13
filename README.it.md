@@ -95,7 +95,7 @@ Riscrittura, etichetta e percorsi bloccati vivono nel proxy dell’ispettore: ac
 La scheda **Clienti** crea un link per ogni cliente, come `https://….trycloudflare.com/?tdk=…`. Ogni scheda dice se il cliente l’ha aperto, quante pagine ha visto e quando è passato l’ultima volta; la dashboard ti avvisa la prima volta (“Mario ha aperto l’anteprima”), e la scheda **Richieste** segna ogni richiesta con il nome del cliente.
 
 - La chiave sparisce subito dalla barra degli indirizzi: il proxy di trydash la sostituisce con un cookie `HttpOnly` e `Secure` e rimanda all’URL pulito. Né la chiave né il cookie arrivano al tuo sito, quindi i suoi cookie e i suoi login funzionano come sempre.
-- Un link può chiedere un **PIN** da 4 a 8 cifre. Ne resta solo un hash, e dopo cinque tentativi sbagliati quel link aspetta dieci minuti.
+- Un link può chiedere un **PIN** da 6 a 8 cifre. Ne resta solo un hash. Cinque tentativi sbagliati dello stesso visitatore bloccano quel visitatore per dieci minuti; un altro può ancora entrare.
 - **Revoca** ferma un link alla pagina successiva, **Riattiva** lo rimette, **Elimina** lo toglie per sempre. Cambiare il PIN fa uscire chi era entrato con quello vecchio.
 - **Solo con un link personale** (`--links-only`) respinge chi apre l’URL senza link. Il pulsante **Apri** della dashboard entra sempre.
 - I link sono salvati con il tunnel e tengono le loro chiavi: dopo un riavvio l’URL cambia, e **Copia link** della stessa scheda dà quello nuovo con la stessa chiave.
@@ -364,7 +364,7 @@ Il frontend usa una piccola API JSON, utile anche per script. Ogni chiamata rich
 | `POST` | `/api/sessions` | crea un tunnel, body `{ "origin": "3000", "options": { … } }` (vedi sotto) |
 | `POST` | `/api/sessions/:id/stop` | ferma il tunnel |
 | `PATCH` | `/api/sessions/:id/options` | cambia l’anteprima per il cliente di un tunnel, stesso URL: `{ "rewrite": true, "blocked": "/wp-admin", "badge": true, "noindex": true, "comments": true, "linksOnly": true, "queue": true }` |
-| `GET`, `POST` | `/api/sessions/:id/links` | i link personali; ne crea uno con `{ "name": "Mario", "pin": "4821" }` (il PIN è facoltativo) |
+| `GET`, `POST` | `/api/sessions/:id/links` | i link personali; ne crea uno con `{ "name": "Mario", "pin": "482191" }` (il PIN è facoltativo) |
 | `PATCH`, `DELETE` | `/api/sessions/:id/links/:linkId` | `{ "name", "revoked", "pin" }` (`"pin": ""` lo toglie), oppure elimina |
 | `GET` | `/api/sessions/:id/comments?version=` | i commenti, dal più recente; con la `version` attuale, `{ "unchanged": true }` |
 | `PATCH`, `DELETE` | `/api/sessions/:id/comments/:commentId` | `{ "resolved": true }`, oppure elimina |

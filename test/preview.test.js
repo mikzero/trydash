@@ -125,6 +125,10 @@ test('blocked paths: case, dot segments, encodings and repeated slashes do not g
   assert.equal(blockedBy('/anything', []), null);
   assert.equal(pathForms('/a%00b'), null);
   assert.equal(blockedBy('/a%00b', blocked), '?');
+  // A server that drops `;params` and then resolves `..` must still hit the block.
+  assert.equal(blockedBy('/public/..;/secret', ['/secret']), '/secret');
+  assert.equal(blockedBy('/public/%2e%2e;/secret', ['/secret']), '/secret');
+  assert.equal(blockedBy('/foo/..;/secret', ['/secret']), '/secret');
 });
 
 test('a WordPress on localhost works through the tunnel with rewriting on', async () => {

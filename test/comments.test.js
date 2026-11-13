@@ -108,6 +108,27 @@ test('with comments on, pages get the widget and the tunnel takes comments; the 
   }
 });
 
+test('a full visitor map keeps the limits already counted', async () => {
+  const origin = await startOrigin();
+  const store = dash.createSessionStore();
+  const inspector = createInspector({ store, commentRateMax: 2 });
+  const session = store.create(origin.url, { comments: true });
+  const target = await inspector.open(session);
+  const send = (ip, text) => post(target, { page: '/', text }, { 'cf-connecting-ip': ip });
+  try {
+    assert.equal((await send('198.51.100.1', 'one')).status, 201);
+    assert.equal((await send('198.51.100.2', 'two')).status, 201);
+    assert.equal((await send('198.51.100.3', 'three')).status, 429, 'a new visitor does not wipe the map');
+    for (let i = 0; i < 28; i += 1) assert.equal((await send('198.51.100.1', `n${i}`)).status, 201);
+    assert.equal((await send('198.51.100.1', 'last')).status, 201);
+    assert.equal((await send('198.51.100.1', 'over')).status, 429);
+    assert.equal((await send('198.51.100.2', 'still counted')).status, 201);
+  } finally {
+    await inspector.closeAll();
+    await origin.close();
+  }
+});
+
 test('only real pages get the widget: JSON or fragments served as text/html stay untouched (VTE\'s count)', async () => {
   const zlib = await import('node:zlib');
   const COUNT = '{"success":"1","count":1}';
