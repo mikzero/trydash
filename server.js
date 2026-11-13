@@ -15,6 +15,7 @@ import { scanPorts, deepScan, formatScan } from './src/ports.js';
 import { createCollection } from './src/collection.js';
 import { parseImport, toPostman, toHar } from './src/formats.js';
 import { readAsset } from './src/assets.js';
+import { newKey, newId, checkPin, pinHash, publicLink, savedLink } from './src/links.js';
 
 
 const MIME = {
@@ -160,6 +161,8 @@ function summary(session, inspector) {
     expiresAt: session.expiresAt,
     localRedirect: session.localRedirect,
     expired: session.expired,
+    links: (session.links || []).map(publicLink),
+    ownerKey: session.ownerKey || null,
     inspect: inspectState(session, inspector),
   };
 }
@@ -347,7 +350,14 @@ export function createApp(options = {}) {
   const persist = options.persist || null;
 
   function saveTunnels() {
-    if (persist) persist.save(store.list().map((session) => ({ origin: session.origin, options: session.options })));
+    if (persist) {
+      persist.save(store.list().map((session) => ({
+        origin: session.origin,
+        options: session.options,
+        ownerKey: session.ownerKey || null,
+        links: (session.links || []).map(savedLink),
+      })));
+    }
   }
 
   // What a tunnel is once normalized: the same shape as a saved one.
@@ -377,6 +387,11 @@ export function createApp(options = {}) {
       } catch (error) {
         console.error(`trydash: saved tunnel skipped (${error.message})`);
         continue;
+      }
+      // The personal links keep their keys: the same ?tdk= works on the new URL.
+      store.setOwnerKey(session.id, typeof item.ownerKey === 'string' && item.ownerKey ? item.ownerKey : newKey());
+      for (const link of Array.isArray(item.links) ? item.links : []) {
+        try { store.addLink(session.id, link); } catch { /* a broken entry is left out */ }
       }
       store.stop(session.id);
       store.appendChunk(session.id, JSON.stringify({ level: 'info', message: 'restored from the saved tunnels: Restart starts it' }));
@@ -449,6 +464,7 @@ export function createApp(options = {}) {
     try {
       const wanted = describeTunnel(origin, rawOptions);
       session = store.create(wanted.origin, wanted.options);
+      store.setOwnerKey(session.id, newKey());
     } catch (error) {
       throw withStatus(error, error.code === 'BAD_ORIGIN' || error.code === 'BAD_OPTIONS' ? 400 : 500);
     }
@@ -751,6 +767,47 @@ export function createApp(options = {}) {
           sendError(res, req, error.status || 500, error, null, error.extra);
         }
         return;
+      }
+
+      // Personal links: create, rename, revoke, set or clear the PIN, delete.
+      const linksMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/links(?:\/([^/]+))?$/);
+      if (linksMatch) {
+        const id = decodeURIComponent(linksMatch[1]);
+        const linkId = linksMatch[2] == null ? null : decodeURIComponent(linksMatch[2]);
+        if (!store.get(id)) return sendError(res, req, 404, 'session.notFound');
+        const fail = (error) => sendError(res, req, error.status || (error.code === 'NOT_FOUND' ? 404 : error.code === 'LIMIT' ? 429 : error.code === 'BAD_REQUEST' ? 400 : 500), error);
+        try {
+          if (req.method === 'GET' && !linkId) return sendJson(res, 200, { links: store.get(id).links.map(publicLink) });
+          if (req.method === 'POST' && !linkId) {
+            const body = await readJson(req);
+            const pin = checkPin(body.pin);
+            const key = newKey();
+            const link = store.addLink(id, { id: newId(), name: body.name, key, pinHash: pin ? pinHash(key, pin) : null });
+            saveTunnels();
+            return sendJson(res, 201, { link: publicLink(link) });
+          }
+          if (req.method === 'PATCH' && linkId) {
+            const body = await readJson(req);
+            const patch = {};
+            if (body.name != null) patch.name = body.name;
+            if (body.revoked != null) patch.revoked = !!body.revoked;
+            if (Object.prototype.hasOwnProperty.call(body, 'pin')) {
+              const pin = checkPin(body.pin);
+              patch.pinHash = pin ? pinHash(store.getLink(id, linkId).key, pin) : null;
+            }
+            const link = store.updateLink(id, linkId, patch);
+            saveTunnels();
+            return sendJson(res, 200, { link: publicLink(link) });
+          }
+          if (req.method === 'DELETE' && linkId) {
+            store.removeLink(id, linkId);
+            saveTunnels();
+            return sendJson(res, 200, { ok: true });
+          }
+        } catch (error) {
+          return fail(error);
+        }
+        return sendError(res, req, 405, 'request.methodNotAllowed');
       }
 
       // The requests waiting for the origin: deliver now, or drop them.

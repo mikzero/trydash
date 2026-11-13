@@ -310,6 +310,83 @@ async function waitFor(fn, ms = 5000) {
     check('Laravel: label "Anteprima"', (await lp.locator('#trydash-preview').count()) === 1);
     check('Laravel: /telescope → 403', (await lp.goto(`${lState.url}/telescope`)).status() === 403);
 
+    // ---------------- Personal links (on the WordPress tunnel, rewriting on) ----------------
+    await api(18799, 'PATCH', `/api/sessions/${wp.id}/options`, { rewrite: true, blocked: [], badge: false });
+    await dash.click(`[data-session="${wp.id}"]`);
+    await dash.click('#tab-clients');
+    await dash.fill('#link-name', 'Mario Rossi');
+    await dash.click('[data-action="create-link"]');
+    await dash.waitForSelector('.link-card');
+    await dash.fill('#link-name', 'Anna');
+    await dash.fill('#link-pin', '4821');
+    await dash.click('[data-action="create-link"]');
+    await dash.waitForFunction(() => document.querySelectorAll('.link-card').length === 2);
+    await dash.check('#links-only');
+    await waitFor(async () => (await api(18799, 'GET', '/api/state')).json.sessions.find((s) => s.id === wp.id).options.linksOnly);
+    const st = (await api(18799, 'GET', '/api/state')).json.sessions.find((s) => s.id === wp.id);
+    const [marioLink, annaLink] = st.links;
+    check('Clients tab: two links, one with PIN', st.links.length === 2 && !marioLink.hasPin && annaLink.hasPin);
+    const linkText = await dash.locator('.link-card .link-url').first().innerText();
+    check('the card shows the link to send', linkText === `${wpUrl}/?tdk=${marioLink.key}`, linkText);
+
+    const stranger = await edgeContext(browser);
+    const sp = await stranger.newPage();
+    const noLink = await sp.goto(`${wpUrl}/`);
+    check('links only: the bare URL asks for a personal link', noLink.status() === 403 && /Serve un link personale/.test(await sp.content()));
+    const wpHitsBefore = origins.hits.wp.length;
+    await sp.goto(`${wpUrl}/?tdk=wrongwrongwrongwrongwr`);
+    check('a wrong key gets "link not valid" and never reaches WordPress', /Link non valido/.test(await sp.content()) && origins.hits.wp.length === wpHitsBefore);
+
+    const mario = await edgeContext(browser);
+    const mp = await mario.newPage();
+    await mp.goto(`${wpUrl}/?tdk=${marioLink.key}`);
+    check('Mario\'s link opens the site, the key leaves the address bar', mp.url() === `${wpUrl}/` && (await mp.title()) === 'Bottega Rossi', mp.url());
+    const tdCookie = (await mario.cookies(wpUrl)).find((c) => c.name === 'trydash_link');
+    check('trydash cookie: HttpOnly, Secure', tdCookie && tdCookie.httpOnly && tdCookie.secure);
+    check('WordPress never sees the key or the trydash cookie', origins.hits.wp.slice(wpHitsBefore).every((h) => !/tdk=/.test(h.url) && !/trydash_link/.test(h.cookie)));
+    await mp.click('#admin');
+    await mp.fill('#user_login', 'admin');
+    await mp.fill('#user_pass', 'password');
+    await Promise.all([mp.waitForNavigation(), mp.click('#wp-submit')]);
+    check('Mario can log in to WordPress through his link (cookies side by side)', mp.url() === `${wpUrl}/wp-admin/` && (await mp.locator('#dash').count()) === 1, mp.url());
+    const toast = await dash.waitForFunction(() => /Mario Rossi ha aperto l’anteprima/.test(document.body.innerText), null, { timeout: 5000 }).then(() => true, () => false);
+    check('the dashboard says "Mario Rossi ha aperto l’anteprima"', toast);
+    await dash.waitForTimeout(800);
+    const seen = await dash.locator('.link-card').first().locator('.link-seen').innerText();
+    check('the card counts Mario\'s visits', /aperto \d+ volt/.test(seen), seen);
+    await dash.click('#tab-requests');
+    await dash.waitForTimeout(600);
+    check('Requests tab shows who sent each request', (await dash.locator('.req-tag.q-client').allInnerTexts()).includes('Mario Rossi'));
+    await dash.click('#tab-clients');
+    await dash.screenshot({ path: `${SHOTS}/7-clients.png` });
+
+    const anna = await edgeContext(browser);
+    const ap = await anna.newPage();
+    await ap.goto(`${wpUrl}/ciao-mondo/?tdk=${annaLink.key}`);
+    check('Anna\'s link asks for the PIN', /Inserisci il PIN/.test(await ap.content()));
+    await ap.screenshot({ path: `${SHOTS}/8-pin.png` });
+    await ap.fill('input[name=pin]', '0000');
+    await Promise.all([ap.waitForNavigation(), ap.click('button')]);
+    check('a wrong PIN says so', /PIN errato/.test(await ap.content()));
+    await ap.fill('input[name=pin]', '4821');
+    await Promise.all([ap.waitForNavigation(), ap.click('button')]);
+    check('the right PIN opens the page she was sent to', ap.url() === `${wpUrl}/ciao-mondo/` && /Ciao mondo/.test(await ap.title()), ap.url());
+
+    // Revoke Mario from the dashboard: his next page is refused.
+    await dash.locator('.link-card').first().locator('[data-action="toggle-link"]').click();
+    await waitFor(async () => (await api(18799, 'GET', '/api/state')).json.sessions.find((s) => s.id === wp.id).links[0].revoked);
+    const revoked = await mp.goto(`${wpUrl}/ciao-mondo/`);
+    check('revoked: Mario gets "link not valid"', revoked.status() === 403 && /Link non valido/.test(await mp.content()));
+    check('Anna keeps working', (await ap.goto(`${wpUrl}/`)).status() === 200);
+
+    // The dashboard's Open uses the owner's key.
+    const href = await dash.getAttribute('#open-url', 'href');
+    const owner = await edgeContext(browser);
+    const op = await owner.newPage();
+    await op.goto(href);
+    check('the dashboard\'s Open gets in with links only on', op.url() === `${wpUrl}/` && (await op.title()) === 'Bottega Rossi', href);
+    await api(18799, 'PATCH', `/api/sessions/${wp.id}/options`, { linksOnly: false });
+
     // ---------------- Folder ----------------
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trydash-e2e-site-'));
     fs.writeFileSync(path.join(dir, 'index.html'), '<!doctype html><title>Portfolio</title><h1>Portfolio</h1>');

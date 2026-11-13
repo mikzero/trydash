@@ -20,7 +20,14 @@ export function tunnelKey(tunnel) {
 }
 
 function clean(tunnel) {
-  return { origin: tunnel.origin || null, options: tunnel.options || {} };
+  const out = { origin: tunnel.origin || null, options: tunnel.options || {} };
+  // Personal links and the owner's key, so the same ?tdk= links work after a restart.
+  if (typeof tunnel.ownerKey === 'string' && /^[A-Za-z0-9_-]{16,64}$/.test(tunnel.ownerKey)) out.ownerKey = tunnel.ownerKey;
+  if (Array.isArray(tunnel.links)) {
+    out.links = tunnel.links.filter((link) => link && typeof link === 'object'
+      && /^l[0-9a-f]{10}$/.test(String(link.id)) && /^[A-Za-z0-9_-]{16,64}$/.test(String(link.key))).slice(0, 50);
+  }
+  return out;
 }
 
 export function createConfigFile(file, { warn = (text) => console.error(text) } = {}) {

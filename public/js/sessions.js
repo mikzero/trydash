@@ -6,6 +6,7 @@
   // A chatty or stuck cloudflared must not fill the memory: past MAX_ENTRIES the
   // oldest LOG_DROP lines go. `index` keeps counting, so a line keeps its number.
   var MAX_ENTRIES = 20000;
+  var MAX_LINKS = 50;
   var LOG_DROP = 5000;
 
   function now() {
@@ -50,6 +51,12 @@
     var seq = 1;
     var sessions = new Map();
 
+    function linkName(value) {
+      var name = String(value == null ? '' : value).replace(/[\u0000-\u001f\u007f]/g, ' ').trim();
+      if (!name || name.length > 60) throw api.appError('BAD_REQUEST', 'links.badName', { max: 60 });
+      return name;
+    }
+
     function requireSession(id) {
       var session = sessions.get(id);
       if (!session) {
@@ -70,6 +77,9 @@
           metricsUrl: null,
           traffic: null,
           lastOriginError: null,
+          // Personal links for clients, and the key of the owner's own (set by the server).
+          links: [],
+          ownerKey: null,
           status: 'starting',
           active: true,
           exitCode: null,
@@ -164,7 +174,7 @@
       updatePreview: function (id, patch) {
         var session = requireSession(id);
         var next = Object.assign({}, session.options);
-        ['rewrite', 'noindex', 'badge', 'blocked', 'queue'].forEach(function (key) {
+        ['rewrite', 'noindex', 'badge', 'blocked', 'queue', 'linksOnly'].forEach(function (key) {
           if (patch && Object.prototype.hasOwnProperty.call(patch, key)) next[key] = patch[key];
         });
         var normalized = api.normalizeTunnelOptions(next);
@@ -186,6 +196,66 @@
         var session = requireSession(id);
         session.invocation = api.buildQuickTunnelCommand(session.origin, session.options, target);
         return session;
+      },
+      // ---- Personal links -------------------------------------------------------
+      setOwnerKey: function (id, key) {
+        requireSession(id).ownerKey = String(key);
+      },
+      // `link`: { id, name, key, pinHash }, made by the server (it has the random bytes).
+      addLink: function (id, link) {
+        var session = requireSession(id);
+        var name = linkName(link.name);
+        if (session.links.length >= MAX_LINKS) throw api.appError('LIMIT', 'links.tooMany', { max: MAX_LINKS });
+        var item = {
+          id: String(link.id),
+          name: name,
+          key: String(link.key),
+          pinHash: link.pinHash || null,
+          createdAt: link.createdAt || now(),
+          revoked: !!link.revoked,
+          visits: Number(link.visits) || 0,
+          firstSeen: link.firstSeen || null,
+          lastSeen: link.lastSeen || null,
+        };
+        session.links.push(item);
+        return item;
+      },
+      getLink: function (id, linkId) {
+        var session = requireSession(id);
+        for (var i = 0; i < session.links.length; i += 1) if (session.links[i].id === linkId) return session.links[i];
+        throw api.appError('NOT_FOUND', 'links.notFound');
+      },
+      linkByKey: function (id, key) {
+        var session = this.get(id);
+        if (!session || !key) return null;
+        for (var i = 0; i < session.links.length; i += 1) if (session.links[i].key === key) return session.links[i];
+        return null;
+      },
+      updateLink: function (id, linkId, patch) {
+        var link = this.getLink(id, linkId);
+        if (patch.name != null) link.name = linkName(patch.name);
+        if (patch.revoked != null) link.revoked = !!patch.revoked;
+        if (Object.prototype.hasOwnProperty.call(patch, 'pinHash')) link.pinHash = patch.pinHash || null;
+        return link;
+      },
+      removeLink: function (id, linkId) {
+        var session = requireSession(id);
+        this.getLink(id, linkId);
+        session.links = session.links.filter(function (link) { return link.id !== linkId; });
+      },
+      // A page opened through the link: counted, with the first and the latest time.
+      recordVisit: function (id, linkId) {
+        var session = this.get(id);
+        if (!session) return null;
+        for (var i = 0; i < session.links.length; i += 1) {
+          var link = session.links[i];
+          if (link.id !== linkId) continue;
+          link.visits += 1;
+          link.lastSeen = now();
+          if (!link.firstSeen) link.firstSeen = link.lastSeen;
+          return link;
+        }
+        return null;
       },
       // The origin answered again: the "not responding" banner goes at once, not after a minute.
       recordOriginBack: function (id) {
@@ -265,6 +335,7 @@
 
   api.TRAFFIC_KEEP = TRAFFIC_KEEP;
   api.MAX_ENTRIES = MAX_ENTRIES;
+  api.MAX_LINKS = MAX_LINKS;
   api.LOG_DROP = LOG_DROP;
   api.createSessionStore = createSessionStore;
 })(globalThis);

@@ -245,7 +245,7 @@
   }
 
   function setTab(tab) {
-    state.tab = tab === 'requests' || tab === 'saved' ? tab : 'log';
+    state.tab = tab === 'requests' || tab === 'saved' || tab === 'clients' ? tab : 'log';
     api.showTab(state.tab);
     if (state.requests) state.requests.setActive(state.tab === 'requests');
     if (state.saved) state.saved.setActive(state.tab === 'saved');
@@ -307,6 +307,13 @@
           });
         });
       }
+      if (prev && api.firstVisits) {
+        api.firstVisits(prev.links, session.links).forEach(function (link) {
+          var text = api.t('ui.clients.opened', { name: link.name });
+          notify(text);
+          if (api.notifications) api.notifications.show(text, session.url ? session.url.replace(/^https?:\/\//, '') : '', { tag: session.id + ':link:' + link.id });
+        });
+      }
       if (prev && prev.status !== session.status) {
         if (session.status === 'running' && session.url) notify(api.t('ui.toast.newUrl', { url: session.url }));
         if (session.status === 'stopped' && session.expired) notify(api.t('ui.toast.expired'));
@@ -314,7 +321,7 @@
           notify(api.t('ui.toast.exited', { code: session.exitCode == null ? '?' : session.exitCode }), 'error');
         }
       }
-      next[session.id] = { status: session.status, lastOriginError: session.lastOriginError };
+      next[session.id] = { status: session.status, lastOriginError: session.lastOriginError, links: session.links };
     });
     state.prevById = next;
   }
@@ -599,8 +606,33 @@
     await refresh();
   }
 
+  // A personal link for one client, on the tunnel on screen.
+  async function createLink() {
+    var session = currentSession();
+    if (!session) return;
+    var input = api.readLinkForm();
+    var body = { name: input.name };
+    if (input.pin) body.pin = input.pin;
+    await api_('POST', '/api/sessions/' + encodeURIComponent(session.id) + '/links', body);
+    api.resetLinkForm();
+    notify(api.t('ui.clients.created', { name: input.name }));
+    await refresh();
+  }
+
+  function linkById(id) {
+    var session = currentSession();
+    var links = (session && session.links) || [];
+    for (var i = 0; i < links.length; i += 1) if (links[i].id === id) return links[i];
+    return null;
+  }
+
   function onSubmit(event) {
     var form = event.target;
+    if (form && form.id === 'link-form') {
+      event.preventDefault();
+      createLink().catch(fail);
+      return;
+    }
     if (!form || form.id !== 'create-form') return;
     event.preventDefault();
     createSession(form).catch(fail);
@@ -610,6 +642,9 @@
     var target = event.target;
     if (!target) return;
     if (target.closest && target.closest('#create-form')) api.refreshCreateForm(document.getElementById('create-form'));
+    if (target.id === 'links-only' && event.type === 'change') {
+      updatePreview({ linksOnly: !!target.checked }, target.checked ? api.t('ui.clients.onlyOn') : api.t('ui.clients.onlyOff')).catch(fail);
+    }
     if (target.id === 'req-queue' && event.type === 'change') {
       updatePreview({ queue: !!target.checked }, target.checked ? api.t('ui.queue.on') : api.t('ui.queue.off')).catch(fail);
     }
@@ -724,6 +759,39 @@
     }
     if (action === 'qr-close') {
       api.closeQr();
+      return;
+    }
+    if (action === 'copy-link' || action === 'link-qr' || action === 'toggle-link' || action === 'delete-link') {
+      var link = linkById(node.dataset.link);
+      var forLink = currentSession();
+      if (!link || !forLink) return;
+      var linkPath = '/api/sessions/' + encodeURIComponent(forLink.id) + '/links/' + encodeURIComponent(link.id);
+      if (action === 'copy-link') {
+        copyText(api.linkUrl(forLink, link), api.t('ui.clients.copied', { name: link.name }));
+      } else if (action === 'link-qr') {
+        api.closePreview();
+        api.closeQr();
+        api.openQr(api.linkUrl(forLink, link));
+      } else if (action === 'toggle-link') {
+        api_('PATCH', linkPath, { revoked: !link.revoked }).then(function () {
+          notify(api.t(link.revoked ? 'ui.clients.restored' : 'ui.clients.revoked', { name: link.name }));
+          return refresh();
+        }).catch(fail);
+      } else if (node.dataset.armed === '1') {
+        api_('DELETE', linkPath).then(function () {
+          notify(api.t('ui.clients.removed', { name: link.name }));
+          return refresh();
+        }).catch(fail);
+      } else {
+        // Deleting a link breaks it for good: the first click asks, the second deletes.
+        node.dataset.armed = '1';
+        node.textContent = api.t('ui.clients.confirmRemove');
+        setTimeout(function () {
+          if (node.dataset.armed !== '1') return;
+          node.dataset.armed = '';
+          node.textContent = api.t('ui.clients.remove');
+        }, 4000);
+      }
       return;
     }
     if (action === 'deliver-queue' || action === 'drop-queue') {

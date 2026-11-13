@@ -12,6 +12,10 @@ import fs from 'node:fs';
 import { planStatic } from './static.js';
 import { isListening } from './ports.js';
 import {
+  KEY_PARAM, COOKIE, RESERVED, PIN_TRIES, PIN_LOCK_MS, cookieValue, cookieLinkId, readCookie, withoutCookie,
+  withoutKey, setCookie, gatePage, safeBack, pinMatches,
+} from './links.js';
+import {
   MODIFY_CAP, NOINDEX, REWRITE_TYPE, HTML_TYPE, createRewriter, localHostOf, localLinkIn, hostCheckIn,
   blockedBy, blockedPage, injectBadge, publicCookie,
 } from './preview.js';
@@ -160,6 +164,7 @@ function summaryOf(rec) {
     queued: rec.queued || null,
     deliveredAs: rec.deliveredAs || null,
     delivery: !!rec.delivery,
+    client: rec.client || null,
     websocket: rec.websocket,
     requestSize: rec.requestBody.size,
     responseSize: rec.responseBody.size,
@@ -208,6 +213,8 @@ export function createInspector({
 } = {}) {
   const proxies = new Map();
   const token = crypto.randomBytes(16).toString('hex');
+  // Signs the personal-link cookies; a new one at each start.
+  const linkSecret = crypto.randomBytes(32);
   // Requests trydash itself sent (replays and saved ones), by the nonce in their marker.
   const pendingSends = new Map();
 
@@ -248,6 +255,7 @@ export function createInspector({
       error: null,
       replayOf,
       websocket: !!extra.websocket,
+      client: req.trydashLink && req.trydashLink.id !== 'owner' ? req.trydashLink.name : null,
     };
     if (mine) {
       entry.replays.set(marker[2], rec);
@@ -408,8 +416,145 @@ export function createInspector({
     return Buffer.from(text, 'latin1');
   }
 
+  // ---- Personal links ------------------------------------------------------------------
+
+  function sendPage(res, status, html, headers = {}) {
+    const body = Buffer.from(html);
+    res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Length': String(body.length), 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex', ...headers });
+    res.end(body);
+  }
+
+  function linkFinder(session) {
+    return (id) => {
+      if (id === 'owner') return session.ownerKey ? { id: 'owner', name: null, key: session.ownerKey, pinHash: null } : null;
+      return session.links.find((link) => link.id === id && !link.revoked) || null;
+    };
+  }
+
+  // trydash's own cookie goes before anything is recorded or forwarded.
+  function stripLinkCookie(req) {
+    if (!req.headers.cookie || !req.headers.cookie.includes(`${COOKIE}=`)) return;
+    const kept = withoutCookie(req.headers.cookie, COOKIE);
+    if (kept == null) delete req.headers.cookie;
+    else req.headers.cookie = kept;
+    const raw = [];
+    for (let i = 0; i + 1 < req.rawHeaders.length; i += 2) {
+      if (req.rawHeaders[i].toLowerCase() === 'cookie') {
+        const value = withoutCookie(req.rawHeaders[i + 1], COOKIE);
+        if (value != null) raw.push(req.rawHeaders[i], value);
+      } else raw.push(req.rawHeaders[i], req.rawHeaders[i + 1]);
+    }
+    req.rawHeaders = raw;
+  }
+
+  function isPageView(req) {
+    if (req.method !== 'GET') return false;
+    const dest = req.headers['sec-fetch-dest'];
+    return dest ? dest === 'document' : /text\/html/.test(String(req.headers.accept || ''));
+  }
+
+  // Who is visiting: a personal link turns into a cookie, a PIN is asked for, and with
+  // "personal links only" nobody else gets in. True when it answered the request itself.
+  function gate(entry, req, res) {
+    const session = store.get(entry.id);
+    if (!session) return false;
+    const lang = req.headers['accept-language'];
+    const pathname = String(req.url || '/').split('?')[0];
+    if (pathname === `${RESERVED}pin`) {
+      handlePin(entry, session, req, res);
+      return true;
+    }
+    if (isReplay(req)) {
+      stripLinkCookie(req);
+      return false;
+    }
+    const find = linkFinder(session);
+    let key = null;
+    try { key = new URL(req.url || '/', 'http://x').searchParams.get(KEY_PARAM); } catch { key = null; }
+    if (key) {
+      const link = session.ownerKey && key === session.ownerKey ? find('owner') : session.links.find((item) => item.key === key) || null;
+      if (!link || link.revoked) {
+        sendPage(res, 403, gatePage('invalid', lang), { 'Set-Cookie': setCookie('', { clear: true }) });
+        return true;
+      }
+      const already = cookieLinkId(linkSecret, readCookie(req.headers.cookie, COOKIE), find);
+      if (link.pinHash && !(already && already.id === link.id)) {
+        sendPage(res, 200, gatePage('pin', lang, { key, back: withoutKey(req.url) }));
+        return true;
+      }
+      res.writeHead(302, { Location: withoutKey(req.url), 'Set-Cookie': setCookie(cookieValue(linkSecret, link)), 'Cache-Control': 'no-store', 'Content-Length': '0' });
+      res.end();
+      return true;
+    }
+    const cookie = readCookie(req.headers.cookie, COOKIE);
+    const link = cookie ? cookieLinkId(linkSecret, cookie, find) : null;
+    stripLinkCookie(req);
+    if (!link && session.options.linksOnly) {
+      sendPage(res, 403, gatePage(cookie ? 'invalid' : 'required', lang), cookie ? { 'Set-Cookie': setCookie('', { clear: true }) } : {});
+      return true;
+    }
+    req.trydashLink = link;
+    if (link && link.id !== 'owner' && isPageView(req)) store.recordVisit(entry.id, link.id);
+    return false;
+  }
+
+  function handlePin(entry, session, req, res) {
+    const lang = req.headers['accept-language'];
+    if (req.method !== 'POST') {
+      sendPage(res, 405, gatePage('invalid', lang), { Allow: 'POST' });
+      return;
+    }
+    const chunks = [];
+    let size = 0;
+    req.on('data', (chunk) => {
+      size += chunk.length;
+      if (size <= 4096) chunks.push(chunk);
+    });
+    req.on('end', () => {
+      const form = new URLSearchParams(Buffer.concat(chunks).toString('utf8'));
+      const key = form.get('key') || '';
+      const back = safeBack(form.get('back'));
+      const link = session.links.find((item) => item.key === key && !item.revoked);
+      if (!link || !link.pinHash) {
+        sendPage(res, 403, gatePage('invalid', lang));
+        return;
+      }
+      const tries = entry.pinTries.get(link.id) || { count: 0, until: 0 };
+      const now = clock();
+      if (tries.until > now) {
+        sendPage(res, 429, gatePage('pin', lang, { key, back, error: 'pinLocked' }));
+        return;
+      }
+      if (pinMatches(link, form.get('pin'))) {
+        entry.pinTries.delete(link.id);
+        res.writeHead(303, { Location: back, 'Set-Cookie': setCookie(cookieValue(linkSecret, link)), 'Cache-Control': 'no-store', 'Content-Length': '0' });
+        res.end();
+        return;
+      }
+      tries.count += 1;
+      if (tries.count >= PIN_TRIES) {
+        tries.count = 0;
+        tries.until = now + PIN_LOCK_MS;
+      }
+      entry.pinTries.set(link.id, tries);
+      sendPage(res, tries.until > now ? 429 : 401, gatePage('pin', lang, { key, back, error: tries.until > now ? 'pinLocked' : 'pinWrong' }));
+    });
+  }
+
+  // WebSockets: the cookie must be valid with "personal links only", and never reaches the origin.
+  function gateUpgrade(entry, req) {
+    const session = store.get(entry.id);
+    if (!session || isReplay(req)) return true;
+    const cookie = readCookie(req.headers.cookie, COOKIE);
+    const link = cookie ? cookieLinkId(linkSecret, cookie, linkFinder(session)) : null;
+    stripLinkCookie(req);
+    req.trydashLink = link;
+    return !!link || !session.options.linksOnly;
+  }
+
   function onRequest(entry, req, res) {
     if (refuseStopped(entry, req)) return refuse(res);
+    if (gate(entry, req, res)) return;
     const prefs = previewOf(entry);
     if (refuseBlocked(entry, req, res, prefs)) return;
     const rec = startRecord(entry, req);
@@ -648,6 +793,7 @@ export function createInspector({
   // A folder tunnel: trydash itself answers, from the files in the folder.
   function onFolderRequest(entry, req, res) {
     if (refuseStopped(entry, req)) return refuse(res);
+    if (gate(entry, req, res)) return;
     const prefs = previewOf(entry);
     if (refuseBlocked(entry, req, res, prefs)) return;
     const rec = startRecord(entry, req);
@@ -707,6 +853,10 @@ export function createInspector({
     }
     if (entry.folder) {
       socket.end('HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
+      return;
+    }
+    if (!gateUpgrade(entry, req)) {
+      socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
       return;
     }
     const prefs = previewOf(entry);
@@ -791,6 +941,7 @@ export function createInspector({
       rewriter: null,
       rewriterKey: '',
       queue: [],
+      pinTries: new Map(),
       queueTimer: null,
       delivering: false,
       closed: false,

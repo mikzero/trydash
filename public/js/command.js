@@ -142,9 +142,11 @@
     options.badge = proxied && input.badge === true;
     // Requests that find the origin down wait in trydash's proxy (webhooks, mostly).
     options.queue = proxied && !folder && input.queue === true;
+    // Only visitors with a personal link (see the Clients tab) get in.
+    options.linksOnly = proxied && input.linksOnly === true;
     // The inspector's proxy speaks HTTP/1.1 only, so an HTTP/2 origin skips it.
     // A folder is always served by trydash; the preview options need the proxy too.
-    options.inspect = folder || (proxied && (input.inspect !== false || options.rewrite || options.badge || options.queue || options.blocked.length > 0));
+    options.inspect = folder || (proxied && (input.inspect !== false || options.rewrite || options.badge || options.queue || options.linksOnly || options.blocked.length > 0));
     // Previews stay out of search engines unless asked otherwise.
     options.noindex = options.inspect && input.noindex !== false;
     if (folder) options.folder = folderPath(input.folder);

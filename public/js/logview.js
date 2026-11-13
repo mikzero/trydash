@@ -187,6 +187,10 @@
           h('span', { text: api.t('ui.tabs.saved') }),
           h('span', { id: 'tab-saved-count', className: 'tab-count', hidden: true }),
         ]),
+        h('button', { type: 'button', id: 'tab-clients', className: 'tab', role: 'tab', 'aria-selected': 'false', 'aria-controls': 'pane-clients', dataset: { action: 'tab', tab: 'clients' } }, [
+          h('span', { text: api.t('ui.tabs.clients') }),
+          h('span', { id: 'tab-clients-count', className: 'tab-count', hidden: true }),
+        ]),
       ]),
       h('div', { id: 'pane-log', className: 'tab-pane', role: 'tabpanel', 'aria-labelledby': 'tab-log' }, [
         h('div', { className: 'log-toolbar' }, [
@@ -220,12 +224,13 @@
       ]),
       api.buildRequestsPane ? api.buildRequestsPane() : null,
       api.buildSavedPane ? api.buildSavedPane() : null,
+      api.buildClientsPane ? api.buildClientsPane() : null,
     ]);
   }
 
   // Shows one of the two panes; the hidden one keeps its state.
   function showTab(tab) {
-    ['log', 'requests', 'saved'].forEach(function (name) {
+    ['log', 'requests', 'saved', 'clients'].forEach(function (name) {
       var on = name === tab;
       var button = el('tab-' + name);
       var pane = el('pane-' + name);
@@ -628,12 +633,19 @@
       var open = el('open-url');
       if (open) {
         if (session.url) {
-          open.setAttribute('href', session.url);
+          open.setAttribute('href', api.ownerUrl ? api.ownerUrl(session) : session.url);
           open.removeAttribute('aria-disabled');
         } else {
           open.removeAttribute('href');
           open.setAttribute('aria-disabled', 'true');
         }
+      }
+      if (api.paintClients) api.paintClients(session);
+      var clientsCount = el('tab-clients-count');
+      if (clientsCount && api.linkCount) {
+        var links = api.linkCount(session);
+        clientsCount.hidden = !links;
+        clientsCount.textContent = String(links);
       }
       var copy = document.querySelector('[data-action="copy-url"]');
       if (copy) copy.disabled = !session.url;

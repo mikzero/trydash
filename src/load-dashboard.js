@@ -24,6 +24,7 @@ export const browserScripts = [
   'public/js/qr.js',
   'public/js/requests.js',
   'public/js/saved.js',
+  'public/js/clients.js',
   'public/js/logview.js',
   'public/js/app.js',
 ];

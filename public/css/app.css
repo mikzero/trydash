@@ -1170,3 +1170,22 @@ mark { background: var(--mark); color: var(--mark-t); border-radius: 2px; paddin
   .qr-pop { top: 56px; right: 16px; left: 16px; width: auto; max-width: 320px; margin-left: auto; }
   .preview-pop { max-width: 360px; }
 }
+
+/* Clients tab */
+.clients-pane { padding: 14px 20px 24px; overflow: auto; grid-template-rows: none; align-content: start; }
+.clients-head { display: grid; gap: 8px; max-width: 760px; }
+.clients-head .check { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+.clients-head .check[hidden] { display: none; }
+.link-form { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; max-width: 760px; }
+.link-form #link-name { flex: 1 1 220px; min-width: 0; }
+.link-form #link-pin { flex: 0 1 180px; min-width: 0; }
+.links-list { display: grid; gap: 10px; max-width: 760px; }
+.links-empty { color: var(--muted); font-size: 13px; }
+.link-card { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); min-width: 0; }
+.link-card.is-revoked { opacity: 0.6; }
+.link-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.link-name { font-size: 14px; }
+.link-seen { margin-left: auto; font-size: 12px; color: var(--faint); }
+.link-seen.is-seen { color: var(--ok, var(--i)); }
+.link-url { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.req-tag.q-client { background: var(--i-bg); color: var(--i); font-weight: 600; }

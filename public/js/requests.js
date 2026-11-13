@@ -353,6 +353,7 @@
       var isSelected = row.seq === selected;
       var path = h('span', { className: 'req-path' });
       if (row.blocked) path.append(h('span', { className: 'req-tag', title: api.t('ui.req.blockedTag', { path: row.blocked }), text: '⛔' }));
+      if (row.client) path.append(h('span', { className: 'req-tag q-client', title: api.t('ui.clients.requestTag', { name: row.client }), text: row.client }));
       if (row.queued) path.append(h('span', { className: 'req-tag q-' + row.queued, title: api.t('ui.queue.tag.' + row.queued, { n: row.deliveredAs }), text: row.queued === 'delivered' ? '→ #' + row.deliveredAs : api.t('ui.queue.short.' + row.queued) }));
       if (row.saved) path.append(h('span', { className: 'req-tag', title: api.t('ui.req.savedTag', { name: row.saved }), text: '☆' }));
       if (row.replayOf != null) {

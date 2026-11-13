@@ -65,7 +65,8 @@ test('the dashboard saves on create and remove, restores stopped, and restarts w
   try {
     const { session } = await (await call('POST', '/api/sessions', { origin: '3000', options: { allowedMail: 'a@b.it', expiresIn: 60 } })).json();
     assert.equal(saves.length, 1);
-    assert.deepEqual(saves[0][0], { origin: 'http://127.0.0.1:3000', options: session.options });
+    assert.deepEqual(saves[0][0], { origin: 'http://127.0.0.1:3000', options: session.options, ownerKey: session.ownerKey, links: [] });
+    assert.match(session.ownerKey, /^[A-Za-z0-9_-]{22}$/);
     await call('DELETE', `/api/sessions/${session.id}`);
     assert.deepEqual(saves.at(-1), []);
 

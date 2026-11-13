@@ -11,6 +11,7 @@ import { dashboardRoot } from '../src/load-dashboard.js';
 test('arguments: a port, a URL or a folder opens a tunnel; options follow cloudflared', () => {
   assert.deepEqual(parseArgs([]), { port: null, open: null, save: null, help: false, version: false, scan: false, target: null });
   assert.equal(parseArgs(['--scan']).scan, true);
+  assert.deepEqual(parseArgs(['8080', '--queue', '--links-only']).target, { origin: '8080', options: { queue: true, linksOnly: true } });
   assert.throws(() => parseArgs(['--scan', '3000']), /--scan takes no/);
   assert.equal(parseArgs(['--no-save']).save, false);
   assert.deepEqual(parseArgs(['3000']).target, { origin: '3000', options: {} });
