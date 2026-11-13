@@ -8,7 +8,10 @@
   window.__trydashComments = true;
 
   var API = '/__trydash/comments';
-  var it = /^it\b/i.test(navigator.language || '');
+  // A screenshot for the dashboard asks for the client's language and a clean bubble.
+  var shotMode = /[#&]trydash-shot=1\b/.test(location.hash);
+  var hashLang = /[#&]trydash-lang=([a-z]{2})\b/i.exec(location.hash);
+  var it = /^it\b/i.test(hashLang ? hashLang[1] : (navigator.language || ''));
   var T = it ? {
     button: 'Commenta',
     hint: 'Clicca sul punto da commentare · Esc per annullare',
@@ -276,7 +279,7 @@
     var body = make('div', 'text', c.text);
     pop.appendChild(body);
     var row = make('div', 'row');
-    var mine = c.mine || !!editKeys()[c.id];
+    var mine = !shotMode && (c.mine || !!editKeys()[c.id]);
     if (mine) {
       row.appendChild(button(T.remove, 'btn danger', function (node) {
         if (node.dataset.sure !== '1') {
@@ -316,8 +319,8 @@
         area.focus();
       }));
     }
-    row.appendChild(button(T.close, 'btn', closePop));
-    pop.appendChild(row);
+    if (!shotMode) row.appendChild(button(T.close, 'btn', closePop));
+    if (row.children.length) pop.appendChild(row);
     place(pop, x, y);
     shadow.appendChild(pop);
   }
@@ -336,10 +339,14 @@
         drawPins();
         var m = /trydash-comment=([\w-]+)/.exec(location.hash);
         if (m) {
+          // Opened from the dashboard (or for its screenshot): straight to the pin, bubble open.
           var target = pins.querySelector('[data-id="' + m[1] + '"]');
-          if (target) {
-            window.scrollTo({ top: Math.max(0, parseFloat(target.style.top) - window.innerHeight / 3), behavior: 'smooth' });
+          var wanted = list.filter(function (c) { return c.id === m[1]; })[0];
+          if (target && wanted) {
+            window.scrollTo(0, Math.max(0, parseFloat(target.style.top) - window.innerHeight / 3));
             target.classList.add('pulse');
+            var r = target.getBoundingClientRect();
+            showComment(wanted, r.left, r.top);
           }
         }
       })
@@ -552,6 +559,7 @@
   window.addEventListener('popstate', reloadSoon);
 
   function mount() {
+    if (shotMode) fab.style.display = 'none';
     // On <html>, not <body>: a positioned or margined body would shift the pins.
     document.documentElement.appendChild(hostNode);
     load();

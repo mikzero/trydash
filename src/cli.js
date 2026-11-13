@@ -38,7 +38,8 @@ Options:
   -h, --help               this help
 
 Environment: TRYDASH_PORT, TRYDASH_TOKEN, TRYDASH_OPEN=0,
-  TRYDASH_CONFIG (file of the saved tunnels, or "off").`;
+  TRYDASH_CONFIG (file of the saved tunnels, or "off"),
+  TRYDASH_CHROME (browser for comment screenshots).`;
 
 export function helpText() {
   return HELP;

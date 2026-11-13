@@ -1208,3 +1208,7 @@ mark { background: var(--mark); color: var(--mark-t); border-radius: 2px; paddin
 .comment-meta { margin: 0; font-size: 12px; color: var(--faint); overflow-wrap: anywhere; }
 .comment-errors summary { font-size: 12px; color: var(--e); cursor: pointer; }
 .comment-errors ul { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: var(--e); }
+.comment-shot { display: grid; gap: 6px; justify-items: start; }
+.comment-shot img { display: block; max-width: min(100%, 360px); max-height: 320px; width: auto; height: auto; object-fit: contain; object-position: top left; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.comment-shot-note { margin: 0; font-size: 12px; color: var(--muted); }
+.comment-shot-note.is-bad { color: var(--e); }

@@ -2,6 +2,7 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { execFile, spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadDashboard } from './src/load-dashboard.js';
@@ -16,6 +17,7 @@ import { createCollection } from './src/collection.js';
 import { parseImport, toPostman, toHar } from './src/formats.js';
 import { readAsset } from './src/assets.js';
 import { newKey, newId, checkPin, pinHash, publicLink, savedLink } from './src/links.js';
+import { createShooter } from './src/shots.js';
 
 
 const MIME = {
@@ -89,6 +91,21 @@ export function isAllowedRequest(method, headers, { api = false } = {}) {
 
 // Sent with every dashboard response: no framing (clickjacking), no inline code,
 // no MIME sniffing, no referrer leaking the token or a tunnel URL.
+// TRYDASH_CHROME_ARGS: more flags for the screenshot browser, as a JSON array or space-separated.
+export function chromeArgs(text) {
+  const value = String(text || '').trim();
+  if (!value) return [];
+  if (value.startsWith('[')) {
+    try {
+      const list = JSON.parse(value);
+      return Array.isArray(list) ? list.map(String) : [];
+    } catch {
+      return [];
+    }
+  }
+  return value.split(/\s+/);
+}
+
 export const SECURITY_HEADERS = {
   'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; "
     + "object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
@@ -213,7 +230,11 @@ export function createApp(options = {}) {
   const inspector = options.inspector || createInspector({
     store,
     isLive: (id) => !!(store.get(id) && store.get(id).active),
-    onComment: () => saveTunnels(),
+    onComment: (id, comment, kind) => {
+      if (kind === 'add') shootComment(id, comment.id);
+      if (kind === 'delete') dropShot(comment.id);
+      saveTunnels();
+    },
     onFirstVisit: () => saveTunnels(),
   });
   const sampler = createTrafficSampler({
@@ -229,6 +250,50 @@ export function createApp(options = {}) {
   let deepInflight = null;
   // Saved requests; main() gives them a file next to the saved tunnels.
   const collection = options.collection || createCollection();
+  // Screenshots of the commented pages: next to the saved tunnels, or in a temporary folder.
+  const shooter = options.shooter || createShooter({ extraArgs: chromeArgs(process.env.TRYDASH_CHROME_ARGS) });
+  const shotsDir = options.shotsDir || (options.persist && options.persist.file
+    ? path.join(path.dirname(options.persist.file), 'shots')
+    : path.join(os.tmpdir(), `trydash-shots-${process.pid}`));
+
+  function shotFile(commentId) {
+    return /^c[0-9a-f]{10}$/.test(commentId) ? path.join(shotsDir, `${commentId}.png`) : null;
+  }
+
+  function dropShot(commentId) {
+    const file = shotFile(commentId);
+    if (file) {
+      try { fs.rmSync(file, { force: true }); } catch { /* already gone */ }
+    }
+  }
+
+  // The page as the client saw it: their screen size, the pin and its bubble open. Through the
+  // public URL with the owner's key, so it is what anyone with the link gets.
+  function shootComment(id, commentId) {
+    const session = store.get(id);
+    if (!session) return Promise.resolve(null);
+    const comment = session.comments.find((c) => c.id === commentId);
+    if (!comment) return Promise.resolve(null);
+    if (!shooter.available) {
+      store.setCommentShot(id, commentId, { state: 'off', at: new Date().toISOString() });
+      return Promise.resolve(null);
+    }
+    if (!session.url || !session.active) {
+      store.setCommentShot(id, commentId, { state: 'failed', reason: 'no-url', at: new Date().toISOString() });
+      return Promise.resolve(null);
+    }
+    const sep = comment.page.includes('?') ? '&' : '?';
+    const key = session.ownerKey ? `${sep}tdk=${encodeURIComponent(session.ownerKey)}` : '';
+    const lang = comment.lang ? `&trydash-lang=${comment.lang}` : '';
+    const url = `${session.url.replace(/\/+$/, '')}${comment.page}${key}#trydash-comment=${comment.id}&trydash-shot=1${lang}`;
+    store.setCommentShot(id, commentId, { state: 'pending', at: new Date().toISOString() });
+    return shooter.take({ url, viewport: comment.viewport, file: shotFile(commentId) }).then((size) => {
+      store.setCommentShot(id, commentId, { state: 'ready', at: new Date().toISOString(), width: size.width, height: size.height });
+      saveTunnels();
+    }, (error) => {
+      store.setCommentShot(id, commentId, { state: 'failed', reason: 'browser', detail: String(error.message || error).slice(0, 200), at: new Date().toISOString() });
+    });
+  }
   let portsCache = null;
   let portsInflight = null;
 
@@ -784,6 +849,25 @@ export function createApp(options = {}) {
         return;
       }
 
+      // A comment's screenshot: the PNG, or POST to take it again.
+      const shotMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/comments\/(c[0-9a-f]{10})\/screenshot$/);
+      if (shotMatch) {
+        const id = decodeURIComponent(shotMatch[1]);
+        const session = store.get(id);
+        const comment = session && session.comments.find((c) => c.id === shotMatch[2]);
+        if (!comment) return sendError(res, req, 404, 'comments.notFound');
+        if (req.method === 'POST') {
+          shootComment(id, comment.id);
+          return sendJson(res, 202, { shot: comment.shot || null });
+        }
+        if (req.method !== 'GET') return sendError(res, req, 405, 'request.methodNotAllowed');
+        let png;
+        try { png = fs.readFileSync(shotFile(comment.id)); } catch { return sendError(res, req, 404, 'comments.noShot'); }
+        res.writeHead(200, { ...SECURITY_HEADERS, 'Content-Type': 'image/png', 'Content-Length': png.length, 'Cache-Control': 'private, no-cache' });
+        res.end(png);
+        return;
+      }
+
       // Comments clients left on the pages: list, resolve or reopen, delete.
       const commentsMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/comments(?:\/([^/]+))?$/);
       if (commentsMatch) {
@@ -806,6 +890,7 @@ export function createApp(options = {}) {
           }
           if (req.method === 'DELETE' && commentId) {
             store.removeComment(id, commentId);
+            dropShot(commentId);
             saveTunnels();
             return sendJson(res, 200, { ok: true });
           }
@@ -955,6 +1040,7 @@ export function createApp(options = {}) {
         if (!store.get(id)) return sendError(res, req, 404, 'session.notFound');
         stopProcess(processes.get(id)).catch(() => {});
         processes.delete(id);
+        for (const comment of store.get(id).comments || []) dropShot(comment.id);
         store.remove(id);
         await inspector.close(id);
         saveTunnels();

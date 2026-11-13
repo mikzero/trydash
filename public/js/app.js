@@ -790,6 +790,15 @@
       api.closeQr();
       return;
     }
+    if (action === 'shot-comment' && state.comments) {
+      var forShot = currentSession();
+      if (!forShot) return;
+      api_('POST', '/api/sessions/' + encodeURIComponent(forShot.id) + '/comments/' + encodeURIComponent(node.dataset.comment) + '/screenshot').then(function () {
+        notify(api.t('ui.comments.shotStarted'));
+        return refresh();
+      }).catch(fail);
+      return;
+    }
     if (action === 'comments-filter' && state.comments) {
       state.comments.setFilter(node.dataset.filter, currentSession());
       return;

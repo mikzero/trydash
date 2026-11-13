@@ -289,6 +289,18 @@
         requireSession(id).commentsVersion += 1;
         return comment;
       },
+      // Where the comment's screenshot stands: pending, ready, failed, off (no browser).
+      setCommentShot: function (id, commentId, shot) {
+        var session = this.get(id);
+        if (!session) return null;
+        for (var i = 0; i < session.comments.length; i += 1) {
+          if (session.comments[i].id !== commentId) continue;
+          session.comments[i].shot = shot;
+          session.commentsVersion += 1;
+          return session.comments[i];
+        }
+        return null;
+      },
       // The client changed their own words.
       editComment: function (id, commentId, text) {
         var comment = this.getComment(id, commentId);

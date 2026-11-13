@@ -91,6 +91,31 @@
       });
     }
 
+    // The screenshot of the page as the client saw it, or where it stands.
+    function shotBlock(session, comment) {
+      var shot = comment.shot || null;
+      var base = '/api/sessions/' + encodeURIComponent(session.id) + '/comments/' + encodeURIComponent(comment.id) + '/screenshot';
+      var again = function (key) {
+        return h('button', { type: 'button', className: 'link-btn', text: api.t(key), dataset: { action: 'shot-comment', comment: comment.id } });
+      };
+      if (!shot) return h('p', { className: 'comment-shot-note' }, [again('ui.comments.shotTake')]);
+      if (shot.state === 'ready') {
+        var src = base + '?v=' + encodeURIComponent(shot.at || '');
+        return h('div', { className: 'comment-shot' }, [
+          h('a', { href: src, target: '_blank', rel: 'noopener', title: api.t('ui.comments.shotOpen') }, [
+            h('img', { src: src, alt: api.t('ui.comments.shotAlt', { page: comment.page }), loading: 'lazy', width: String(shot.width || ''), height: String(shot.height || '') }),
+          ]),
+          again('ui.comments.shotRetake'),
+        ]);
+      }
+      if (shot.state === 'pending') return h('p', { className: 'comment-shot-note', text: api.t('ui.comments.shotPending') });
+      if (shot.state === 'off') return h('p', { className: 'comment-shot-note', text: api.t('ui.comments.shotOff') });
+      return h('p', { className: 'comment-shot-note is-bad' }, [
+        api.t(shot.reason === 'no-url' ? 'ui.comments.shotNoUrl' : 'ui.comments.shotFailed', { detail: shot.detail || '' }) + ' ',
+        again('ui.comments.shotRetry'),
+      ]);
+    }
+
     function card(session, comment, nowMs) {
       var url = commentUrl(session, comment);
       var local = api.localUrl ? api.localUrl(session, comment.page) : null;
@@ -109,9 +134,11 @@
             ? h('a', { className: 'comment-local', href: local, target: '_blank', rel: 'noopener', title: api.t('ui.comments.openLocal'), text: comment.page + ' ↗' })
             : h('span', { text: comment.page }),
           comment.title ? h('span', { className: 'comment-title', text: ' · ' + comment.title }) : null,
-          url ? h('a', { className: 'comment-public', href: url, target: '_blank', rel: 'noopener', title: api.t('ui.comments.openPublic'), text: ' · ' + api.t('ui.comments.publicPin') + ' ↗' }) : null,
+          url ? h('span', { className: 'comment-title', text: ' · ' }) : null,
+          url ? h('a', { className: 'comment-public', href: url, target: '_blank', rel: 'noopener', title: api.t('ui.comments.openPublic'), text: api.t('ui.comments.publicPin') + ' ↗' }) : null,
         ]),
         h('p', { className: 'comment-meta', text: [elementOf(comment), screenOf(comment), browserOf(comment.userAgent)].filter(Boolean).join(' · ') }),
+        shotBlock(session, comment),
         errors.length ? h('details', { className: 'comment-errors' }, [
           h('summary', { text: api.tn('ui.comments.errors', errors.length) }),
           h('ul', null, errors.map(function (e) { return h('li', { className: 'mono', text: e }); })),

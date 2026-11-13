@@ -653,7 +653,7 @@ export function createInspector({
         }
         store.editComment(entry.id, comment.id, text);
       }
-      try { onComment(entry.id, comment); } catch { /* saving is best effort */ }
+      try { onComment(entry.id, comment, req.method === 'DELETE' ? 'delete' : 'edit'); } catch { /* saving is best effort */ }
       sendJsonReply(res, 200, req.method === 'DELETE' ? { ok: true } : { comment: { ...pinView(comment, link), mine: true } });
     });
   }
@@ -747,6 +747,7 @@ export function createInspector({
           ? { tag: shortText(body.element.tag, 20), text: shortText(body.element.text, 120) } : null,
         viewport: { w: coord(viewport.w), h: coord(viewport.h), dpr: Math.min(8, Math.max(0, Number(viewport.dpr) || 1)) },
         userAgent: shortText(req.headers['user-agent'], 300),
+        lang: /^\s*([a-z]{2})\b/i.test(String(req.headers['accept-language'] || '')) ? /^\s*([a-z]{2})/i.exec(req.headers['accept-language'])[1].toLowerCase() : null,
         errors: Array.isArray(body.errors) ? body.errors.slice(0, 10).map((e) => shortText(e, 300)).filter(Boolean) : [],
         resolved: false,
         resolvedAt: null,
@@ -759,7 +760,7 @@ export function createInspector({
         sendJsonReply(res, 507, { error: 'this preview has too many comments' });
         return;
       }
-      try { onComment(entry.id, comment); } catch { /* saving is best effort */ }
+      try { onComment(entry.id, comment, 'add'); } catch { /* saving is best effort */ }
       sendJsonReply(res, 201, { comment: { ...pinView(comment, link), mine: true }, editKey });
     });
   }

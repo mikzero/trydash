@@ -107,6 +107,8 @@ Con **Commenti del cliente sulla pagina** (nell’Anteprima per il cliente, nell
 - il testo, chi l’ha scritto (il nome del suo link personale, o quello che ha digitato), quando;
 - la pagina e il suo titolo, con **apri sulla pagina**, che evidenzia il segnaposto;
 - l’elemento (`<h1> “Chi siamo”`), le dimensioni dello schermo, il browser e gli errori JavaScript che la pagina aveva: spesso sono il vero problema;
+- uno **screenshot** della pagina come l’ha vista il cliente: le dimensioni del suo schermo, il segnaposto, il fumetto del commento aperto, nella sua lingua. trydash lo scatta con il Chrome, Chromium, Edge o Brave già installato sul computer, in modalità invisibile e con un profilo temporaneo (il tuo non viene mai toccato); `TRYDASH_CHROME` ne indica un altro. Gli screenshot restano accanto ai tunnel salvati, in `shots/`, e se ne vanno con il loro commento. Senza uno di quei browser la scheda lo dice;
+- la pagina **sul tuo computer** per prima (è lì che la sistemi), e **pubblica con segnaposto** per vederla come il cliente;
 - **Risolto** (il segnaposto sparisce dalla pagina del cliente), **Copia** in Markdown per una issue, **Elimina**, e **Copia in Markdown** per tutti.
 
 Il pulsante è uno script che trydash serve da `/__trydash/comments.js`, dentro uno shadow root: funziona anche con una `Content-Security-Policy` rigida e gli stili del sito non lo toccano. I commenti vanno a trydash, mai al tuo sito. Un cliente con un link personale vede solo i suoi segnaposto; chi non ce l’ha vede quelli anonimi. Sono salvati con il tunnel: al massimo 500, 30 per visitatore ogni dieci minuti.
@@ -300,6 +302,7 @@ trydash https://localhost:8443 --no-tls-verify
 | `TRYDASH_TOKEN` | casuale | Token di accesso della dashboard e dell’API. Di default trydash ne sceglie uno nuovo a ogni avvio e lo stampa nell’indirizzo. |
 | `TRYDASH_OPEN` | — | Con `0` il browser non si apre mai. |
 | `TRYDASH_CONFIG` | `~/.config/trydash/tunnels.json` | File dei [tunnel salvati](#tunnel-salvati); `off` spegne il salvataggio. |
+| `TRYDASH_CHROME` | trovato da solo | Il browser per gli [screenshot dei commenti](#commenti-del-cliente); `TRYDASH_CHROME_ARGS` aggiunge opzioni, come array JSON o separate da spazi. |
 | `TRYDASH_SEED` | — | Con `1` carica una sessione d’esempio dai log e dalle richieste in `test/fixtures/`. Utile per provare l’interfaccia senza aprire tunnel. |
 | `TRYDASH_PROBE` | `auto` | `present` o `missing` simulano la presenza o l’assenza di `cloudflared`, senza eseguirlo. |
 | `TRYDASH_PROBE_VERSION` | — | Testo della versione mostrato quando `TRYDASH_PROBE=present`. |

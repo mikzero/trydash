@@ -49,7 +49,15 @@ function check(name, ok, detail = '') {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function startDashboard(port, args) {
-  const env = { ...process.env, PATH: `${WORK}/bin:${process.env.PATH}`, TRYDASH_TOKEN: 'tk', TRYDASH_CONFIG: 'off' };
+  // Screenshots: Playwright's Chromium, sent to the local edge like the client's browser.
+  const env = {
+    ...process.env,
+    PATH: `${WORK}/bin:${process.env.PATH}`,
+    TRYDASH_TOKEN: 'tk',
+    TRYDASH_CONFIG: 'off',
+    TRYDASH_CHROME: chromium.executablePath(),
+    TRYDASH_CHROME_ARGS: JSON.stringify(['--no-proxy-server', '--ignore-certificate-errors', `--host-resolver-rules=MAP *.trycloudflare.com:443 127.0.0.1:${EDGE_PORT}`]),
+  };
   const proc = spawn(BUN, ['server.js', ...args, '--port', String(port), '--no-open'], { cwd: REPO, env });
   let out = '';
   proc.stdout.on('data', (c) => { out += c; });
@@ -419,6 +427,17 @@ async function waitFor(fn, ms = 5000) {
     await dash.waitForSelector('.comment-card', { timeout: 5000 });
     const cardText = await dash.locator('.comment-card').first().innerText();
     check('the Comments tab shows text, element, browser and the error', /più visibile/.test(cardText) && /<a> “Ciao mondo”/.test(cardText) && /Chrome/.test(cardText) && /1 errore JavaScript/.test(cardText), cardText.replace(/\n/g, ' | '));
+    const shot = await waitFor(async () => {
+      const c = (await api(18799, 'GET', `/api/sessions/${wp.id}/comments`)).json.comments[0];
+      return c.shot && c.shot.state !== 'pending' ? c.shot : null;
+    }, 30000);
+    check('a screenshot of the page as the client saw it', shot && shot.state === 'ready' && shot.width === 1000 && shot.height === 640, JSON.stringify(shot));
+    const pngRes = await fetch(`http://127.0.0.1:18799/api/sessions/${wp.id}/comments/${stored.id}/screenshot`, { headers: { Authorization: 'Bearer tk' } });
+    const png = Buffer.from(await pngRes.arrayBuffer());
+    fs.writeFileSync(`${SHOTS}/11-comment-screenshot.png`, png);
+    check('the screenshot is a PNG of the client\'s screen size', png.subarray(1, 4).toString() === 'PNG' && png.readUInt32BE(16) === 1000 && png.readUInt32BE(20) === 640);
+    await dash.waitForSelector('.comment-shot img', { timeout: 6000 });
+    check('the Comments tab shows the screenshot', await dash.locator('.comment-shot img').first().evaluate((img) => img.complete && img.naturalWidth === 1000));
     await dash.screenshot({ path: `${SHOTS}/10-comments.png` });
 
     // A strict CSP: the widget is a same-origin script with constructed styles, so it still works.

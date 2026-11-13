@@ -109,6 +109,8 @@ With **Client comments on the page** (in Client preview, in the Comments tab, or
 - the text, who wrote it (the name of their personal link, or the one they typed), when;
 - the page and its title, with **open on the page**, which highlights the pin;
 - the element (`<h1> “About us”`), the screen size, the browser, and the JavaScript errors the page had: often they are the real issue;
+- a **screenshot** of the page as the client saw it: their screen size, the pin, the comment's bubble open, in their language. trydash takes it with the Chrome, Chromium, Edge or Brave already on your computer, headless and with a throwaway profile (your own is never touched); `TRYDASH_CHROME` points to another one. Screenshots are kept next to the saved tunnels, in `shots/`, and go with their comment. Without one of those browsers the card says so;
+- the page **on your machine** first (that's where you fix it), and **public, with pin** to see it as the client;
 - **Resolve** (the pin leaves the client's page), **Copy** as Markdown for an issue, **Delete**, and **Copy as Markdown** for all of them.
 
 The widget is a script trydash serves from `/__trydash/comments.js`, inside a shadow root, so it works with a strict `Content-Security-Policy` and the site's styles don't touch it. Comments go to trydash, never to your site. A client with a personal link sees only their own pins; visitors without one see the anonymous ones. They are saved with the tunnel: at most 500, 30 per visitor every ten minutes.
@@ -302,6 +304,7 @@ trydash https://localhost:8443 --no-tls-verify
 | `TRYDASH_TOKEN` | random | Access token of the dashboard and the API. By default trydash picks a new one at every start and prints it in the address. |
 | `TRYDASH_OPEN` | — | With `0`, never opens the browser. |
 | `TRYDASH_CONFIG` | `~/.config/trydash/tunnels.json` | File of the [saved tunnels](#saved-tunnels); `off` turns saving off. |
+| `TRYDASH_CHROME` | found on its own | The browser for [comment screenshots](#client-comments); `TRYDASH_CHROME_ARGS` adds flags, as a JSON array or space-separated. |
 | `TRYDASH_SEED` | — | With `1`, loads a sample session from the logs and requests in `test/fixtures/`. Handy to try the interface without opening tunnels. |
 | `TRYDASH_PROBE` | `auto` | `present` or `missing` pretend that `cloudflared` is there or not, without running it. |
 | `TRYDASH_PROBE_VERSION` | — | Version text shown when `TRYDASH_PROBE=present`. |
