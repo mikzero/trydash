@@ -212,6 +212,15 @@ bun start            # oppure: bun server.js
 
 Avviato da un terminale, trydash apre la dashboard nel browser, già con il token. Altrimenti apri l’indirizzo stampato, di solito `http://127.0.0.1:8787/?token=…`. Scrivi la porta del tuo servizio, o il percorso di una cartella da pubblicare, e premi **Crea**.
 
+Per avere il comando `trydash` ovunque, come negli esempi qui sotto, collegalo una volta dal repository:
+
+```sh
+bun link             # mette trydash in ~/.bun/bin
+trydash --version    # trydash dev
+```
+
+Esegue il codice della copia locale, quindi `git pull` aggiorna anche lui; `bun unlink` lo toglie. Se la shell non lo trova, aggiungi `~/.bun/bin` al `PATH`. Con l’eseguibile scaricato, avvia quel file, oppure rinominalo `trydash` e mettilo in una cartella del `PATH`.
+
 ### Riga di comando
 
 Con un argomento, trydash apre anche un tunnel all’avvio e ne stampa l’URL appena `cloudflared` lo ha. Comodo in uno script di `package.json`, come `"share": "trydash 5173"`.

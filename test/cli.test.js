@@ -116,3 +116,22 @@ test('`trydash 3000` starts the dashboard and prints the tunnel URL', { skip: pr
   assert.equal(bad.status, 2);
   assert.match(bad.stderr.toString(), /unknown option --nope/);
 });
+
+test('`bun link` gives a trydash command that runs from any folder', { skip: process.platform === 'win32' }, () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(dashboardRoot, 'package.json'), 'utf8'));
+  assert.deepEqual(pkg.bin, { trydash: 'bin/trydash.js' });
+  const file = path.join(dashboardRoot, pkg.bin.trydash);
+  assert.match(fs.readFileSync(file, 'utf8'), /^#!\/usr\/bin\/env bun\n/);
+  assert.ok(fs.statSync(file).mode & 0o111, 'bin/trydash.js is executable');
+  // Linked, it runs through a symbolic link and from another folder.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trydash-bin-'));
+  try {
+    fs.symlinkSync(file, path.join(dir, 'trydash'));
+    const bun = process.execPath.includes('bun') ? process.execPath : 'bun';
+    const run = spawnSync(bun, [path.join(dir, 'trydash'), '--version'], { cwd: dir });
+    assert.equal(run.status, 0, run.stderr.toString());
+    assert.equal(run.stdout.toString().trim(), 'trydash dev');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
