@@ -440,6 +440,32 @@ async function waitFor(fn, ms = 5000) {
     check('a resolved comment leaves the client\'s page', (await ap.locator('trydash-comments .pin').count()) === 0);
     await api(18799, 'PATCH', `/api/sessions/${wp.id}/options`, { linksOnly: false, comments: false });
 
+    // ---------------- Webhook queue: the receiver restarts, nothing is lost ----------------
+    const got = [];
+    const receiverHandler = (req, res) => { let b = ''; req.on('data', (c) => { b += c; }); req.on('end', () => { got.push({ url: req.url, body: b, sig: req.headers['stripe-signature'] }); res.end('ok'); }); };
+    let receiver = http.createServer(receiverHandler).listen(18556, '127.0.0.1');
+    const q = (await api(18799, 'POST', '/api/sessions', { origin: '18556', options: { queue: true } })).json.session;
+    const qUrl = await waitFor(async () => (await api(18799, 'GET', '/api/state')).json.sessions.find((s) => s.id === q.id).url);
+    await new Promise((r) => { receiver.closeAllConnections(); receiver.close(r); });
+    // Like Stripe: an HTTPS POST to the public name, through the edge.
+    const postEdge = (url, headers, body) => new Promise((resolve, reject) => {
+      const u = new URL(url);
+      const req = https.request({ host: '127.0.0.1', port: EDGE_PORT, servername: u.hostname, rejectUnauthorized: false, method: 'POST', path: u.pathname,
+        headers: { host: u.host, 'content-length': Buffer.byteLength(body), ...headers } }, (res) => { res.resume(); res.on('end', () => resolve(res.statusCode)); });
+      req.on('error', reject);
+      req.end(body);
+    });
+    const hookStatus = [];
+    for (const n of [1, 2]) {
+      hookStatus.push(await postEdge(`${qUrl}/webhooks/stripe`, { 'content-type': 'application/json', 'stripe-signature': `t=1,v1=sig${n}` }, `{"id":"evt_${n}"}`));
+    }
+    check('webhooks sent while the receiver is down get 202', hookStatus.join(',') === '202,202', hookStatus.join(','));
+    check('the dashboard counts 2 queued', (await api(18799, 'GET', '/api/state')).json.sessions.find((s) => s.id === q.id).inspect.queued === 2);
+    receiver = http.createServer(receiverHandler).listen(18556, '127.0.0.1');
+    await waitFor(() => got.length === 2, 8000);
+    check('back up: both delivered in order, bodies and signatures intact', got.map((g) => g.body + g.sig).join(' ') === '{"id":"evt_1"}t=1,v1=sig1 {"id":"evt_2"}t=1,v1=sig2', JSON.stringify(got));
+    receiver.close();
+
     // ---------------- Folder ----------------
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trydash-e2e-site-'));
     fs.writeFileSync(path.join(dir, 'index.html'), '<!doctype html><title>Portfolio</title><h1>Portfolio</h1>');

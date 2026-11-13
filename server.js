@@ -214,6 +214,7 @@ export function createApp(options = {}) {
     store,
     isLive: (id) => !!(store.get(id) && store.get(id).active),
     onComment: () => saveTunnels(),
+    onFirstVisit: () => saveTunnels(),
   });
   const sampler = createTrafficSampler({
     store,

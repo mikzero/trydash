@@ -186,6 +186,31 @@ test('a link with a PIN asks for it, and locks after five wrong tries', async ()
   }
 });
 
+test('a folder tunnel takes personal links too', async () => {
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trydash-links-'));
+  fs.writeFileSync(path.join(dir, 'index.html'), '<p>portfolio</p>');
+  const store = dash.createSessionStore();
+  const firsts = [];
+  const inspector = createInspector({ store, onFirstVisit: (id, link) => firsts.push(link.name) });
+  const session = store.create('', { mode: 'folder', folder: dir, linksOnly: true });
+  const link = store.addLink(session.id, { id: newId(), name: 'Luca', key: newKey() });
+  const target = await inspector.open(session);
+  try {
+    assert.equal((await request(target, { path: '/' })).status, 403);
+    const cookie = cookieFrom(await request(target, { path: `/?tdk=${link.key}` }));
+    const page = await request(target, { path: '/', headers: { cookie, accept: 'text/html' } });
+    assert.equal(page.body, '<p>portfolio</p>');
+    await request(target, { path: '/', headers: { cookie, accept: 'text/html' } });
+    assert.deepEqual(firsts, ['Luca'], 'the first visit only');
+  } finally {
+    await inspector.closeAll();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('links API: create with or without PIN, rename, revoke, delete; saved and restored with their keys', async () => {
   const saves = [];
   const persist = { file: '/tmp/none.json', save: (list) => { saves.push(JSON.parse(JSON.stringify(list))); return true; }, load: () => [] };

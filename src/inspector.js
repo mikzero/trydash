@@ -211,8 +211,9 @@ export function createInspector({
   responseBodyCap = RESPONSE_BODY_CAP,
   clock = () => Date.now(),
   isLive = () => true,
-  // Called after a client left a comment (the server saves the tunnels then).
+  // Called after a client left a comment, or first opened their link (the server saves then).
   onComment = () => {},
+  onFirstVisit = () => {},
 } = {}) {
   const proxies = new Map();
   const token = crypto.randomBytes(16).toString('hex');
@@ -499,7 +500,13 @@ export function createInspector({
       return true;
     }
     req.trydashLink = link;
-    if (link && link.id !== 'owner' && isPageView(req)) store.recordVisit(entry.id, link.id);
+    if (link && link.id !== 'owner' && isPageView(req)) {
+      const first = !link.firstSeen;
+      store.recordVisit(entry.id, link.id);
+      if (first) {
+        try { onFirstVisit(entry.id, link); } catch { /* saving is best effort */ }
+      }
+    }
     return false;
   }
 
@@ -628,6 +635,8 @@ export function createInspector({
     req.on('data', (chunk) => {
       size += chunk.length;
       if (size <= 16 * 1024) chunks.push(chunk);
+      // Way past any real comment: stop reading.
+      if (size > 64 * 1024) req.destroy();
     });
     req.on('end', () => {
       let body;
@@ -639,6 +648,8 @@ export function createInspector({
         return;
       }
       rate.count += 1;
+      // One entry per visitor address; the map can't grow without end.
+      if (entry.commentRate.size > 5000) entry.commentRate.clear();
       entry.commentRate.set(who, rate);
       const viewport = body.viewport && typeof body.viewport === 'object' ? body.viewport : {};
       const comment = {

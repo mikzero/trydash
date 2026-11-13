@@ -90,6 +90,33 @@ Senza riscrittura trydash cerca i segnali tipici (un redirect a localhost, pagin
 
 Riscrittura, etichetta e percorsi bloccati vivono nel proxy dell’ispettore: accendono l’ispettore e non funzionano con un’origine HTTP/2. Un tunnel di una cartella accetta etichetta, noindex e percorsi bloccati. Da riga di comando: `trydash 8080 --rewrite --block /wp-admin,/wp-login.php --badge`.
 
+### Link personali
+
+La scheda **Clienti** crea un link per ogni cliente, come `https://….trycloudflare.com/?tdk=…`. Ogni scheda dice se il cliente l’ha aperto, quante pagine ha visto e quando è passato l’ultima volta; la dashboard ti avvisa la prima volta (“Mario ha aperto l’anteprima”), e la scheda **Richieste** segna ogni richiesta con il nome del cliente.
+
+- La chiave sparisce subito dalla barra degli indirizzi: il proxy di trydash la sostituisce con un cookie `HttpOnly` e `Secure` e rimanda all’URL pulito. Né la chiave né il cookie arrivano al tuo sito, quindi i suoi cookie e i suoi login funzionano come sempre.
+- Un link può chiedere un **PIN** da 4 a 8 cifre. Ne resta solo un hash, e dopo cinque tentativi sbagliati quel link aspetta dieci minuti.
+- **Revoca** ferma un link alla pagina successiva, **Riattiva** lo rimette, **Elimina** lo toglie per sempre. Cambiare il PIN fa uscire chi era entrato con quello vecchio.
+- **Solo con un link personale** (`--links-only`) respinge chi apre l’URL senza link. Il pulsante **Apri** della dashboard entra sempre.
+- I link sono salvati con il tunnel e tengono le loro chiavi: dopo un riavvio l’URL cambia, e **Copia link** della stessa scheda dà quello nuovo con la stessa chiave.
+
+### Commenti del cliente
+
+Con **Commenti del cliente sulla pagina** (nell’Anteprima per il cliente, nella scheda Commenti o con `--comments`) ogni pagina HTML ha un pulsante **💬 Commenta**. Il cliente lo preme, clicca sul punto che intende (lì un clic non segue i link) e scrive. Nella scheda **Commenti** trovi:
+
+- il testo, chi l’ha scritto (il nome del suo link personale, o quello che ha digitato), quando;
+- la pagina e il suo titolo, con **apri sulla pagina**, che evidenzia il segnaposto;
+- l’elemento (`<h1> “Chi siamo”`), le dimensioni dello schermo, il browser e gli errori JavaScript che la pagina aveva: spesso sono il vero problema;
+- **Risolto** (il segnaposto sparisce dalla pagina del cliente), **Copia** in Markdown per una issue, **Elimina**, e **Copia in Markdown** per tutti.
+
+Il pulsante è uno script che trydash serve da `/__trydash/comments.js`, dentro uno shadow root: funziona anche con una `Content-Security-Policy` rigida e gli stili del sito non lo toccano. I commenti vanno a trydash, mai al tuo sito. Un cliente con un link personale vede solo i suoi segnaposto; chi non ce l’ha vede quelli anonimi. Sono salvati con il tunnel: al massimo 500, 30 per visitatore ogni dieci minuti.
+
+### Coda dei webhook
+
+**Tieni in coda i webhook se il server è giù** (nelle Opzioni origine, nella scheda Richieste o con `--queue`) copre il momento in cui il tuo server si riavvia, va in crash o aspetta una build mentre il tunnel resta su. Una `POST`, `PUT`, `PATCH` o `DELETE` che lo trova spento riceve `202 Accepted` e aspetta in trydash con corpo e header identici, così la firma di Stripe o GitHub resta valida. Appena la porta risponde di nuovo, trydash consegna la coda in ordine. La scheda Richieste le segna *in coda*, `→ #12` quando sono consegnate, *dalla coda* sulla consegna, e un banner offre **Consegna ora** e **Svuota la coda**.
+
+Non aiuta quando si ferma il tunnel stesso: trydash chiuso, computer spento o senza rete. Allora la richiesta non arriva nemmeno a trydash, e un quick tunnel riavviato ha un URL nuovo. Stripe e GitHub tengono la loro cronologia degli invii, per rimandarli dopo aver aggiornato l’URL.
+
 ### Scadenza
 
 **Ferma dopo** nel modulo ferma il tunnel da solo dopo 30 minuti, 1, 2 o 8 ore, o un giorno, così un’anteprima per un cliente non resta online per dimenticanza. L’intestazione mostra il tempo rimasto (“⏱ si ferma tra 1 h 12 min”). Allo scadere il tunnel si ferma come con **Ferma**, i log scrivono “tunnel expired after 120 min” e la sidebar mostra “scaduto”. **Riavvia** fa ripartire il conto. Dalla riga di comando: `--expires 2h`; dall’API: `"expiresIn": 120`, in minuti, fino a una settimana.
@@ -167,6 +194,8 @@ Il pulsante avvia `cloudflared tunnel --hello-world`, che serve una pagina di pr
 | 150 o più richieste in corso | banner sul limite di 200: le richieste in più ricevono `429` |
 | un redirect o link a localhost, o un server di sviluppo che rifiuta l’host pubblico | banner con **Riscrivi gli URL locali** |
 | anteprima per il cliente attiva | etichette per URL riscritti, percorsi bloccati ed etichetta «Anteprima» |
+| richieste in coda mentre il server è giù | banner con **Consegna ora** e **Svuota la coda** |
+| un cliente apre il suo link personale, o lascia un commento | un avviso nella dashboard (e dal browser, con le notifiche attive) |
 | `--no-tls-verify` attivo | etichetta “Certificato dell’origine non verificato” e ⚠ nella sidebar |
 | tunnel protetto | etichetta con gli indirizzi autorizzati e 🔒 nella sidebar |
 | Riavvia | il primo clic mostra “Nuovo URL — conferma”: un quick tunnel riavviato cambia URL |
@@ -259,6 +288,7 @@ trydash https://localhost:8443 --no-tls-verify
 | `--rewrite` · `--block <percorsi>` · `--badge` · `--index` | anteprima per il cliente: riscrive gli URL di localhost, `403` per quei percorsi, etichetta «Anteprima», lascia indicizzare ai motori di ricerca |
 | `--no-save` | non salva né ripristina i tunnel |
 | `--expires <tempo>` | ferma il tunnel dopo `30m`, `2h`, `1d`… |
+| `--comments` · `--links-only` · `--queue` | commenti del cliente sulle pagine, solo con link personale, coda dei webhook se il server è giù |
 | `--scan` | elenca i server web su questo computer, cosa sono e il comando per condividere ciascuno |
 | `-v`, `--version` · `-h`, `--help` | versione · aiuto |
 
@@ -314,6 +344,7 @@ I quick tunnel sono pensati per **test e sviluppo**. Dalla [documentazione Cloud
 - **Un tunnel rende pubblico il servizio che esponi**: chiunque abbia l’URL può raggiungerlo. Per limitarlo a persone precise usa l’accesso via email. Comunque non esporre servizi con dati reali o pannelli di amministrazione senza protezione.
 - trydash non chiede né salva credenziali, token o account. I log e le richieste ispezionate restano in memoria e spariscono quando chiudi il server. Le richieste ispezionate possono contenere cookie e token mandati al tuo servizio: non lasciano mai il tuo computer, e **Svuota** le cancella.
 - Il proxy dell’ispettore ascolta solo su `127.0.0.1`, su una porta casuale, e inoltra solo verso l’origine del suo tunnel.
+- **I link personali servono per le anteprime, non per i segreti.** Le chiavi sono casuali (128 bit) e il PIN ha un blocco, ma entra anche chiunque riceva il link inoltrato da un cliente, finché non lo revochi. `/__trydash/` appartiene a trydash su ogni tunnel e non arriva mai al tuo sito.
 - **I percorsi bloccati sono una cortesia, non una serratura.** Tengono clienti e crawler fuori da `/wp-admin` e simili, ma il resto del sito è pubblico quanto l’URL. Un vero accesso amministrativo ha comunque bisogno della sua password, oppure usa l’accesso via email.
 - Un tunnel cartella rende pubblici tutti i file di quella cartella, tranne quelli nascosti. Scegli la cartella della build, non tutto il progetto o la tua home.
 - Le origini con credenziali nell’URL (`http://user:pass@…`) vengono rifiutate.
@@ -329,7 +360,12 @@ Il frontend usa una piccola API JSON, utile anche per script. Ogni chiamata rich
 | `GET` | `/api/ports` | i server in ascolto su questo computer, con `process`, e `busy` se un tunnel attivo li usa già; `?scan=1` chiede `GET /` a ciascuno e aggiunge `scan`: `{ "http", "kind", "label", "title", "tls", "suggest": { "rewrite", "preset" } }` |
 | `POST` | `/api/sessions` | crea un tunnel, body `{ "origin": "3000", "options": { … } }` (vedi sotto) |
 | `POST` | `/api/sessions/:id/stop` | ferma il tunnel |
-| `PATCH` | `/api/sessions/:id/options` | cambia l’anteprima per il cliente di un tunnel, stesso URL: `{ "rewrite": true, "blocked": "/wp-admin", "badge": true, "noindex": true }` |
+| `PATCH` | `/api/sessions/:id/options` | cambia l’anteprima per il cliente di un tunnel, stesso URL: `{ "rewrite": true, "blocked": "/wp-admin", "badge": true, "noindex": true, "comments": true, "linksOnly": true, "queue": true }` |
+| `GET`, `POST` | `/api/sessions/:id/links` | i link personali; ne crea uno con `{ "name": "Mario", "pin": "4821" }` (il PIN è facoltativo) |
+| `PATCH`, `DELETE` | `/api/sessions/:id/links/:linkId` | `{ "name", "revoked", "pin" }` (`"pin": ""` lo toglie), oppure elimina |
+| `GET` | `/api/sessions/:id/comments?version=` | i commenti, dal più recente; con la `version` attuale, `{ "unchanged": true }` |
+| `PATCH`, `DELETE` | `/api/sessions/:id/comments/:commentId` | `{ "resolved": true }`, oppure elimina |
+| `POST`, `DELETE` | `/api/sessions/:id/queue/deliver`, `/api/sessions/:id/queue` | consegna ora le richieste in coda (se il server è tornato), oppure le toglie |
 | `POST` | `/api/sessions/:id/restart` | riavvia un tunnel fermato o terminato |
 | `DELETE` | `/api/sessions/:id` | ferma e rimuove la sessione |
 | `GET` | `/api/sessions/:id/logs?offset=&limit=&levels=error,warn&q=testo` | pagina di log, filtrata (massimo 200 righe) |
@@ -360,7 +396,10 @@ Il frontend usa una piccola API JSON, utile anche per script. Ogni chiamata rich
   "rewrite": false,
   "blocked": ["/wp-admin", "/wp-login.php"],
   "badge": false,
-  "noindex": true
+  "noindex": true,
+  "comments": false,
+  "linksOnly": false,
+  "queue": false
 }
 ```
 
@@ -512,7 +551,7 @@ I test usano processi finti e non avviano mai `cloudflared`. Il test della build
 npm run test:e2e
 ```
 
-Una verifica end-to-end facoltativa dell’anteprima per il cliente, su macOS e Linux. Servono Playwright con Chromium (`npm i -D playwright && npx playwright install chromium`) e `openssl`. trydash parte da riga di comando con un `cloudflared` finto, dei sostituti di WordPress, Vite e Laravel girano sulle porte 18090, 15173 e 18000, e un server HTTPS locale fa la parte dell’edge di Cloudflare: un Chromium vero apre `https://….trycloudflare.com` come farebbe un cliente, con redirect, cookie, login, gzip, API REST, WebSocket di Vite, percorsi bloccati ed etichetta. Ogni richiesta del client verso `localhost` conta come errore. Gli screenshot finiscono in una cartella temporanea, o in `E2E_SHOTS`.
+Una verifica end-to-end facoltativa dell’anteprima per il cliente, su macOS e Linux. Servono Playwright con Chromium (`npm i -D playwright && npx playwright install chromium`) e `openssl`. trydash parte da riga di comando con un `cloudflared` finto, dei sostituti di WordPress, Vite e Laravel girano sulle porte 18090, 15173 e 18000, e un server HTTPS locale fa la parte dell’edge di Cloudflare: un Chromium vero apre `https://….trycloudflare.com` come farebbe un cliente, con redirect, cookie, login, gzip, API REST, WebSocket di Vite, percorsi bloccati, etichetta, link personali con PIN, commenti del cliente (anche su una pagina con CSP rigida) e webhook in coda mentre il server si riavvia. Ogni richiesta del client verso `localhost` conta come errore. Gli screenshot finiscono in una cartella temporanea, o in `E2E_SHOTS`.
 
 ## Sostieni il progetto
 
