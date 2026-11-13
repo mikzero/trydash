@@ -186,6 +186,10 @@
             h('input', { id: 'http2-origin', name: 'http2Origin', type: 'checkbox' }),
             h('span', { text: api.t('ui.form.http2') }),
           ]),
+          h('label', { className: 'check', title: api.t('ui.queue.toggleTitle') }, [
+            h('input', { id: 'queue', name: 'queue', type: 'checkbox' }),
+            h('span', { text: api.t('ui.queue.form') }),
+          ]),
           h('label', { className: 'check', title: api.t('ui.form.inspectTitle') }, [
             h('input', { id: 'inspect', name: 'inspect', type: 'checkbox', checked: true }),
             h('span', { id: 'inspect-label', text: api.t('ui.form.inspect') }),
@@ -224,6 +228,7 @@
       noTlsVerify: !!(tls && tls.checked),
       http2Origin: !!(h2 && h2.checked),
       inspect: !inspect || !!inspect.checked,
+      queue: !!(field(form, 'queue') && field(form, 'queue').checked),
       rewrite: preview.rewrite,
       noindex: preview.noindex,
       badge: preview.badge,
@@ -256,7 +261,7 @@
       mails = options.allowedMail.split(/[\s,;]+/).filter(Boolean).length;
     }
     if (mailSummary) mailSummary.textContent = api.t('ui.form.mail') + (mails ? ' · ' + mails : '');
-    var active = (options.hostHeader.trim() ? 1 : 0) + (options.noTlsVerify ? 1 : 0) + (options.http2Origin ? 1 : 0);
+    var active = (options.hostHeader.trim() ? 1 : 0) + (options.noTlsVerify ? 1 : 0) + (options.http2Origin ? 1 : 0) + (options.queue ? 1 : 0);
     var label = options.noTlsVerify ? ' · ' + api.t('ui.form.tlsOff') : (active ? ' · ' + active : '');
     if (!options.inspect || options.http2Origin) label += ' · ' + api.t('ui.form.noInspector');
     if (originSummary) originSummary.textContent = api.t('ui.form.originOptions') + label;

@@ -432,7 +432,7 @@
       var node = form.querySelector('#' + id);
       if (node) node.value = '';
     });
-    ['no-tls-verify', 'http2-origin'].forEach(function (id) {
+    ['no-tls-verify', 'http2-origin', 'queue'].forEach(function (id) {
       var node = form.querySelector('#' + id);
       if (node) node.checked = false;
     });
@@ -610,6 +610,9 @@
     var target = event.target;
     if (!target) return;
     if (target.closest && target.closest('#create-form')) api.refreshCreateForm(document.getElementById('create-form'));
+    if (target.id === 'req-queue' && event.type === 'change') {
+      updatePreview({ queue: !!target.checked }, target.checked ? api.t('ui.queue.on') : api.t('ui.queue.off')).catch(fail);
+    }
     if (target.id === 'saved-search' && state.saved) {
       state.saved.setQuery(target.value);
     }
@@ -721,6 +724,18 @@
     }
     if (action === 'qr-close') {
       api.closeQr();
+      return;
+    }
+    if (action === 'deliver-queue' || action === 'drop-queue') {
+      var forQueue = currentSession();
+      if (!forQueue) return;
+      var queuePath = '/api/sessions/' + encodeURIComponent(forQueue.id) + '/queue' + (action === 'deliver-queue' ? '/deliver' : '');
+      api_(action === 'deliver-queue' ? 'POST' : 'DELETE', queuePath).then(function (data) {
+        notify(action === 'deliver-queue'
+          ? (data.left ? api.t('ui.queue.stillDown', { n: data.left }) : api.tn('ui.queue.delivered', data.delivered))
+          : api.tn('ui.queue.dropped', data.dropped));
+        return refresh();
+      }).catch(fail);
       return;
     }
     if (action === 'block-preset') {

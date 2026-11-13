@@ -383,6 +383,10 @@ test('warnings and recent mail', () => {
   assert.equal(T.warningsFor({ ...local, options: { inspect: true, rewrite: true } }, base).length, 0);
   assert.equal(T.warningsFor({ ...local, options: { inspect: false } }, base).length, 0);
 
+  const queued = T.warningsFor({ origin: 'http://127.0.0.1:3000', mode: 'origin', active: true, inspect: { enabled: true, queued: 3 } }, base);
+  assert.deepEqual([queued[0].id, queued[0].text, Array.from(queued[0].actions)], ['queued', '3 richieste in coda: le consegno appena il tuo server torna su.', ['deliver-queue', 'drop-queue']]);
+  assert.equal(T.warningsFor({ origin: 'x', mode: 'origin', active: true, inspect: { enabled: true, queued: 0 } }, base).length, 0);
+
   assert.equal(T.loadLevel(149), '');
   assert.equal(T.loadLevel(150), 'warn');
   assert.equal(T.loadLevel(200), 'danger');
@@ -438,7 +442,7 @@ test('create form options, preview and recent mail', () => {
   form.querySelector('#http2-origin').checked = false;
   assert.equal(form.querySelector('#inspect').checked, true);
   assert.deepEqual({ ...T.readCreateOptions(form) }, {
-    expiresIn: null, allowedMail: 'a@b.it, *@x.it', hostHeader: 'app.local', noTlsVerify: true, http2Origin: false, inspect: true,
+    expiresIn: null, allowedMail: 'a@b.it, *@x.it', hostHeader: 'app.local', noTlsVerify: true, http2Origin: false, inspect: true, queue: false,
     rewrite: false, noindex: true, badge: false, blocked: '',
   });
   // Client preview: presets add their paths once; the summary counts what is on.

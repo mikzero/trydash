@@ -13,7 +13,7 @@
   },
   "scripts": {
     "start": "bun server.js",
-    "test": "bun test ./test/dashboard.test.js ./test/inspector.test.js ./test/preview.test.js ./test/static.test.js ./test/security.test.js ./test/cli.test.js ./test/config.test.js ./test/ports.test.js ./test/qr.test.js ./test/collection.test.js ./test/browser-load.test.js ./test/i18n.test.js ./test/traffic.test.js ./test/assets.test.js ./test/build.test.js ./test/workflow.test.js ./test/release-notes.test.js ./test/site.test.js",
+    "test": "bun test ./test/dashboard.test.js ./test/inspector.test.js ./test/preview.test.js ./test/queue.test.js ./test/static.test.js ./test/security.test.js ./test/cli.test.js ./test/config.test.js ./test/ports.test.js ./test/qr.test.js ./test/collection.test.js ./test/browser-load.test.js ./test/i18n.test.js ./test/traffic.test.js ./test/assets.test.js ./test/build.test.js ./test/workflow.test.js ./test/release-notes.test.js ./test/site.test.js",
     "test:e2e": "node test/e2e/preview.e2e.cjs",
     "build": "bun scripts/build.js"
   },

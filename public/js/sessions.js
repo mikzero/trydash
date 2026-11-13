@@ -164,7 +164,7 @@
       updatePreview: function (id, patch) {
         var session = requireSession(id);
         var next = Object.assign({}, session.options);
-        ['rewrite', 'noindex', 'badge', 'blocked'].forEach(function (key) {
+        ['rewrite', 'noindex', 'badge', 'blocked', 'queue'].forEach(function (key) {
           if (patch && Object.prototype.hasOwnProperty.call(patch, key)) next[key] = patch[key];
         });
         var normalized = api.normalizeTunnelOptions(next);
@@ -185,6 +185,12 @@
       setTarget: function (id, target) {
         var session = requireSession(id);
         session.invocation = api.buildQuickTunnelCommand(session.origin, session.options, target);
+        return session;
+      },
+      // The origin answered again: the "not responding" banner goes at once, not after a minute.
+      recordOriginBack: function (id) {
+        var session = requireSession(id);
+        if (session.lastOriginError) session.lastOriginError = null;
         return session;
       },
       // The inspector's proxy answers 502 itself, so cloudflared never logs these.

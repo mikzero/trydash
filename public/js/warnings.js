@@ -26,6 +26,16 @@
         actions: ['restart', 'hello'],
       });
     }
+    // Requests kept while the origin is down.
+    var queued = summary.inspect && summary.inspect.queued;
+    if (queued) {
+      list.push({
+        id: 'queued',
+        kind: 'warn',
+        text: api.tn('ui.warn.queued', queued),
+        actions: ['deliver-queue', 'drop-queue'],
+      });
+    }
     // The site sends visitors to its local address: rewriting fixes it.
     var local = summary.localRedirect;
     var options = summary.options || {};

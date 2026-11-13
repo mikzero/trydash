@@ -113,6 +113,10 @@
         h('div', { id: 'req-chips', className: 'chips', role: 'group', 'aria-label': api.t('ui.req.filterGroup') }),
         h('span', { id: 'req-count', className: 'log-count' }),
         h('button', { type: 'button', id: 'req-clear', className: 'chip', text: api.t('ui.req.clear'), dataset: { action: 'clear-requests' } }),
+        h('label', { id: 'req-queue-label', className: 'check req-queue', title: api.t('ui.queue.toggleTitle') }, [
+          h('input', { id: 'req-queue', type: 'checkbox' }),
+          h('span', { text: api.t('ui.queue.toggle') }),
+        ]),
         h('span', { className: 'req-export' }, [
           h('span', { className: 'log-count', text: api.t('ui.req.export') }),
           h('a', { id: 'req-export-postman', className: 'chip chip-link', href: '#', download: 'trydash.postman_collection.json', text: 'Postman' }),
@@ -247,6 +251,12 @@
         detail.remote ? field(api.t('ui.req.from'), h('p', { className: 'v mono', text: detail.remote })) : null,
       ]),
       detail.blocked ? h('p', { className: 'replay-note', text: api.t('ui.req.blockedNote', { path: detail.blocked }) }) : null,
+      detail.queued === 'waiting' ? h('p', { className: 'replay-note', text: api.t('ui.queue.noteWaiting') }) : null,
+      detail.queued === 'dropped' ? h('p', { className: 'replay-note', text: api.t('ui.queue.noteDropped') }) : null,
+      detail.queued === 'delivered' ? h('p', { className: 'replay-note' }, [
+        api.t('ui.queue.noteDelivered') + ' ',
+        h('button', { type: 'button', className: 'link-btn', text: api.t('ui.req.requestN', { n: detail.deliveredAs }), dataset: { req: String(detail.deliveredAs) } }),
+      ]) : null,
       detail.replayOf != null ? h('p', { className: 'replay-note' }, [
         api.t('ui.req.replayOf') + ' ',
         h('button', { type: 'button', className: 'link-btn', text: api.t('ui.req.requestN', { n: detail.replayOf }), dataset: { req: String(detail.replayOf) } }),
@@ -343,8 +353,13 @@
       var isSelected = row.seq === selected;
       var path = h('span', { className: 'req-path' });
       if (row.blocked) path.append(h('span', { className: 'req-tag', title: api.t('ui.req.blockedTag', { path: row.blocked }), text: '⛔' }));
+      if (row.queued) path.append(h('span', { className: 'req-tag q-' + row.queued, title: api.t('ui.queue.tag.' + row.queued, { n: row.deliveredAs }), text: row.queued === 'delivered' ? '→ #' + row.deliveredAs : api.t('ui.queue.short.' + row.queued) }));
       if (row.saved) path.append(h('span', { className: 'req-tag', title: api.t('ui.req.savedTag', { name: row.saved }), text: '☆' }));
-      if (row.replayOf != null) path.append(h('span', { className: 'req-tag', title: api.t('ui.req.replayTag', { n: row.replayOf }), text: row.edited ? '↻✎' : '↻' }));
+      if (row.replayOf != null) {
+        path.append(row.delivery
+          ? h('span', { className: 'req-tag q-delivered', title: api.t('ui.queue.deliveryTag', { n: row.replayOf }), text: api.t('ui.queue.short.delivery') })
+          : h('span', { className: 'req-tag', title: api.t('ui.req.replayTag', { n: row.replayOf }), text: row.edited ? '↻✎' : '↻' }));
+      }
       if (row.websocket) path.append(h('span', { className: 'req-tag', text: 'WS' }));
       api.highlightParts(row.path, q).forEach(function (part) {
         path.append(part.mark ? h('mark', { text: part.text }) : document.createTextNode(part.text));

@@ -10,6 +10,7 @@ import zlib from 'node:zlib';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { planStatic } from './static.js';
+import { isListening } from './ports.js';
 import {
   MODIFY_CAP, NOINDEX, REWRITE_TYPE, HTML_TYPE, createRewriter, localHostOf, localLinkIn, hostCheckIn,
   blockedBy, blockedPage, injectBadge, publicCookie,
@@ -21,6 +22,12 @@ export const RESPONSE_BODY_CAP = 64 * 1024;
 const DECODED_CAP = 1024 * 1024;
 const REPLAY_TIMEOUT_MS = 30000;
 export const REPLAY_HEADER = 'x-trydash-replay';
+// The waiting line for requests that found the origin down.
+export const QUEUE_MAX = 100;
+export const QUEUE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const QUEUE_CHECK_MS = 1500;
+const QUEUED_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const ORIGIN_DOWN = new Set(['ECONNREFUSED', 'ECONNRESET', 'EHOSTUNREACH', 'ENETUNREACH']);
 const HEADER_NAME_RE = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
 
 const HOP_BY_HOP = new Set([
@@ -150,6 +157,9 @@ function summaryOf(rec) {
     edited: !!rec.edited,
     saved: rec.saved || null,
     blocked: rec.blocked || null,
+    queued: rec.queued || null,
+    deliveredAs: rec.deliveredAs || null,
+    delivery: !!rec.delivery,
     websocket: rec.websocket,
     requestSize: rec.requestBody.size,
     responseSize: rec.responseBody.size,
@@ -244,6 +254,7 @@ export function createInspector({
       const meta = pendingSends.get(marker[2]) || {};
       rec.edited = !!meta.edited;
       rec.saved = meta.saved || null;
+      rec.delivery = !!meta.delivery;
     }
     entry.records.push(rec);
     entry.total += 1;
@@ -298,7 +309,7 @@ export function createInspector({
   function previewOf(entry) {
     const session = store.get(entry.id);
     const o = (session && session.options) || {};
-    const prefs = { rewriter: null, blocked: o.blocked || [], badge: !!o.badge, noindex: !!o.noindex, watch: false };
+    const prefs = { rewriter: null, blocked: o.blocked || [], badge: !!o.badge, noindex: !!o.noindex, queue: !!o.queue && !entry.folder, watch: false };
     if (entry.folder) return prefs;
     if (o.rewrite && session.url) {
       const key = `${session.url} ${entry.siteHost || ''}`;
@@ -410,6 +421,8 @@ export function createInspector({
       rec.statusText = pres.statusMessage || null;
       rec.responseHeaders = pairs(pres.rawHeaders);
       bump(entry);
+      const live = store.get(entry.id);
+      if (live && live.lastOriginError) store.recordOriginBack(entry.id);
       const location = pres.headers.location;
       if (location) {
         // The site's own address, learned from its redirects: the next requests carry it as Host.
@@ -481,13 +494,17 @@ export function createInspector({
         res.destroy();
         return;
       }
-      rec.status = 502;
-      const body = `trydash: the origin ${entry.origin} is not responding (${error.code || error.message})\n`;
-      rec.responseHeaders = [['Content-Type', 'text/plain; charset=utf-8']];
-      take(rec.responseBody, Buffer.from(body));
-      originFailed(entry, rec, error);
-      res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8', 'Content-Length': Buffer.byteLength(body) });
-      res.end(body);
+      if (prefs.queue && QUEUED_METHODS.has(req.method) && ORIGIN_DOWN.has(error.code) && !isReplay(req)) {
+        // The whole body is needed to deliver it later: wait for it, then decide.
+        const decide = () => (queueRequest(entry, rec, req) ? answerQueued(entry, rec, res, error) : answerDown(entry, rec, res, error));
+        if (req.complete || req.readableEnded) decide();
+        else {
+          req.once('end', decide);
+          req.once('aborted', () => answerDown(entry, rec, res, error));
+        }
+        return;
+      }
+      answerDown(entry, rec, res, error);
     });
     res.on('close', () => {
       if (!res.writableFinished) {
@@ -508,6 +525,105 @@ export function createInspector({
       return;
     }
     req.pipe(upstream);
+  }
+
+  function answerDown(entry, rec, res, error) {
+    if (res.headersSent) return;
+    rec.status = 502;
+    const body = `trydash: the origin ${entry.origin} is not responding (${error.code || error.message})\n`;
+    rec.responseHeaders = [['Content-Type', 'text/plain; charset=utf-8']];
+    take(rec.responseBody, Buffer.from(body));
+    originFailed(entry, rec, error);
+    res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8', 'Content-Length': Buffer.byteLength(body) });
+    res.end(body);
+  }
+
+  // The sender gets a 202: the request is kept and goes to the origin once it is back.
+  function answerQueued(entry, rec, res, error) {
+    if (res.headersSent) return;
+    const body = JSON.stringify({ queued: true, by: 'trydash', message: 'Your server is down: this request will be delivered when it is back.' });
+    const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': String(Buffer.byteLength(body)), 'X-Trydash-Queued': String(rec.seq) };
+    rec.status = 202;
+    rec.statusText = 'Accepted';
+    rec.responseHeaders = Object.entries(headers);
+    take(rec.responseBody, Buffer.from(body));
+    if (store.get(entry.id)) store.recordOriginError(entry.id, `Unable to reach the origin ${entry.origin}: ${error.code || error.message} (request #${rec.seq} queued)`);
+    res.writeHead(202, headers);
+    res.end(body);
+    finish(entry, rec, 'done');
+    bump(entry);
+  }
+
+  // Kept with its own copy of the request, so it survives the records list being trimmed.
+  function queueRequest(entry, rec, req) {
+    if (rec.requestBody.size > rec.requestBody.kept) return false;
+    dropExpired(entry);
+    if (entry.queue.length >= QUEUE_MAX) return false;
+    const allowed = new Set(Object.keys(rec.forward));
+    entry.queue.push({
+      seq: rec.seq,
+      rec,
+      at: clock(),
+      request: {
+        method: rec.method,
+        path: rec.path,
+        headers: rec.requestHeaders.filter(([name]) => allowed.has(name.toLowerCase())),
+        body: Buffer.concat(rec.requestBody.chunks),
+      },
+    });
+    rec.queued = 'waiting';
+    scheduleDelivery(entry);
+    return true;
+  }
+
+  function dropExpired(entry) {
+    const now = clock();
+    entry.queue = entry.queue.filter((item) => {
+      if (now - item.at <= QUEUE_MAX_AGE_MS) return true;
+      item.rec.queued = 'dropped';
+      return false;
+    });
+  }
+
+  function scheduleDelivery(entry) {
+    if (entry.queueTimer || !entry.queue.length || entry.closed) return;
+    entry.queueTimer = setTimeout(() => {
+      entry.queueTimer = null;
+      deliverQueue(entry).catch(() => {}).finally(() => scheduleDelivery(entry));
+    }, QUEUE_CHECK_MS);
+    entry.queueTimer.unref?.();
+  }
+
+  // In arrival order, once the origin's port answers; it stops at the first one the origin
+  // still can't take.
+  async function deliverQueue(entry) {
+    if (entry.delivering || !entry.queue.length) return { delivered: 0, left: entry.queue.length };
+    entry.delivering = true;
+    let delivered = 0;
+    try {
+      dropExpired(entry);
+      const host = hostnameFor(entry.originUrl);
+      const port = Number(entry.originUrl.port || (entry.originUrl.protocol === 'https:' ? 443 : 80));
+      if (!(await isListening(port, host, 500))) return { delivered, left: entry.queue.length };
+      while (entry.queue.length && !entry.closed) {
+        const item = entry.queue[0];
+        let result;
+        try {
+          result = await dispatch(entry, item.request, { replayOf: item.seq, delivery: true });
+        } catch {
+          break;
+        }
+        if (result.status === 502 || result.status == null) break;
+        entry.queue.shift();
+        item.rec.queued = 'delivered';
+        item.rec.deliveredAs = result.seq;
+        delivered += 1;
+        bump(entry);
+      }
+    } finally {
+      entry.delivering = false;
+    }
+    return { delivered, left: entry.queue.length };
   }
 
   function rewritableRequest(req) {
@@ -674,6 +790,10 @@ export function createInspector({
       siteHost: '',
       rewriter: null,
       rewriterKey: '',
+      queue: [],
+      queueTimer: null,
+      delivering: false,
+      closed: false,
       records: [],
       replays: new Map(),
       seq: 0,
@@ -715,6 +835,10 @@ export function createInspector({
     const entry = proxies.get(id);
     if (!entry) return;
     proxies.delete(id);
+    entry.closed = true;
+    if (entry.queueTimer) clearTimeout(entry.queueTimer);
+    for (const item of entry.queue) item.rec.queued = 'dropped';
+    entry.queue = [];
     for (const socket of entry.sockets) socket.destroy();
     entry.httpAgent.destroy();
     entry.httpsAgent.destroy();
@@ -872,7 +996,7 @@ export function createInspector({
     info(id) {
       const entry = proxies.get(id);
       if (!entry) return null;
-      return { count: entry.records.length, total: entry.total, version: entry.version, port: entry.port, target: entry.target };
+      return { count: entry.records.length, total: entry.total, version: entry.version, port: entry.port, target: entry.target, queued: entry.queue.length };
     },
     list(id) {
       const entry = entryFor(id);
@@ -892,6 +1016,18 @@ export function createInspector({
     },
     replay,
     send,
+    // Delivers the waiting requests now, if the origin is back, without waiting for the next check.
+    async deliverQueue(id) {
+      return deliverQueue(entryFor(id));
+    },
+    dropQueue(id) {
+      const entry = entryFor(id);
+      for (const item of entry.queue) item.rec.queued = 'dropped';
+      const dropped = entry.queue.length;
+      entry.queue = [];
+      bump(entry);
+      return { dropped };
+    },
     details,
     captured,
     // For DASHBOARD_SEED: records that look like real traffic, without a socket.

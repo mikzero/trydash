@@ -947,6 +947,10 @@ mark { background: var(--mark); color: var(--mark-t); border-radius: 2px; paddin
 .chip-link[aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
 
 .req-export { display: inline-flex; align-items: center; gap: 6px; }
+.req-queue { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.req-queue[hidden] { display: none; }
+.req-tag.q-waiting { background: var(--w-bg); color: var(--w); }
+.req-tag.q-delivered { background: var(--i-bg); color: var(--i); }
 
 .saved-row { grid-template-columns: 56px minmax(0, 1.2fr) minmax(0, 1fr) 80px; }
 

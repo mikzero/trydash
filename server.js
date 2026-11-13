@@ -131,7 +131,7 @@ function sendJson(res, code, body) {
 // Why a tunnel has no inspector: Hello World, HTTP/2 origin, or turned off at creation.
 function inspectState(session, inspector) {
   const info = inspector ? inspector.info(session.id) : null;
-  if (info) return { enabled: true, count: info.count, total: info.total, version: info.version, target: info.target };
+  if (info) return { enabled: true, count: info.count, total: info.total, version: info.version, target: info.target, queued: info.queued || 0 };
   const options = session.options || {};
   const reason = session.mode === 'hello' ? 'hello' : options.http2Origin ? 'http2' : 'off';
   return { enabled: false, reason };
@@ -751,6 +751,17 @@ export function createApp(options = {}) {
           sendError(res, req, error.status || 500, error, null, error.extra);
         }
         return;
+      }
+
+      // The requests waiting for the origin: deliver now, or drop them.
+      const queueMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/queue(\/deliver)?$/);
+      if (queueMatch) {
+        const id = decodeURIComponent(queueMatch[1]);
+        if (!store.get(id)) return sendError(res, req, 404, 'session.notFound');
+        if (!inspector.has(id)) return sendError(res, req, 409, 'inspect.disabled');
+        if (req.method === 'POST' && queueMatch[2]) return sendJson(res, 200, await inspector.deliverQueue(id));
+        if (req.method === 'DELETE' && !queueMatch[2]) return sendJson(res, 200, inspector.dropQueue(id));
+        return sendError(res, req, 405, 'request.methodNotAllowed');
       }
 
       const requestsMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/requests(?:\/(\d+)(\/replay)?)?$/);

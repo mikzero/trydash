@@ -27,6 +27,8 @@ Options:
       --block <paths>      paths visitors get a 403 for: /wp-admin,/wp-login.php
       --badge              a small "Preview" label on HTML pages
       --index              let search engines index the preview (noindex by default)
+      --queue              keep POST/PUT/PATCH/DELETE (webhooks) while your server is down,
+                           answer 202, and deliver them when it's back
       --expires <time>     stop the tunnel after a while: 30m, 2h, 1d
       --scan               find the web servers on this computer, what they are,
                            and the command to share each one
@@ -110,6 +112,7 @@ export function parseArgs(argv) {
       case '--rewrite': options.rewrite = true; break;
       case '--block': options.blocked = value(); break;
       case '--badge': options.badge = true; break;
+      case '--queue': options.queue = true; break;
       case '--index': options.noindex = false; break;
       case '--expires': {
         const minutes = parseDuration(value());

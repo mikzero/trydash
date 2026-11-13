@@ -409,6 +409,12 @@
         warning.actions.indexOf('hello') >= 0
           ? h('button', { type: 'button', className: 'btn', text: api.t('ui.hello'), dataset: { action: 'hello' } })
           : null,
+        warning.actions.indexOf('deliver-queue') >= 0
+          ? h('button', { type: 'button', className: 'btn inv', text: api.t('ui.queue.deliverNow'), dataset: { action: 'deliver-queue' } })
+          : null,
+        warning.actions.indexOf('drop-queue') >= 0
+          ? h('button', { type: 'button', className: 'btn', text: api.t('ui.queue.drop'), dataset: { action: 'drop-queue' } })
+          : null,
         warning.actions.indexOf('rewrite') >= 0
           ? h('button', { type: 'button', className: 'btn inv', text: api.t('ui.warn.rewriteAction'), dataset: { action: 'enable-rewrite' } })
           : null,
@@ -633,6 +639,10 @@
       if (copy) copy.disabled = !session.url;
       var qrButton = el('qr-button');
       if (qrButton) qrButton.disabled = !session.url;
+      var queueToggle = el('req-queue');
+      if (queueToggle) queueToggle.checked = !!(session.options && session.options.queue);
+      var queueLabel = el('req-queue-label');
+      if (queueLabel) queueLabel.hidden = session.mode === 'folder' || !(session.inspect && session.inspect.enabled);
       var previewButton = el('preview-button');
       if (previewButton) previewButton.hidden = !(session.options && session.options.inspect);
       var previewPop = el('preview-pop');
